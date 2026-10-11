@@ -37,9 +37,10 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
   <div class="title">♻️ Trabajo guardado</div>
   <div class="small">La app guarda automáticamente los datos en este teléfono. Si Chrome recarga, intentará recuperar los datos. Para evitar pérdidas, descarga una copia del sorteo regularmente, especialmente antes de salir de Chrome.</div>
   <button class="copy" onclick="exportarRespaldo()">📥 Descargar copia del sorteo</button>
-  <button class="sec" onclick="document.getElementById('importarRespaldoArchivo').click()">📤 Restaurar copia guardada</button>
+  <button class="sec" onclick="recuperarGuardadoLocal()">♻️ Recuperar último guardado del teléfono</button>
+  <button class="sec" onclick="document.getElementById('importarRespaldoArchivo').click()">📤 Importar archivo de respaldo descargado</button>
   <input id="importarRespaldoArchivo" type="file" accept=".json,application/json" style="display:none" onchange="importarRespaldo(this)">
-  <div class="small">Guarda la copia JSON en Descargas. Contiene datos personales y bancarios: protégela y no la compartas.</div>
+  <div class="small">El guardado automático permanece dentro de este teléfono: no aparece como archivo en Descargas. «Recuperar último guardado» busca ese estado local. «Importar archivo» requiere un JSON descargado anteriormente. Las copias contienen datos personales y bancarios: protégelas.</div>
   <button class="clear" onclick="nuevoSorteo()">🗑️ NUEVO SORTEO / borrar datos guardados</button>
 </div>
 
@@ -94,17 +95,13 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
   <div id="opcionesEscalera" class="card hidden" style="margin-top:10px">
     <div class="title">🪜 Configuración de escalera</div>
     <div class="small">El Cartón Lleno Final forma parte de la escalera. Consolación y pozo acumulado se calculan aparte.</div>
-    <label>Modalidad de escalera</label>
-    <select id="escaleraModo" onchange="previsualizarEscalera();programarGuardado()">
-      <option value="total">Automática · total a repartir</option>
-      <option value="manual">Manual · premio por ronda</option>
-    </select>
+    <input id="escaleraModo" type="hidden" value="manual">
     <div class="row2">
-      <div><label>$ Total a repartir en rondas</label><input id="escaleraTotal" inputmode="decimal" value="400" oninput="previsualizarEscalera();programarGuardado()"></div>
-      <div id="escaleraInicioWrap"><label>$ Primera ronda</label><input id="escaleraInicio" inputmode="decimal" value="40" oninput="previsualizarEscalera();programarGuardado()"></div>
+      <div><label>$ Total anunciado a repartir (opcional)</label><input id="escaleraTotal" inputmode="decimal" placeholder="Para comprobar la suma" oninput="previsualizarEscalera();programarGuardado()"></div>
     </div>
+    <input id="escaleraInicio" type="hidden" value="40">
     <input id="escaleraPaso" type="hidden" value="10">
-    <div id="escaleraManualWrap" class="hidden"></div>
+    <div id="escaleraManualWrap"></div>
     <div id="vistaEscalera" class="msg"></div>
     <button class="sec" onclick="previsualizarEscalera()">🪜 Ver distribución</button>
   </div>
@@ -579,7 +576,7 @@ function num(v){return Number(String(v||"").replace(",",".").replace(/[^\d.]/g,"
 function esEscalera(){return /^escalera[56]$/.test(plantillaPremios.value)}
 function calcularEscalera(){
  const n=Number(cant.value), total=num(escaleraTotal.value), ini=num(escaleraInicio.value);
- const manual=escaleraModo.value==="manual";
+ const manual=true;
  let valores=[],error="";
  if(manual){
    for(let i=1;i<=n;i++){
@@ -604,6 +601,20 @@ function calcularEscalera(){
  if(!error&&valores.some((v,i)=>i>0&&v<=valores[i-1]))error="Los premios deben subir en cada ronda.";
  return {valores,total,suma,error};
 }
+async function recuperarGuardadoLocal(){
+ try{
+  let local=null,db=null;
+  try{const raw=localStorage.getItem(STORAGE_KEY);if(raw)local=JSON.parse(raw)}catch(e){}
+  try{db=await leerIDB()}catch(e){}
+  const candidatos=[local,db].filter(x=>x&&x.form);
+  if(!candidatos.length){alert("No hay un sorteo guardado automáticamente en este navegador. Si usabas otro navegador o borraste sus datos, aquí no se puede recuperar.");return}
+  candidatos.sort((a,b)=>new Date(b.savedAt||0)-new Date(a.savedAt||0));
+  const elegido=candidatos[0];
+  if(!confirm("¿Recuperar el último guardado local? Reemplazará los datos que están abiertos. Fecha: "+(elegido.savedAt?new Date(elegido.savedAt).toLocaleString("es-VE"):"desconocida")))return;
+  if(!await restaurarEstado(elegido))throw Error("No se pudo restaurar el estado");
+  guardarEstadoAhora();alert("✅ Guardado del teléfono recuperado.");
+ }catch(e){alert("⚠️ No se pudo recuperar: "+e.message)}
+}
 function prepararCamposEscalera(){
  const n=Number(cant.value);
  for(let i=1;i<=6;i++){
@@ -621,12 +632,11 @@ function prepararCamposEscalera(){
 function previsualizarEscalera(){
  if(!esEscalera())return;
  prepararCamposEscalera();
- const manual=escaleraModo.value==="manual";
- escaleraInicioWrap.classList.toggle("hidden",manual);
- escaleraManualWrap.classList.toggle("hidden",!manual);
+ const manual=true;
+ escaleraManualWrap.classList.remove("hidden");
  const r=calcularEscalera();
  const lineas=r.valores.map((v,i)=>(i===r.valores.length-1?"LLENO FINAL":"Ronda "+(i+1))+": $"+v.toFixed(2));
- vistaEscalera.innerText=(lineas.join("  →  ")||"Introduce los premios")+"\nTotal rondas: $"+r.suma.toFixed(2)+(r.total>0?" / $"+r.total.toFixed(2):"")+(r.error?"\n⚠️ "+r.error:"\n✅ Premios cuadrados correctamente");
+ vistaEscalera.innerText=(lineas.join("  →  ")||"Introduce los premios")+"\nTotal rondas: $"+r.suma.toFixed(2)+(r.total>0?" / $"+r.total.toFixed(2):"")+(r.error?"\n⚠️ "+r.error:(r.total>0?"\n✅ Total anunciado coincide":"\n✅ Escalera manual completa"));
  vistaEscalera.style.color=r.error?"#ffb5a9":"";
 }
 function actualizarEtiquetasRondas(){
@@ -666,7 +676,7 @@ function aplicarPlantilla(){
  if(t==="escalera5"||t==="escalera6"){
    cant.value=t==="escalera5"?"5":"6";
    crearRondas();actualizarEtiquetasRondas();
-   estadoConversion.innerText="🪜 Escalera activada. Elige distribución automática o manual y comprueba el total antes de convertir.";
+   estadoConversion.innerText="🪜 Escalera manual: introduce exactamente los premios anunciados en la imagen.";
    programarGuardado();return;
  }
  let p=presetValores(t); if(!p)return;
