@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta name="theme-color" content="#123b55">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png" type="image/png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bingo Andino 75 - Pagos Mejorado</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:radial-gradient(circle at top,#4b0073,#12001f 55%,#020004);color:#fff;padding:12px}
+h1{text-align:center;color:#ffd700;margin:8px 0 4px}.sub{text-align:center;color:#e8c8ff;font-size:14px;margin-bottom:12px}
+.card{background:linear-gradient(180deg,#2b0041,#130020);border:1px solid #9b4dff;border-radius:16px;padding:12px;margin:12px 0;box-shadow:0 0 12px rgba(255,215,0,.12)}
+label{display:block;color:#ffd700;font-weight:bold;font-size:14px;margin-top:8px}
+input,textarea,select{width:100%;border-radius:12px;border:2px solid #9b4dff;background:#100018;color:white;padding:10px;font-size:16px;margin-top:5px}
+textarea{min-height:125px}.title{color:#00e5ff;font-size:18px;font-weight:bold}
+button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-size:15px;font-weight:bold}
+.gen{background:#ffd700;color:#240033}.copy{background:#00d084;color:#001b10}.wa{background:#25D366;color:#001b10}.clear{background:#ff4d6d;color:white}.sec{background:#6c2dff;color:white}
+.msg{white-space:pre-wrap;background:#0d0014;border:1px solid #6e32a3;border-radius:12px;padding:10px;margin-top:10px;font-size:15px;line-height:1.28;user-select:text;-webkit-user-select:text}
+.ok{display:none;color:#9dffcf;text-align:center;font-size:13px;margin-top:6px}.small{font-size:12px;color:#d8c0e8;margin-top:6px;line-height:1.35}
+.preview{width:100%;border:2px solid #ffd700;border-radius:14px;margin-top:10px;display:none}
+.hidden{display:none!important}.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pill{display:inline-block;border:1px solid #9b4dff;border-radius:999px;padding:5px 9px;margin:3px;font-size:12px;background:#160025}
+.warnbox{background:#2a1800;border:1px solid #ffb000;border-radius:12px;padding:10px;margin-top:8px}.goodbox{background:#00271d;border:1px solid #00d084;border-radius:12px;padding:10px;margin-top:8px}.savebar{position:sticky;top:6px;z-index:20;background:#0b0013;border:1px solid #00d084;border-radius:12px;padding:8px 10px;margin:8px 0;font-size:13px;text-align:center}.paid{background:#00d084;color:#001b10}.unpaid{background:#444;color:#fff}
+@media(max-width:520px){.row2,.row3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>🎰 Bingo Andino 75</h1>
+<div class="sub">PDF + pagos + conversión $/Bs + Top + doble verificación</div>
+<div id="saveStatus" class="savebar">💾 Guardado automático activado</div>
+<div class="card">
+  <div class="title">♻️ Trabajo guardado</div>
+  <div class="small">La app guarda automáticamente los datos en este teléfono. Si Chrome recarga, intentará recuperar los datos. Para evitar pérdidas, descarga una copia del sorteo regularmente, especialmente antes de salir de Chrome.</div>
+  <button class="copy" onclick="exportarRespaldo()">📥 Descargar copia del sorteo</button>
+  <button class="sec" onclick="document.getElementById('importarRespaldoArchivo').click()">📤 Restaurar copia guardada</button>
+  <input id="importarRespaldoArchivo" type="file" accept=".json,application/json" style="display:none" onchange="importarRespaldo(this)">
+  <div class="small">Guarda la copia JSON en Descargas. Contiene datos personales y bancarios: protégela y no la compartas.</div>
+  <button class="clear" onclick="nuevoSorteo()">🗑️ NUEVO SORTEO / borrar datos guardados</button>
+</div>
+
+<div class="card">
+  <div class="title">📄 Subir PDF de aprobados</div>
+  <label>Selecciona el PDF</label>
+  <input type="file" id="pdfFile" accept="application/pdf">
+  <button class="sec" onclick="leerPDF()">Leer PDF y cargar clientes</button>
+  <button class="copy" onclick="reauditarPDF()" style="margin-top:10px">🔎 Volver a auditar PDF</button>
+  <div class="small">La auditoría se ejecuta automáticamente al cargar el PDF. Si detecta diferencias, la app te avisará para que revises manualmente, pero seguirá mostrando los datos encontrados.</div>
+  <div id="auditoria" class="msg"></div>
+  <div class="small">Busca por índice exacto de cartón. Cartones válidos: 1 al 9999.</div>
+  <div id="estado" class="msg">Sin cargar.</div><div class="small">🔎 La auditoría y la segunda lectura funcionan como advertencias de seguridad. Si encuentran diferencias, la app mostrará lo detectado y te pedirá revisar manualmente antes de usar los datos.</div>
+</div>
+
+<div class="card">
+  <div class="title">🔍 Verificar cartón</div>
+  <label>Cartón</label><input id="buscarCartonInput" placeholder="Ej: 60" inputmode="numeric" pattern="[0-9, ]*" autocomplete="off">
+  <button class="gen" onclick="verificarCarton()">Verificar cartón</button>
+  <div id="verCarton" class="msg"></div>
+</div>
+
+<div class="card">
+  <div class="title">📋 Clientes detectados / entrada manual</div>
+  <div class="small">La app acepta cédulas cortas desde 4 dígitos (por ejemplo 3333) y también las compara con la cédula de Pago Móvil.</div>
+  <textarea id="textoLista" placeholder="Nombre | Cédula | Cartones | Banco | Teléfono | CédulaPago"></textarea>
+  <button class="sec" onclick="procesarManual()">Procesar texto manual</button>
+</div>
+
+
+
+<div class="card">
+  <div class="title">⚙️ Configuración y conversión de premios</div>
+  <label>Fecha del sorteo</label><input id="fechaSorteo" placeholder="Se lee del PDF"><div class="small">La app intenta tomar la fecha del encabezado del PDF; puedes corregirla manualmente.</div>
+
+  <div class="row2">
+    <div><label>Cartones del día</label><input id="cartonesDia" inputmode="numeric" placeholder="Se llena desde el PDF" oninput="sugerirPlantilla();programarGuardado()"><div class="small">Se completa automáticamente con los cartones únicos del PDF.</div></div>
+    <div><label>Cantidad de rondas</label><select id="cant" onchange="cambiarRondas();programarGuardado()"><option value="5">5 rondas</option><option value="6" selected>6 rondas</option></select></div>
+  </div>
+
+  <label>Plantilla rápida</label>
+  <select id="plantillaPremios" onchange="aplicarPlantilla();programarGuardado()">
+    <option value="auto" selected>Automática según cartones</option>
+    <option value="5std">5 rondas · 900–1000 cartones</option>
+    <option value="6std">6 rondas · 500–600 cartones</option>
+    <option value="sabado">Sábado · 6 rondas · 750–800 cartones</option>
+    <option value="escalera5">🪜 Escalera · 5 rondas</option>
+    <option value="escalera6">🪜 Escalera · 6 rondas</option>
+    <option value="personal">Personalizado</option>
+  </select>
+
+  <div id="opcionesEscalera" class="card hidden" style="margin-top:10px">
+    <div class="title">🪜 Configuración de escalera</div>
+    <div class="small">Los premios suben en cada ronda. La última ronda es el Cartón Lleno Final y también forma parte de la escalera. Puedes ajustar cada premio en Bs después de convertir.</div>
+    <div class="row2">
+      <div><label>$ Primera ronda</label><input id="escaleraInicio" inputmode="decimal" value="40" oninput="previsualizarEscalera();programarGuardado()"></div>
+      <div><label>$ Aumento por ronda</label><input id="escaleraPaso" inputmode="decimal" value="10" oninput="previsualizarEscalera();programarGuardado()"></div>
+    </div>
+    <div id="vistaEscalera" class="msg"></div>
+    <button class="sec" onclick="previsualizarEscalera()">🪜 Ver distribución</button>
+  </div>
+  <label>Tasa Bs/$</label><input id="tasaCambio" inputmode="decimal" placeholder="Ej: 780">
+
+  <div class="row2">
+    <div><label id="lblG1">$ Rondas 1–3</label><input id="usdGrupo1" inputmode="decimal" value="30"></div>
+    <div id="wrapG2"><label>$ Rondas 4–5</label><input id="usdGrupo2" inputmode="decimal" value="50"></div>
+  </div>
+  <div class="row2">
+    <div><label>$ Lleno final</label><input id="usdFinal" inputmode="decimal" value="190"></div>
+    <div><label>$ Consolación por ganador</label><input id="usdConsol" inputmode="decimal" value="10"></div>
+  </div>
+  <label>$ Pozo acumulado de hoy (opcional)</label><input id="usdPozo" inputmode="decimal" placeholder="Ej: 100">
+
+  <button class="gen" onclick="convertirPremios()">💱 Convertir $ a Bs y rellenar premios</button>
+  <div id="estadoConversion" class="msg">Coloca la tasa y pulsa convertir.</div>
+
+  <button class="sec" onclick="toggleTop()">🏅 Activar / ocultar Top de compras del sábado</button>
+  <button class="clear" onclick="limpiarTodo()">Limpiar todo</button>
+</div>
+
+<div id="rondas"></div>
+
+<div class="card hidden" id="topCard">
+  <div class="title">🏅 TOP DE COMPRAS · sábado</div>
+  <div class="small">La app suma todos los cartones de la misma persona aunque tenga varias compras en el PDF. Si una persona usó distintos Pago Móvil, te mostrará las opciones para que elijas cuál usar. Los premios en $ son editables.</div>
+
+  <div class="row3">
+    <div><label>Top 1 $</label><input id="topUsd1" inputmode="decimal" value="25"></div>
+    <div><label>Top 2 $</label><input id="topUsd2" inputmode="decimal" value="15"></div>
+    <div><label>Top 3 $</label><input id="topUsd3" inputmode="decimal" value="10"></div>
+  </div>
+  <div class="row3">
+    <div><label>Top 1 Bs</label><input id="topBs1" inputmode="decimal"></div>
+    <div><label>Top 2 Bs</label><input id="topBs2" inputmode="decimal"></div>
+    <div><label>Top 3 Bs</label><input id="topBs3" inputmode="decimal"></div>
+  </div>
+
+  <button class="gen" onclick="calcularTopCompras()">🏆 Calcular Top 1, Top 2 y Top 3</button>
+  <button class="copy" onclick="copiar('msgTop','okTop')">Copiar anuncio del Top</button>
+  <button class="wa" onclick="wa('msgTop')">WhatsApp anuncio del Top</button>
+  <div id="topResultados" class="msg"></div>
+  <div id="msgTop" class="msg"></div>
+  <div id="pagTop" class="msg"></div>
+  <div id="pagosBtnsTop"></div>
+  <div id="okTop" class="ok">Copiado ✅</div>
+</div>
+
+<div class="card">
+  <div class="title">💰 Pozo acumulado</div>
+  <div class="small">Úsalo solo el día que se lleven el pozo acumulado. Puede haber uno o varios cartones ganadores.</div>
+  <label>Premio del pozo Bs</label><input id="premioPozo" inputmode="decimal" placeholder="Ej: 147440" oninput="limpiarPozo();programarGuardado()">
+  <label>Cartón(es) ganador(es)</label><input id="cartonPozo" placeholder="Ej: 399 o 399, 512" oninput="limpiarPozo();programarGuardado()" inputmode="numeric" pattern="[0-9, ]*" autocomplete="off">
+  <div class="small">Si hay varios ganadores, sepáralos con coma. El pozo se divide automáticamente y el total pagado siempre coincide con el premio.</div>
+  <button class="gen" onclick="generarPozo()">Generar ganador y pago del pozo</button>
+  <button class="copy" onclick="copiar('msgPozo','okPozo')">Copiar anuncio</button>
+  <button class="wa" onclick="wa('msgPozo')">WhatsApp anuncio</button>
+  <div id="msgPozo" class="msg"></div>
+  <div id="pagPozo" class="msg"></div>
+  <div id="pagosBtnsPozo"></div>
+  <div id="okPozo" class="ok">Copiado ✅</div>
+</div>
+
+<div class="card">
+  <div class="title">🎁 Premios de consolación</div>
+  <label>Premio por ganador Bs</label><input id="premioCon" inputmode="decimal" oninput="limpiarCon();programarGuardado()">
+  <label>Cartones</label><input id="cartonesCon" placeholder="659,881,277" oninput="limpiarCon();programarGuardado()" inputmode="numeric" pattern="[0-9, ]*" autocomplete="off">
+  <button class="gen" onclick="generarCon()">Generar consolación</button>
+  <button class="copy" onclick="copiar('msgCon','okCon')">Copiar anuncio</button>
+  <button class="wa" onclick="wa('msgCon')">WhatsApp anuncio</button>
+  <div id="msgCon" class="msg"></div><div id="pagCon" class="msg"></div><div id="pagosBtnsCon"></div><div id="okCon" class="ok">Copiado ✅</div>
+</div>
+
+<div class="card">
+  <div class="title">🖼️ Imagen resumen de ganadores</div>
+  <button class="gen" onclick="generarImagen()">Generar imagen</button>
+  <button class="copy" onclick="descargarImagen()">Descargar PNG</button>
+  <canvas id="canvasImg" width="1080" height="1080" style="display:none"></canvas>
+  <img id="previewImg" class="preview">
+</div>
+
+<div class="card">
+  <div class="title">🏆 Resumen final</div>
+  <button class="gen" onclick="generarTodos()">Generar todos</button>
+  <button class="copy" onclick="copiarTodos()">Copiar todos</button>
+  <button class="wa" onclick="waTodos()">WhatsApp todos</button>
+  <button class="sec" onclick="resumen()">Resumen corto</button>
+  <button class="copy" onclick="copiar('res','okRes')">Copiar resumen</button>
+  <div id="res" class="msg"></div><div id="okRes" class="ok">Copiado ✅</div>
+</div>
+
+<script>
+if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";}
+
+let REGISTROS=[];
+let CARTON_INDEX={};
+let CARTON_CONFLICTS=new Set();
+let RAW_CARTONES=[];
+let TOP_ACTIVO=false;
+let TOP_RANKING=[];
+let AUDITORIA_OK=false;
+let PDF_CARGADO_DIRECTO=false;
+let PDF_FECHA_DETECTADA="";
+let RAW_SEGMENTOS_VERIFICACION=[];
+let PAGO_ESTADOS={};
+let RESTAURANDO_ESTADO=false;
+let TIMER_GUARDADO=null;
+const STORAGE_KEY="bingoandino75_estado_v4_parser251";
+
+const BANCOS={
+ "0102":"0102","0134":"0134","0105":"0105","0108":"0108","0191":"0191","0151":"0151","0172":"0172","0114":"0114","0115":"0115","0163":"0163","0174":"0174","0175":"0175","0104":"0104",
+ "venezuela":"0102","banco de venezuela":"0102","banco venezuela":"0102","bdv":"0102","vzla":"0102","venezula":"0102","venexuela":"0102","venezuelai":"0102","venezuelano":"0102","venezuelaela":"0102",
+ "banesco":"0134","mercantil":"0105","banco mercantil":"0105","provincial":"0108","bbva provincial":"0108",
+ "bnc":"0191","banco nacional de credito":"0191","banco nacional de crédito":"0191","nacional de credito":"0191","nacional de crédito":"0191",
+ "bfc":"0151","fondo comun":"0151","fondo común":"0151","bancamiga":"0172","bancaamiga":"0172","bancamiga ":"0172","bancaribe":"0114","exterior":"0115","banco exterior":"0115",
+ "tesoro":"0163","banco del tesoro":"0163","banplus":"0174","ban plus":"0174","bicentenario":"0175","bdt":"0175",
+ "venezolano de credito":"0104","venezolano de crédito":"0104","banco venezolano de credito":"0104","banco venezolano de crédito":"0104"
+};
+const R=["1RA RONDA","2DA RONDA","3RA RONDA","4TA RONDA","5TA RONDA","CARTÓN LLENO FINAL"];
+const PREF_VE=["412","414","416","422","424","426"];
+
+
+
+
+const IDB_DB="BingoAndino75DB";
+const IDB_STORE="estado";
+function abrirIDB(){
+ return new Promise((resolve,reject)=>{
+   try{
+     let req=indexedDB.open(IDB_DB,1);
+     req.onupgradeneeded=()=>{let db=req.result;if(!db.objectStoreNames.contains(IDB_STORE))db.createObjectStore(IDB_STORE)};
+     req.onsuccess=()=>resolve(req.result);
+     req.onerror=()=>reject(req.error);
+   }catch(e){reject(e)}
+ });
+}
+async function guardarIDB(valor){
+ try{
+   let db=await abrirIDB();
+   await new Promise((resolve,reject)=>{
+     let tx=db.transaction(IDB_STORE,"readwrite");
+     tx.objectStore(IDB_STORE).put(valor,STORAGE_KEY);
+     tx.oncomplete=()=>resolve();
+     tx.onerror=()=>reject(tx.error);
+   });
+   db.close();
+   return true;
+ }catch(e){console.warn("IndexedDB no disponible",e);return false}
+}
+async function leerIDB(){
+ try{
+   let db=await abrirIDB();
+   let valor=await new Promise((resolve,reject)=>{
+     let tx=db.transaction(IDB_STORE,"readonly");
+     let req=tx.objectStore(IDB_STORE).get(STORAGE_KEY);
+     req.onsuccess=()=>resolve(req.result||null);
+     req.onerror=()=>reject(req.error);
+   });
+   db.close();return valor;
+ }catch(e){return null}
+}
+async function borrarIDB(){
+ try{
+   let db=await abrirIDB();
+   await new Promise((resolve,reject)=>{
+     let tx=db.transaction(IDB_STORE,"readwrite");
+     tx.objectStore(IDB_STORE).delete(STORAGE_KEY);
+     tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
+   });
+   db.close();
+ }catch(e){}
+}
+
+function datosFormularioGuardables(){
+ let campos=[
+  "fechaSorteo","cartonesDia","cant","plantillaPremios","tasaCambio",
+  "usdGrupo1","usdGrupo2","usdFinal","usdConsol","usdPozo","escaleraInicio","escaleraPaso",
+  "topUsd1","topUsd2","topUsd3","topBs1","topBs2","topBs3",
+  "premioPozo","cartonPozo","premioCon","cartonesCon","buscarCartonInput","textoLista"
+ ];
+ let f={};
+ campos.forEach(id=>{let el=document.getElementById(id);if(el)f[id]=el.value});
+ let n=Number((document.getElementById("cant")||{}).value||6);
+ f.rondas=[];
+ for(let i=1;i<=n;i++){
+   f.rondas.push({
+     i,
+     nom:(document.getElementById(`nom${i}`)||{}).value||"",
+     pre:(document.getElementById(`pre${i}`)||{}).value||"",
+     car:(document.getElementById(`car${i}`)||{}).value||"",
+     msg:(document.getElementById(`msg${i}`)||{}).innerText||"",
+     pag:(document.getElementById(`pag${i}`)||{}).innerText||""
+   });
+ }
+ f.msgPozo=(document.getElementById("msgPozo")||{}).innerText||"";
+ f.pagPozo=(document.getElementById("pagPozo")||{}).innerText||"";
+ f.msgCon=(document.getElementById("msgCon")||{}).innerText||"";
+ f.pagCon=(document.getElementById("pagCon")||{}).innerText||"";
+ f.msgTop=(document.getElementById("msgTop")||{}).innerText||"";
+ f.pagTop=(document.getElementById("pagTop")||{}).innerText||"";
+ f.topResultados=(document.getElementById("topResultados")||{}).innerText||"";
+ f.res=(document.getElementById("res")||{}).innerText||"";
+ return f;
+}
+function construirRespaldo(){
+ return {tipo:"BINGOANDINO75_RESPALDO",version:4,savedAt:new Date().toISOString(),form:datosFormularioGuardables(),REGISTROS,RAW_CARTONES,RAW_SEGMENTOS_VERIFICACION,PDF_FECHA_DETECTADA,PDF_CARGADO_DIRECTO,TOP_ACTIVO,PAGO_ESTADOS};
+}
+function exportarRespaldo(){
+ try{
+  clearTimeout(TIMER_GUARDADO);guardarEstadoAhora();
+  const data=JSON.stringify(construirRespaldo());
+  const blob=new Blob([data],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download="BingoAndino75_respaldo_"+new Date().toISOString().slice(0,10)+".json";
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+ }catch(e){alert("No se pudo descargar la copia: "+e.message)}
+}
+async function importarRespaldo(input){
+ try{
+  const file=input.files&&input.files[0];if(!file)return;
+  const data=JSON.parse(await file.text());
+  if(data.tipo!=="BINGOANDINO75_RESPALDO"||!data.form||!Array.isArray(data.REGISTROS)||!Array.isArray(data.RAW_CARTONES)||!Array.isArray(data.RAW_SEGMENTOS_VERIFICACION)||!data.PAGO_ESTADOS||typeof data.PAGO_ESTADOS!=="object")throw Error("Archivo de respaldo no válido");
+  if(!confirm("¿Restaurar esta copia? Reemplazará los datos del sorteo que tienes abierto."))return;
+  const ok=await restaurarEstado(data);if(!ok)throw Error("No se pudo recuperar el sorteo");
+  guardarEstadoAhora();alert("✅ Sorteo recuperado desde la copia.");
+ }catch(e){alert("⚠️ No se pudo importar: "+e.message)}finally{input.value=""}
+}
+function guardarEstadoAhora(){
+ if(RESTAURANDO_ESTADO)return;
+ try{
+   let estadoGuardado={
+     version:4,
+     savedAt:new Date().toISOString(),
+     form:datosFormularioGuardables(),
+     REGISTROS,
+     RAW_CARTONES,
+     RAW_SEGMENTOS_VERIFICACION,
+     PDF_FECHA_DETECTADA,
+     PDF_CARGADO_DIRECTO,
+     TOP_ACTIVO,
+     PAGO_ESTADOS
+   };
+   let serial=JSON.stringify(estadoGuardado);
+   try{localStorage.setItem(STORAGE_KEY,serial)}catch(e){console.warn("localStorage no disponible o lleno",e)}
+   guardarIDB(estadoGuardado);
+   let s=document.getElementById("saveStatus");
+   if(s)s.innerText=`💾 Guardado automático · ${new Date().toLocaleTimeString("es-VE",{hour:"2-digit",minute:"2-digit"})}`;
+   return true;
+ }catch(e){
+   console.error("No se pudo guardar",e);
+   let s=document.getElementById("saveStatus");
+   if(s)s.innerText="⚠️ No se pudo guardar automáticamente en este navegador";
+   return false;
+ }
+}
+function programarGuardado(){
+ if(RESTAURANDO_ESTADO)return;
+ clearTimeout(TIMER_GUARDADO);
+ TIMER_GUARDADO=setTimeout(guardarEstadoAhora,250);
+}
+function restaurarTexto(id,valor){
+ let el=document.getElementById(id);if(el&&valor!==undefined&&valor!==null)el.innerText=valor;
+}
+async function restaurarEstado(respaldo=null){
+ let s=respaldo,raw=null;
+ if(!s){
+  try{raw=localStorage.getItem(STORAGE_KEY)}catch(e){}
+  if(raw){try{s=JSON.parse(raw)}catch(e){}}
+  if(!s)s=await leerIDB();
+ }
+ if(!s||!s.form)return false;
+ try{
+   RESTAURANDO_ESTADO=true;
+
+   REGISTROS=Array.isArray(s.REGISTROS)?s.REGISTROS:[];
+   RAW_CARTONES=Array.isArray(s.RAW_CARTONES)?s.RAW_CARTONES:[];
+   RAW_SEGMENTOS_VERIFICACION=Array.isArray(s.RAW_SEGMENTOS_VERIFICACION)?s.RAW_SEGMENTOS_VERIFICACION:[];
+   PDF_FECHA_DETECTADA=s.PDF_FECHA_DETECTADA||"";
+   PDF_CARGADO_DIRECTO=!!s.PDF_CARGADO_DIRECTO;
+   PAGO_ESTADOS=s.PAGO_ESTADOS&&typeof s.PAGO_ESTADOS==="object"?s.PAGO_ESTADOS:{};
+
+   let f=s.form||{};
+   if(f.cant)cant.value=f.cant;
+   crearRondas();
+
+   Object.keys(f).forEach(id=>{
+     if(id==="rondas"||id.startsWith("msg")||id.startsWith("pag")||id==="topResultados"||id==="res")return;
+     let el=document.getElementById(id);
+     if(el&&f[id]!==undefined)el.value=f[id];
+   });
+
+   (f.rondas||[]).forEach(r=>{
+     let nom=document.getElementById(`nom${r.i}`),pre=document.getElementById(`pre${r.i}`),car=document.getElementById(`car${r.i}`);
+     if(nom)nom.value=r.nom||"";
+     if(pre)pre.value=r.pre||"";
+     if(car)car.value=r.car||"";
+     restaurarTexto(`msg${r.i}`,r.msg||"");
+     restaurarTexto(`pag${r.i}`,r.pag||"");
+   });
+
+   restaurarTexto("msgPozo",f.msgPozo||"");restaurarTexto("pagPozo",f.pagPozo||"");
+   restaurarTexto("msgCon",f.msgCon||"");restaurarTexto("pagCon",f.pagCon||"");
+   restaurarTexto("msgTop",f.msgTop||"");restaurarTexto("pagTop",f.pagTop||"");
+   restaurarTexto("topResultados",f.topResultados||"");restaurarTexto("res",f.res||"");
+
+   TOP_ACTIVO=!!s.TOP_ACTIVO;mostrarTop(TOP_ACTIVO);
+   construirIndice();
+
+   if(REGISTROS.length){
+     textoLista.value=REGISTROS.map(c=>`${c.nombre} | ${c.cedulaCompra} | ${(c.cartones||[]).join(", ")} | ${c.bancoCodigo||c.banco||""} | ${c.telefono||""} | ${c.cedula||""}`).join("\n");
+     if(PDF_CARGADO_DIRECTO&&RAW_CARTONES.length&&RAW_SEGMENTOS_VERIFICACION.length){
+       auditarPDF();
+       mostrarEstado(0);
+       estado.innerText="♻️ DATOS RECUPERADOS DEL ÚLTIMO SORTEO\n"+estado.innerText+"\nNo necesitas volver a cargar el PDF para continuar.";
+     }else{
+       mostrarEstado(0);
+     }
+   }
+
+   actualizarEtiquetasRondas();
+   RESTAURANDO_ESTADO=false;
+   let barra=document.getElementById("saveStatus");
+   if(barra){
+     let d=s.savedAt?new Date(s.savedAt):null;
+     barra.innerText=`♻️ Último sorteo recuperado${d&&!isNaN(d)?` · guardado ${d.toLocaleTimeString("es-VE",{hour:"2-digit",minute:"2-digit"})}`:""}`;
+   }
+   // Regenera botones de pago a partir de los cartones ya introducidos, sin obligar a escribirlos otra vez.
+   setTimeout(regenerarBotonesTrasRestaurar,50);
+   return true;
+ }catch(e){
+   console.error("Error restaurando estado",e);
+   RESTAURANDO_ESTADO=false;
+   return false;
+ }
+}
+function clavePago(contexto,p){
+ return [contexto,String(p.carton||""),norm(p.nombre||""),String(Math.round(p.monto||0))].join("|");
+}
+function estaPagado(clave){return !!PAGO_ESTADOS[clave]}
+function marcarPagado(clave,boton){
+ if(boton&&boton.disabled)return;
+ PAGO_ESTADOS[clave]=!PAGO_ESTADOS[clave];
+ actualizarBotonPagado(boton,clave);
+ guardarEstadoAhora();
+}
+function actualizarBotonPagado(boton,clave){
+ if(!boton)return;
+ let si=estaPagado(clave);
+ boton.className=si?"paid":"unpaid";
+ boton.innerText=si?"✅ PAGADO · tocar para desmarcar":"⬜ Marcar como PAGADO";
+}
+function agregarBotonPagado(contenedor,contexto,p,bloqueado=false){
+ let clave=clavePago(contexto,p);
+ let b=document.createElement("button");
+ actualizarBotonPagado(b,clave);
+ b.dataset.clavePago=clave;
+ b.disabled=!!bloqueado;
+ if(bloqueado){
+   b.style.opacity=".55";
+   b.title="Primero selecciona/copia los datos correctos del pago.";
+   b.innerText="🔒 Selecciona los datos correctos antes de marcar PAGADO";
+ }
+ b.onclick=()=>marcarPagado(clave,b);
+ contenedor.appendChild(b);
+ return b;
+}
+function habilitarBotonPagado(boton){
+ if(!boton)return;
+ boton.disabled=false;
+ boton.style.opacity="";
+ boton.title="";
+ actualizarBotonPagado(boton,boton.dataset.clavePago);
+}
+function regenerarBotonesTrasRestaurar(){
+ if(!REGISTROS.length)return;
+ for(let i=1;i<=+cant.value;i++){
+   let car=(document.getElementById(`car${i}`)||{}).value||"",pre=(document.getElementById(`pre${i}`)||{}).value||"";
+   if(car&&pre){try{genR(i)}catch(e){console.warn(e)}}
+ }
+ if(cartonPozo.value&&premioPozo.value){try{generarPozo()}catch(e){}}
+ if(cartonesCon.value&&premioCon.value){try{generarCon()}catch(e){}}
+ if(TOP_ACTIVO){try{calcularTopCompras()}catch(e){}}
+ guardarEstadoAhora();
+}
+async function nuevoSorteo(){
+ if(!confirm("¿Borrar todos los datos guardados y comenzar un sorteo nuevo?"))return;
+ try{localStorage.removeItem(STORAGE_KEY)}catch(e){}
+ await borrarIDB();
+ location.reload();
+}
+
+function auditarPDF(){
+ const box=document.getElementById("auditoria");
+ if(!REGISTROS.length){AUDITORIA_OK=false;box.innerText="⚠️ Primero carga el PDF de aprobados.";return false}
+ if(!RAW_CARTONES.length){AUDITORIA_OK=false;box.innerText="ℹ️ Para la auditoría cruzada carga el PDF directamente. Si procesaste texto manual, vuelve a cargar el PDF.";return false}
+ const asignados=new Map(), rawCount=new Map();
+ REGISTROS.forEach(cl=>(cl.cartones||[]).forEach(c=>{let n=Number(c);if(!asignados.has(n))asignados.set(n,[]);asignados.get(n).push(cl.nombre)}));
+ RAW_CARTONES.forEach(c=>{let n=Number(c);if(Number.isFinite(n)&&n>0)rawCount.set(n,(rawCount.get(n)||0)+1)});
+ const rawSet=new Set(rawCount.keys()), asigSet=new Set(asignados.keys());
+ const faltan=[...rawSet].filter(n=>!asigSet.has(n)).sort((a,b)=>a-b);
+ const extras=[...asigSet].filter(n=>!rawSet.has(n)).sort((a,b)=>a-b);
+ const dupAsig=[...asignados.entries()].filter(([n,a])=>a.length>1).map(([n,a])=>`${n}: ${[...new Set(a)].join(" / ")}`);
+ const dupPdf=[...rawCount.entries()].filter(([n,c])=>c>1).map(([n,c])=>`${n} (${c} veces)`);
+ const ok=!faltan.length&&!extras.length&&!dupAsig.length&&!dupPdf.length&&rawSet.size===asigSet.size;
+ let t=(ok?"✅ AUDITORÍA CRUZADA APROBADA":"⚠️ AUDITORÍA: REVISAR ANTES DE PAGAR")+
+ `\nCartones encontrados en el PDF: ${RAW_CARTONES.length}`+
+ `\nCartones únicos encontrados: ${rawSet.size}`+
+ `\nCartones únicos asignados: ${asigSet.size}`+
+ `\nVistos en PDF pero sin cliente: ${faltan.length}`+
+ `\nAsignados pero no vistos en Cartones: ${extras.length}`+
+ `\nDuplicados entre clientes: ${dupAsig.length}`+
+ `\nDuplicados directamente en el PDF: ${dupPdf.length}`;
+ if(faltan.length)t+=`\n\n❌ Sin cliente: ${faltan.join(", ")}`;
+ if(extras.length)t+=`\n\n❌ No vistos en la columna Cartones: ${extras.join(", ")}`;
+ if(dupAsig.length)t+=`\n\n❌ Duplicados entre clientes:\n${dupAsig.join("\n")}`;
+ if(dupPdf.length)t+=`\n\n❌ Repetidos en el PDF:\n${dupPdf.join("\n")}`;
+ t+=ok?"\n\n🟢 Todos los cartones presentes en este PDF quedaron cargados una sola vez.\nℹ️ Para confirmar el dueño de un ganador usa Verificar cartón y revisa la página indicada.":"\n\n🟠 Revisa manualmente lo marcado antes de usar los datos.";
+ AUDITORIA_OK=ok;box.innerText=t;programarGuardado();return ok;
+}
+
+
+function formatearFechaPDF(txt){
+ let m=String(txt||"").match(/\b([0-3]?\d)[\/\-]([01]?\d)[\/\-](20\d{2})\b/);
+ if(!m)return"";
+ let d=Number(m[1]),mo=Number(m[2]),y=Number(m[3]);
+ if(d<1||d>31||mo<1||mo>12)return"";
+ const meses=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+ return `${d} de ${meses[mo-1]} de ${y}`;
+}
+function completarDatosDesdePDF(){
+ let unicos=new Set();
+ REGISTROS.forEach(r=>(r.cartones||[]).forEach(c=>unicos.add(String(c))));
+ cartonesDia.value=unicos.size||"";
+ if(unicos.size)sugerirPlantilla();
+ if(PDF_FECHA_DETECTADA)fechaSorteo.value=PDF_FECHA_DETECTADA;
+}
+function reauditarPDF(){
+ try{
+   if(!REGISTROS.length){AUDITORIA_OK=false;auditoria.innerText="⚠️ Primero carga el PDF.";return false}
+   let ok=auditarPDF();
+   let ahora=new Date().toLocaleTimeString("es-VE",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+   auditoria.innerText+=`\n\n🔄 Auditoría repetida manualmente: ${ahora}\n${ok?"✅ Sigue aprobada.":"⚠️ Sigue requiriendo revisión manual."}`;
+   return ok;
+ }catch(e){
+   AUDITORIA_OK=false;auditoria.innerText="❌ Error al volver a auditar: "+e.message;return false;
+ }
+}
+
+function crearRondas(){
+ let n=+cant.value,h="";
+ for(let i=1;i<=n;i++){
+  let nm=i===n?"CARTÓN LLENO FINAL":R[i-1];
+  h+=`<div class="card"><div class="title">🥳 ${nm}</div><label>Nombre</label><input id="nom${i}" value="${nm}"><label>Premio total Bs</label><input id="pre${i}" inputmode="decimal" oninput="limpiarRonda(${i});programarGuardado()"><label>Cartón(es) ganador(es)</label><input id="car${i}" inputmode="numeric" pattern="[0-9, ]*" autocomplete="off" placeholder="708 o 252,523" oninput="limpiarRonda(${i});programarGuardado()"><button class="gen" onclick="genR(${i})">Generar anuncio y pagos</button><button class="copy" onclick="copiar('msg${i}','ok${i}')">Copiar anuncio</button><button class="wa" onclick="wa('msg${i}')">WhatsApp anuncio</button><div id="msg${i}" class="msg"></div><div id="pag${i}" class="msg"></div><div id="pagosBtns${i}"></div><div id="ok${i}" class="ok">Copiado ✅</div></div>`;
+ }
+ rondas.innerHTML=h;
+ actualizarEtiquetasRondas();
+}
+function cambiarRondas(){
+ if(esEscalera() && Number(cant.value)!==Number(plantillaPremios.value.slice(-1)))plantillaPremios.value="personal";
+ crearRondas();actualizarEtiquetasRondas();
+}
+crearRondas();
+
+function limpiarRonda(i){let m=document.getElementById(`msg${i}`),p=document.getElementById(`pag${i}`),b=document.getElementById(`pagosBtns${i}`);if(m)m.innerText="";if(p)p.innerText="";if(b)b.innerHTML="";res.innerText="";previewImg.style.display="none";previewImg.removeAttribute("src")}
+function limpiarPozo(){msgPozo.innerText="";pagPozo.innerText="";pagosBtnsPozo.innerHTML="";res.innerText="";previewImg.style.display="none";previewImg.removeAttribute("src")}
+function limpiarCon(){msgCon.innerText="";pagCon.innerText="";pagosBtnsCon.innerHTML="";res.innerText="";previewImg.style.display="none";previewImg.removeAttribute("src")}
+function limpiarTop(){if(typeof msgTop!=="undefined"){msgTop.innerText="";pagTop.innerText="";pagosBtnsTop.innerHTML="";topResultados.innerText=""}}
+
+function num(v){return Number(String(v||"").replace(",",".").replace(/[^\d.]/g,""))||0}
+
+function esEscalera(){return /^escalera[56]$/.test(plantillaPremios.value)}
+function previsualizarEscalera(){
+ let n=Number(cant.value),ini=num(escaleraInicio.value),paso=num(escaleraPaso.value);
+ if(!esEscalera())return;
+ let a=[];for(let i=1;i<=n;i++)a.push(`${i===n?'LLENO FINAL':`Ronda ${i}`}: $${(ini+(i-1)*paso).toFixed(2).replace(/\.00$/,'')}`);
+ vistaEscalera.innerText=a.join('  →  ')+`\nTotal rondas: $${(n*ini+paso*n*(n-1)/2).toFixed(2)}`;
+}
+function actualizarEtiquetasRondas(){
+ opcionesEscalera.classList.toggle("hidden",!esEscalera());
+ if(esEscalera()){previsualizarEscalera();return}
+
+ let n=+cant.value;
+ if(n===5){
+   lblG1.innerText="$ Rondas 1–4";
+   wrapG2.classList.add("hidden");
+ }else{
+   lblG1.innerText="$ Rondas 1–3";
+   wrapG2.classList.remove("hidden");
+ }
+}
+
+function fechaDetectadaEsSabado(){
+ let s=String(PDF_FECHA_DETECTADA||"");
+ let m=s.match(/(\d{1,2})\s+de\s+([a-záéíóú]+)\s+de\s+(20\d{2})/i);
+ if(!m)return false;
+ const meses={enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
+ let mo=meses[norm(m[2])];if(mo===undefined)return false;
+ return new Date(Number(m[3]),mo,Number(m[1])).getDay()===6;
+}
+
+function presetValores(tipo){
+ if(tipo==="5std")return{rondas:5,g1:40,g2:0,final:150,con:10,top:false};
+ if(tipo==="6std")return{rondas:6,g1:30,g2:50,final:190,con:10,top:false};
+ if(tipo==="sabado")return{rondas:6,g1:50,g2:60,final:260,con:10,top:true};
+ return null;
+}
+
+function aplicarPlantilla(){
+ let t=plantillaPremios.value;
+ if(t==="auto"){sugerirPlantilla();return}
+ if(t==="personal"){actualizarEtiquetasRondas();return}
+ if(t==="escalera5"||t==="escalera6"){
+   cant.value=t==="escalera5"?"5":"6";
+   crearRondas();actualizarEtiquetasRondas();
+   estadoConversion.innerText="🪜 Escalera activada. Configura el inicio y el aumento; después convierte a Bs.";
+   programarGuardado();return;
+ }
+ let p=presetValores(t); if(!p)return;
+ cant.value=String(p.rondas);crearRondas();
+ usdGrupo1.value=p.g1;usdGrupo2.value=p.g2||"";usdFinal.value=p.final;usdConsol.value=p.con;
+ mostrarTop(!!p.top);
+ actualizarEtiquetasRondas();
+ estadoConversion.innerText="Plantilla cargada. Puedes cambiar cualquier monto antes de convertir.";
+}
+
+function sugerirPlantilla(){
+ if(plantillaPremios.value!=="auto")return;
+ let c=Number(cartonesDia.value||0),t="";
+ if(c>=900&&c<=1000)t="5std";
+ else if(c>=750&&c<=800&&fechaDetectadaEsSabado())t="sabado";
+ else if(c>=500&&c<=600)t="6std";
+ if(!t){mostrarTop(false);estadoConversion.innerText="Cantidad fuera de las plantillas actuales. Puedes elegir Personalizado.";return}
+ let p=presetValores(t);
+ cant.value=String(p.rondas);crearRondas();
+ usdGrupo1.value=p.g1;usdGrupo2.value=p.g2||"";usdFinal.value=p.final;usdConsol.value=p.con;
+ mostrarTop(!!p.top);
+ estadoConversion.innerText=`Sugerencia aplicada según ${c} cartones. Todo sigue editable.`;
+}
+
+function convertirPremios(){
+ // Si cambian los montos, los anuncios anteriores dejan de ser válidos.
+ for(let i=1;i<=+cant.value;i++)limpiarRonda(i);
+ limpiarPozo();limpiarCon();limpiarTop();
+ let tasa=num(tasaCambio.value);
+ if(!tasa){alert("Coloca la tasa Bs/$");return false}
+ let n=+cant.value,g1=num(usdGrupo1.value),g2=num(usdGrupo2.value),fin=num(usdFinal.value),con=num(usdConsol.value),pozo=num(usdPozo.value);
+ if(esEscalera()){
+   let ini=num(escaleraInicio.value),paso=num(escaleraPaso.value);
+   if(ini<=0||paso<=0){alert("Indica un premio inicial y aumento por ronda mayores que cero.");return false}
+   for(let i=1;i<=n;i++)document.getElementById(`pre${i}`).value=Math.round((ini+(i-1)*paso)*tasa);
+ }else
+ if(n===5){
+   for(let i=1;i<=4;i++)document.getElementById(`pre${i}`).value=Math.round(g1*tasa);
+   document.getElementById("pre5").value=Math.round(fin*tasa);
+ }else{
+   for(let i=1;i<=3;i++)document.getElementById(`pre${i}`).value=Math.round(g1*tasa);
+   for(let i=4;i<=5;i++)document.getElementById(`pre${i}`).value=Math.round(g2*tasa);
+   document.getElementById("pre6").value=Math.round(fin*tasa);
+ }
+ if(con)premioCon.value=Math.round(con*tasa);
+ premioPozo.value=pozo?Math.round(pozo*tasa):"";
+ if(TOP_ACTIVO){
+   topBs1.value=Math.round(num(topUsd1.value)*tasa);
+   topBs2.value=Math.round(num(topUsd2.value)*tasa);
+   topBs3.value=Math.round(num(topUsd3.value)*tasa);
+ }
+ estadoConversion.innerText=`✅ Conversión aplicada con tasa ${fmt(tasa)} Bs/$. Puedes editar cualquier monto en Bs.`;
+ guardarEstadoAhora();
+ return true;
+}
+
+function mostrarTop(si){
+ TOP_ACTIVO=!!si;
+ topCard.classList.toggle("hidden",!TOP_ACTIVO);
+ if(!TOP_ACTIVO){TOP_RANKING=[];topResultados.innerText="";msgTop.innerText="";pagTop.innerText="";pagosBtnsTop.innerHTML=""}
+}
+function toggleTop(){mostrarTop(!TOP_ACTIVO)}
+
+
+
+
+
+
+
+
+
+
+
+
+
+async 
+
+
+async 
+
+
+function datosTopConsistentes(lista){
+ let vals=campo=>[...new Set(lista.map(r=>String(r[campo]||"").trim()).filter(Boolean))];
+ let telefonos=vals("telefono"),bancos=vals("bancoCodigo"),cedulasPago=vals("cedula");
+ return {
+   ok:telefonos.length<=1&&bancos.length<=1&&cedulasPago.length<=1,
+   telefonos,bancos,cedulasPago
+ };
+}
+function mejorRegistroTop(lista){
+ let score=r=>(r.bancoCodigo?3:0)+(r.telefono?3:0)+(r.cedula?2:0)+(r.cedulaCompra?1:0);
+ return lista.slice().sort((a,b)=>score(b)-score(a))[0];
+}
+
+
+function opcionesPagoTop(lista){
+ let mapa=new Map();
+ (lista||[]).forEach(r=>{
+   let banco=String(r.bancoCodigo||"").trim();
+   let telefono=String(r.telefono||"").trim();
+   let cedula=ced(r.cedula);
+   let key=[banco,telefono,cedula].join("|");
+   if(!mapa.has(key))mapa.set(key,{
+     bancoCodigo:banco,
+     banco:banco,
+     telefono,
+     cedula,
+     cedulaCompra:ced(r.cedulaCompra),
+     nombre:r.nombre,
+     pagina:r.pagina
+   });
+ });
+ return [...mapa.values()];
+}
+
+function textoOpcionTop(x){
+ let banco=x.bancoCodigo||"NO ENCONTRADO";
+ let telx=x.telefono||"REVISAR";
+ let cedx=x.cedula||"REVISAR";
+ return `Banco: ${banco}\nTeléfono: ${telx}\nCédula Pago Móvil: ${cedx}${x.pagina?`\nPágina PDF: ${x.pagina}`:""}`;
+}
+
+function renderPagosTop(pagos){
+ pagosBtnsTop.innerHTML="";
+ let resumen=[];
+
+ pagos.forEach((p,idx)=>{
+   let opciones=opcionesPagoTop(p.lista);
+   let caja=document.createElement("div");
+   caja.className="msg";
+
+   let cab=document.createElement("div");
+   cab.style.fontWeight="bold";
+   cab.style.marginBottom="8px";
+   cab.innerText=`${p.carton} - ${p.nombre} - ${fmt(p.monto)} Bs`;
+   caja.appendChild(cab);
+
+   if(opciones.length<=1){
+     let x=opciones[0]||p.x;
+     let ec=estadoCedulas(x);
+     let info=document.createElement("div");
+     info.innerText=detallePago(p.carton,x,p.monto);
+     caja.appendChild(info);
+
+     if(!x||!x.telefono||!x.bancoCodigo){
+       let w=document.createElement("div");
+       w.className="warnbox";
+       w.innerText="⚠️ REVISAR MANUALMENTE: faltan o son dudosos algunos datos. La app muestra lo detectado para que lo compares con el PDF.";
+       caja.appendChild(w);
+       if(x){
+         let pagadoBtn=agregarBotonPagado(caja,"TOP",p,true);
+         let ce=ec.pago||ec.registro||"";
+         let b=document.createElement("button");
+         b.className="copy";
+         b.innerText=`Copiar datos detectados - ${p.nombre}`;
+         b.onclick=async()=>{await copiarTexto(textoPagoConCedula(x,p.monto,ce),"okTop");habilitarBotonPagado(pagadoBtn)};
+         caja.appendChild(b);
+       }
+       resumen.push(`${p.carton} - ${p.nombre}\n⚠️ REVISAR DATOS MANUALMENTE`);
+     }else if(ec.mismatch||!ec.regOk||!ec.pagoOk){
+       let w=document.createElement("div");
+       w.className="warnbox";
+       w.innerText="⚠️ Las cédulas requieren revisión. Elige cuál usar.";
+       caja.appendChild(w);
+
+       let pagadoBtn=agregarBotonPagado(caja,"TOP",p,true);
+       let b1=document.createElement("button");
+       b1.className="copy";
+       b1.innerText=`Usar cédula del registro: ${ec.registro||"NO DISPONIBLE"}`;
+       b1.onclick=async()=>{if(ec.registro){await copiarTexto(textoPagoConCedula(x,p.monto,ec.registro),"okTop");habilitarBotonPagado(pagadoBtn)}};
+       caja.appendChild(b1);
+
+       let b2=document.createElement("button");
+       b2.className=ec.pagoOk?"copy":"clear";
+       b2.innerText=`Usar cédula Pago Móvil: ${ec.pago||"NO DISPONIBLE"}${ec.pagoOk?"":" ⚠️"}`;
+       b2.onclick=async()=>{if(ec.pago){await copiarTexto(textoPagoConCedula(x,p.monto,ec.pago),"okTop");habilitarBotonPagado(pagadoBtn)}};
+       caja.appendChild(b2);
+
+       resumen.push(`${p.carton} - ${p.nombre}\n⚠️ REVISAR CÉDULA`);
+     }else{
+       let b=document.createElement("button");
+       b.className="copy";
+       b.innerText=`Copiar pago - ${p.nombre}`;
+       b.onclick=async()=>copiarTexto(textoPagoConCedula(x,p.monto,ec.pago||ec.registro),"okTop");
+       caja.appendChild(b);
+       agregarBotonPagado(caja,"TOP",p,false);
+       resumen.push(detallePago(p.carton,x,p.monto));
+     }
+   }else{
+     let aviso=document.createElement("div");
+     aviso.className="warnbox";
+     aviso.innerText=`⚠️ ${p.nombre} tiene ${opciones.length} opciones distintas de Pago Móvil en sus compras. Elige la correcta antes de copiar el pago.`;
+     caja.appendChild(aviso);
+
+     let pagadoBtn=agregarBotonPagado(caja,"TOP",p,true);
+     opciones.forEach((x,j)=>{
+       let op=document.createElement("div");
+       op.className="msg";
+       op.style.marginTop="8px";
+       op.innerText=`OPCIÓN ${j+1}\n${textoOpcionTop(x)}`;
+       caja.appendChild(op);
+
+       let btn=document.createElement("button");
+       btn.className="copy";
+       btn.innerText=`✅ Usar opción ${j+1}`;
+       btn.onclick=async()=>{
+         if(!x.telefono||!x.bancoCodigo){
+           alert("⚠️ Esta opción tiene banco o teléfono incompletos. Se copiarán los datos detectados para que los revises manualmente.");
+         }
+         let ec=estadoCedulas(x);
+         let cedElegida=ec.pago||ec.registro;
+         if(ec.mismatch){
+           let usarPago=confirm(
+             `Las cédulas no coinciden.\n\nRegistro: ${ec.registro}\nPago Móvil: ${ec.pago}\n\nAceptar = usar cédula de Pago Móvil\nCancelar = usar cédula del registro`
+           );
+           cedElegida=usarPago?ec.pago:ec.registro;
+         }
+         await copiarTexto(textoPagoConCedula(x,p.monto,cedElegida),"okTop");
+         habilitarBotonPagado(pagadoBtn);
+         op.classList.add("goodbox");
+       };
+       caja.appendChild(btn);
+     });
+
+     resumen.push(`${p.carton} - ${p.nombre}\n⚠️ ELEGIR ENTRE ${opciones.length} OPCIONES DE PAGO MÓVIL`);
+   }
+
+   pagosBtnsTop.appendChild(caja);
+ });
+
+ pagTop.innerText="📲 DATOS PARA PAGO MÓVIL DEL TOP\n"+resumen.join("\n\n");
+}
+
+function calcularTopCompras(){
+ if(!REGISTROS.length){alert("Primero carga el PDF de aprobados");return false}
+ let porCed=new Map();
+ REGISTROS.forEach(r=>{
+   let key=r.cedulaCompra||norm(r.nombre);
+   if(!porCed.has(key))porCed.set(key,[]);
+   porCed.get(key).push(r);
+ });
+ let ranking=[];
+ porCed.forEach(lista=>{
+   let set=new Set();lista.forEach(r=>(r.cartones||[]).forEach(c=>set.add(String(c))));
+   let ref=mejorRegistroTop(lista),cons=datosTopConsistentes(lista);
+   ranking.push({nombre:ref.nombre,cantidad:set.size,ref,cartones:[...set],cons,lista:lista.slice()});
+ });
+ ranking.sort((a,b)=>b.cantidad-a.cantidad||a.nombre.localeCompare(b.nombre,"es"));
+ TOP_RANKING=ranking.slice(0,3);
+ if(TOP_RANKING.length<3){alert("No hay suficientes clientes para calcular Top 3");return false}
+ let bs=[monto(topBs1.value),monto(topBs2.value),monto(topBs3.value)];
+ let usd=[num(topUsd1.value),num(topUsd2.value),num(topUsd3.value)];
+ if(bs.some((v,i)=>!v&&usd[i])){if(!convertirPremios())return false;bs=[monto(topBs1.value),monto(topBs2.value),monto(topBs3.value)]}
+ if(bs.some(v=>!v)){alert("Coloca los montos en Bs del Top o usa la conversión");return false}
+
+ let med=["🥇","🥈","🥉"],lineas=[],detalle=[],pagos=[];
+ TOP_RANKING.forEach((r,i)=>{
+   lineas.push(`${med[i]} TOP ${i+1} — ${fmt(bs[i])} Bs\n🔥 ${r.nombre} — ${r.cantidad} cartones 🎉`);
+   let extra=r.cons.ok?"":` ⚠️ ${opcionesPagoTop(r.lista).length} opciones de Pago Móvil`;
+   detalle.push(`${med[i]} TOP ${i+1}: ${r.nombre} — ${r.cantidad} cartones${extra}`);
+   pagos.push({nombre:r.nombre,carton:`TOP ${i+1}`,x:r.ref,monto:bs[i],lista:r.lista});
+ });
+ topResultados.innerText=detalle.join("\n");
+ msgTop.innerText=`🏆✨ GANADORES DEL TOP DE COMPRAS ✨🏆\n🎰 BingoAndino75\n\n${lineas.join("\n\n")}\n\n🙌💜 ¡Felicidades y gracias por participar! 🎊`;
+ renderPagosTop(pagos);
+ guardarEstadoAhora();
+ return true;
+}
+
+function norm(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim()}
+function clean(s){return String(s||"").replace(/\s+/g," ").trim()}
+function ced(s){return String(s||"").replace(/[^\d]/g,"")}
+function monto(v){return Number(String(v||"0").replace(/\./g,"").replace(",",".").replace(/[^\d.]/g,""))}
+function fmt(n){return Math.round(n||0).toLocaleString("es-VE")}
+
+function normalizarBanco(txt){
+ return String(txt||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9\s]/g," ").replace(/\s+/g," ").trim();
+}
+function detectarBanco(texto){
+ // Reconocer el banco por nombre primero. Los códigos de otras columnas
+ // (cédula, teléfono, referencias) no deben imponerse sobre el nombre.
+ const raw=String(texto||"");
+ const limpio=normalizarBanco(raw);
+ const nombres=[
+  [/\b(?:banco\s+de\s+venezuela|banco\s+venezuela|venezuela|venezula|venexuela|venezuelai|venezuelaela|bdv|vzla|b\s*d\s*v)\b/,"0102"],
+  [/\b(?:banesco)\b/,"0134"],
+  [/\b(?:mercantil)\b/,"0105"],
+  [/\b(?:provincial|bbva)\b/,"0108"],
+  [/\b(?:bnc|banco\s+nacional\s+de\s+credito|nacional\s+de\s+credito)\b/,"0191"],
+  [/\b(?:bfc|fondo\s+comun)\b/,"0151"],
+  [/\b(?:bancamiga|bancaamiga)\b/,"0172"],
+  [/\b(?:bancaribe)\b/,"0114"],
+  [/\b(?:exterior)\b/,"0115"],
+  [/\b(?:tesoro)\b/,"0163"],
+  [/\b(?:banplus|ban\s+plus)\b/,"0174"],
+  [/\b(?:bicentenario)\b/,"0175"],
+  [/\b(?:venezolano\s+de\s+credito)\b/,"0104"]
+ ];
+ // 'Banco Venezolano de Crédito' es otro banco, no Banco de Venezuela.
+ for(const [pat,codigo] of nombres.slice().reverse()){
+  if(pat.test(limpio))return codigo;
+ }
+ // Reconocer código aislado, no dígitos incrustados en teléfono o cédula.
+ const codigos=new Set(["0102","0134","0105","0108","0191","0151","0172","0114","0115","0163","0174","0175","0104"]);
+ const tokens=raw.match(/(?<!\d)0\d{3}(?!\d)/g)||[];
+ const validos=[...new Set(tokens.filter(x=>codigos.has(x)))];
+ return validos.length===1?validos[0]:"";
+}
+function codBanco(s){return detectarBanco(s)}
+
+function arreglarNombre(nombre){
+ let n=String(nombre||"");
+ const r={"Ã¡":"á","Ã©":"é","Ã­":"í","Ã³":"ó","Ãº":"ú","Ã±":"ñ","Ã":"Á","Ã‰":"É","Ã":"Í","Ã“":"Ó","Ãš":"Ú","Ã‘":"Ñ","Ã¼":"ü","Ãœ":"Ü"};
+ for(const k in r)n=n.split(k).join(r[k]);
+ return n.normalize("NFC").replace(/^Nombre\s+/i,"").replace(/\s+/g," ").trim();
+}
+function esCartonValido(n){
+ let raw=String(n||"").trim();
+ let d=raw.replace(/[^\d]/g,"");
+ // Los cartones no se guardan con cero a la izquierda. Esto evita que
+ // códigos bancarios como 0102/0134 terminen convertidos en cartones.
+ if(!/^\d{1,4}$/.test(d))return false;
+ if(d.length>1&&d.startsWith("0"))return false;
+ return Number(d)>=1 && Number(d)<=9999;
+}
+function pareceTelefonoFragmentado(txt){
+ let d=String(txt||"").replace(/[^\d]/g,"");
+ if(!d)return false;
+ // Venezuela: 0412/0414/0416/0422/0424/0426 o +58/58 + prefijo móvil.
+ if(d.length===11&&d.startsWith("0")&&PREF_VE.includes(d.slice(1,4)))return true;
+ if(d.length===12&&d.startsWith("58")&&PREF_VE.includes(d.slice(2,5)))return true;
+ if(d.length===13&&d.startsWith("058")&&PREF_VE.includes(d.slice(3,6)))return true;
+ return false;
+}
+function carts(t){
+ let text=String(t||"").replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g,"-");
+ // Si una línea completa es un teléfono escrito separado (ej. 58 414 999 2265),
+ // nunca la tratamos como una lista de cartones.
+ if(pareceTelefonoFragmentado(text))return [];
+ return text
+  .split(/[,;\s]+/)
+  .map(x=>{
+    let tok=String(x||"").trim();
+    if(!tok)return"";
+    // Un cartón debe ser un token numérico. Si contiene letras, jamás extraer
+    // sus dígitos internos como si fueran cartones (ej. "Mercantilismojh6yu").
+    if(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(tok))return"";
+    let d=tok.replace(/[^\d]/g,"");
+    return d&&esCartonValido(d)?d:"";
+  })
+  .filter(Boolean);
+}
+function tel(raw){
+ let original=String(raw||"").trim();
+ let d=original.replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g,"-").replace(/[()\s\-\.]/g,"").replace(/[^\d]/g,"");
+ if(!d)return"";
+ if(d.startsWith("58")&&d.length===12&&PREF_VE.includes(d.slice(2,5)))return"0"+d.slice(2);
+ if(d.length===10&&PREF_VE.includes(d.slice(0,3)))return"0"+d;
+ if(d.length===11&&d[0]==="0"&&PREF_VE.includes(d.slice(1,4)))return d;
+ return"";
+}
+function cedFlexible(s){
+ let d=ced(s);
+ return d.length>=4&&d.length<=10?d:"";
+}
+
+function construirIndice(){
+ CARTON_INDEX={};
+ CARTON_CONFLICTS=new Set();
+ REGISTROS.forEach(reg=>{
+  (reg.cartones||[]).forEach(c=>{
+   let cc=String(c);
+   if(!CARTON_INDEX[cc]) CARTON_INDEX[cc]=reg;
+   else if(CARTON_INDEX[cc]!==reg) CARTON_CONFLICTS.add(cc);
+  });
+ });
+ CARTON_CONFLICTS.forEach(cc=>{CARTON_INDEX[cc]=null});
+}
+function buscar(c){
+ let cc=String(c).replace(/[^\d]/g,"");
+ if(CARTON_CONFLICTS.has(cc)) return null;
+ return CARTON_INDEX[cc]||null;
+}
+function estadoCarton(c){
+ let cc=String(c).replace(/[^\d]/g,"");
+ if(CARTON_CONFLICTS.has(cc)) return "DUPLICADO";
+ return CARTON_INDEX[cc]?"OK":"NO ENCONTRADO";
+}
+
+async function leerPDF(){
+ try{
+   const file=pdfFile.files[0]; if(!file){alert("Selecciona un PDF");return}
+   if(!window.pdfjsLib){alert("No cargó PDF.js. Conéctate a internet.");return}
+   estado.innerText="Leyendo PDF...";
+   PDF_CARGADO_DIRECTO=true;AUDITORIA_OK=false;
+   auditoria.innerText="";
+   for(let i=1;i<=+cant.value;i++){let m=document.getElementById(`msg${i}`),p=document.getElementById(`pag${i}`),b=document.getElementById(`pagosBtns${i}`);if(m)m.innerText="";if(p)p.innerText="";if(b)b.innerHTML=""} 
+   msgPozo.innerText="";pagPozo.innerText="";pagosBtnsPozo.innerHTML="";msgCon.innerText="";pagCon.innerText="";pagosBtnsCon.innerHTML="";limpiarTop();res.innerText="";previewImg.style.display="none";previewImg.removeAttribute("src");
+   const data=await file.arrayBuffer();
+   const pdf=await pdfjsLib.getDocument({data}).promise;
+   let regs=[];
+   let ultimoRegistroContinuable=null;
+   let ultimoSegmentoContinuable=null;
+   RAW_CARTONES=[];
+   RAW_SEGMENTOS_VERIFICACION=[];
+   PDF_FECHA_DETECTADA="";
+
+   // Reconstruye una línea a partir de fragmentos del PDF usando sus posiciones.
+   // Esto también funciona cuando PDF.js entrega letra por letra (como ocurre en algunas páginas).
+   function unirFragmentos(arr){
+     arr=arr.slice().sort((a,b)=>a.x-b.x);
+     let out="", prev=null;
+     for(const it of arr){
+       let t=String(it.str||"").trim(); if(!t)continue;
+       if(prev){
+         let prevEnd=prev.x+(prev.w||0);
+         let gap=it.x-prevEnd;
+         // Sólo agrega espacio si visualmente existe una separación real.
+         if(gap>2.8 && !/[\s,.;:/-]$/.test(out) && !/^[,.;:/-]/.test(t)) out+=" ";
+       }
+       out+=t;
+       prev=it;
+     }
+     return out.replace(/\s+/g," ").trim();
+   }
+
+   function agruparPorY(arr,tol=4.2){
+     let rows=[];
+     arr.slice().sort((a,b)=>b.y-a.y||a.x-b.x).forEach(it=>{
+       let r=rows.find(z=>Math.abs(z.y-it.y)<=tol);
+       if(!r){r={y:it.y,items:[]};rows.push(r)}
+       r.items.push(it);
+     });
+     return rows.sort((a,b)=>b.y-a.y);
+   }
+
+   function textoColumna(items,minX,maxX){
+     let rows=agruparPorY(items.filter(it=>it.x>=minX&&it.x<maxX),4.2);
+     return rows.map(r=>unirFragmentos(r.items)).filter(Boolean).join(" ").replace(/\s+/g," ").trim();
+   }
+
+   function lineasColumna(items,minX,maxX){
+     return agruparPorY(items.filter(it=>it.x>=minX&&it.x<maxX),4.2)
+       .map(r=>unirFragmentos(r.items)).filter(Boolean);
+   }
+
+   // Reconstrucción especial para la columna Cartones.
+   // Algunos PDF entregan un número de 2 o 3 dígitos como fragmentos separados
+   // (por ejemplo 516 como "5" + "1" + "6"). Si se insertan espacios entre
+   // esos fragmentos, el lector inventa cartones 5, 1 y 6. Aquí los dígitos contiguos
+   // se vuelven a unir y sólo se separan cartones cuando existe una coma/; real
+   // o una distancia visual claramente grande.
+   function unirFragmentosCartones(arr){
+     arr=arr.slice().sort((a,b)=>a.x-b.x);
+     let out="", prev=null;
+     for(const it of arr){
+       let t=String(it.str||"").trim(); if(!t)continue;
+       if(prev){
+         let prevEnd=prev.x+(prev.w||0);
+         let gap=it.x-prevEnd;
+         let prevTxt=String(prev.str||"").trim();
+         let prevDigit=/\d$/.test(prevTxt), curDigit=/^\d/.test(t);
+         // Dígitos que forman el mismo número: nunca insertar espacio por un
+         // pequeño gap del PDF. Sólo separar si la distancia es muy grande.
+         if(prevDigit && curDigit){
+           if(gap>11) out+=" ";
+         }else if(gap>2.8 && !/[\s,.;:/-]$/.test(out) && !/^[,.;:/-]/.test(t)){
+           out+=" ";
+         }
+       }
+       out+=t;
+       prev=it;
+     }
+     return out.replace(/\s+/g," " ).trim();
+   }
+
+   function lineasCartones(items,minX,maxX){
+     return agruparPorY(items.filter(it=>it.x>=minX&&it.x<maxX),4.2)
+       .map(r=>unirFragmentosCartones(r.items)).filter(Boolean);
+   }
+
+   function extraerCedulaPago(lines){
+     // Toma la última línea numérica de Pago Móvil que no sea teléfono ni código bancario.
+     // Conserva incluso valores dudosos para mostrarlos con aviso, sin sustituirlos silenciosamente.
+     for(let i=lines.length-1;i>=0;i--){
+       let raw=String(lines[i]||"").trim();
+       let d=raw.replace(/[^\d]/g,"");
+       if(!d)continue;
+       if(/^0\d{3}$/.test(d))continue;
+       if(tel(raw))continue;
+       if(d.length>=4 && d.length<=12)return d;
+     }
+     return "";
+   }
+
+   for(let p=1;p<=pdf.numPages;p++){
+     const page=await pdf.getPage(p);
+     const viewport=page.getViewport({scale:1});
+     const W=viewport.width;
+     const content=await page.getTextContent({disableCombineTextItems:false});
+     let items=content.items.map((it,idx)=>({
+       str:String(it.str||"").trim(),
+       x:it.transform[4], y:it.transform[5], w:Number(it.width||0), idx
+     })).filter(it=>it.str);
+     if(p===1){
+       let textoPrimeraPagina=content.items.map(it=>String(it.str||"")).join(" ");
+       PDF_FECHA_DETECTADA=formatearFechaPDF(textoPrimeraPagina);
+     }
+
+     // Este PDF usa una tabla estable de 4 columnas. Trabajamos por proporción de ancho,
+     // no por coordenadas absolutas, para que siga funcionando si cambia el tamaño de página.
+     // Nombre | Cédula | Cartones | Pago Móvil
+     const B1=W*0.225, B2=W*0.365, B3=W*0.745;
+
+     // Lectura independiente de TODOS los números visibles en la columna Cartones.
+     // Se usa sólo para auditar que el lector por clientes no haya omitido ni inventado cartones.
+     const rawPageLines=lineasCartones(items,B2,B3);
+     rawPageLines.forEach(line=>{let cs=carts(line);if(cs.length)RAW_CARTONES.push(...cs);});
+
+     // Reconstruye candidatos de cédula por línea dentro de la columna de Cédula.
+     // Es la clave para páginas donde el PDF entrega cada dígito como un fragmento separado.
+     let cedRows=agruparPorY(items.filter(it=>it.x>=B1&&it.x<B2),4.5)
+       .map(r=>({
+         y:r.y,
+         text:unirFragmentos(r.items),
+         minIdx:Math.min(...r.items.map(it=>it.idx)),
+         maxIdx:Math.max(...r.items.map(it=>it.idx))
+       }))
+       .map(r=>({...r,digits:r.text.replace(/[^\d]/g,"")}))
+       .filter(r=>r.digits.length>=4&&r.digits.length<=10)
+       // Un código bancario de 4 dígitos puede aparecer desplazado dentro de
+       // la columna Cédula (caso real: Diurmery tiene "0102" debajo de su
+       // cédula 1513135). Nunca debe convertirse en un ancla de cliente.
+       // Las cédulas cortas como 3333 siguen siendo válidas.
+       .filter(r=>!/^0\d{3}$/.test(r.digits))
+       .filter(r=>!/cedula/i.test(r.text));
+
+     // Elimina duplicados de la misma línea/baseline y conserva el orden REAL
+     // en que el PDF escribió cada fila. Ese orden es crítico para filas altas:
+     // los cartones de Juan Carlos, por ejemplo, abarcan muchas líneas y algunos
+     // quedan visualmente más cerca de la fila anterior, aunque lógicamente siguen
+     // perteneciendo a Juan Carlos.
+     let anchors=[];
+     for(const r of cedRows){
+       if(!anchors.some(a=>Math.abs(a.y-r.y)<3))anchors.push({
+         y:r.y,cedClean:r.digits,minIdx:r.minIdx,maxIdx:r.maxIdx
+       });
+     }
+     const anchorsSec=anchors.slice().sort((a,b)=>a.minIdx-b.minIdx);
+     anchors.sort((a,b)=>b.y-a.y);
+
+     // CONTINUIDAD ENTRE PÁGINAS:
+     // Algunas compras largas se parten justo en el salto de página. En ese caso,
+     // la página siguiente empieza con cartones y/o el final del Pago Móvil, pero
+     // SIN repetir Nombre ni Cédula. Esos datos pertenecen al último registro de
+     // la página anterior y no deben quedar como "sin cliente".
+     if(p>1 && ultimoRegistroContinuable && anchorsSec.length){
+       const firstIdx=anchorsSec[0].minIdx;
+       let preItems=items.filter(it=>it.idx<firstIdx);
+
+       // Ignora encabezados y toma únicamente las columnas Cartones / Pago Móvil.
+       let preCartItems=preItems.filter(it=>it.x>=B2&&it.x<B3);
+       let preCartLines=lineasCartones(preCartItems,B2,B3)
+         .filter(line=>!/\bCARTONES?\b/i.test(line));
+       let preCartones=[...new Set(preCartLines.flatMap(line=>carts(line)))];
+
+       let prePayItems=preItems.filter(it=>it.x>=B3);
+       let prePayLines=lineasColumna(prePayItems,B3,W+5)
+         .filter(line=>!/\bPAGO\s*M[ÓO]VIL\b/i.test(line));
+
+       // Sólo consideramos continuación si hay números reales de cartón o datos
+       // reconocibles de Pago Móvil. Así un encabezado nunca se pega al cliente previo.
+       let prePayText=prePayLines.join(" ");
+       let tienePagoContinuado=!!(
+         detectarBanco(prePayText) ||
+         prePayLines.some(line=>tel(line)) ||
+         extraerCedulaPago(prePayLines)
+       );
+
+       if(preCartones.length || tienePagoContinuado){
+         // Añade cartones sin duplicarlos.
+         let actuales=new Set((ultimoRegistroContinuable.cartones||[]).map(String));
+         preCartones.forEach(c=>actuales.add(String(c)));
+         ultimoRegistroContinuable.cartones=[...actuales];
+
+         // Completa únicamente campos de pago que todavía estén vacíos.
+         if(!ultimoRegistroContinuable.bancoCodigo){
+           let b=detectarBanco(prePayText);
+           if(b){ultimoRegistroContinuable.banco=b;ultimoRegistroContinuable.bancoCodigo=b}
+         }
+         if(!ultimoRegistroContinuable.telefono){
+           for(let line of prePayLines){
+             let t=tel(line);
+             if(t){ultimoRegistroContinuable.telefono=t;break}
+           }
+         }
+         if(!ultimoRegistroContinuable.cedula){
+           let cp=extraerCedulaPago(prePayLines);
+           if(cp)ultimoRegistroContinuable.cedula=cp;
+         }
+
+         // La segunda verificación debe ver exactamente la misma continuación.
+         if(ultimoSegmentoContinuable){
+           let cset=new Set((ultimoSegmentoContinuable.cartLines||[]).flatMap(line=>carts(line)).map(String));
+           preCartones.forEach(c=>cset.add(String(c)));
+           // Guardamos líneas originales + una línea reconstruida para mantener trazabilidad.
+           ultimoSegmentoContinuable.cartLines=[
+             ...(ultimoSegmentoContinuable.cartLines||[]),
+             ...preCartLines
+           ];
+           ultimoSegmentoContinuable.payLines=[
+             ...(ultimoSegmentoContinuable.payLines||[]),
+             ...prePayLines
+           ];
+           ultimoSegmentoContinuable.paginas=[
+             ...new Set([...(ultimoSegmentoContinuable.paginas||[ultimoSegmentoContinuable.pagina]),p])
+           ];
+         }
+       }
+     }
+
+     // Procesamos en el ORDEN INTERNO REAL del PDF, no por cercanía visual.
+     // Cada registro se delimita entre una cédula y la siguiente cédula:
+     //   nombre = tramo anterior a la cédula actual (columna Nombre)
+     //   cartones + Pago Móvil = tramo posterior a la cédula actual
+     // Esto evita que un registro alto "regale" cartones o datos de pago al cliente siguiente.
+     for(let a=0;a<anchorsSec.length;a++){
+       const cur=anchorsSec[a];
+       const prev=a>0?anchorsSec[a-1]:null;
+       const next=a<anchorsSec.length-1?anchorsSec[a+1]:null;
+
+       // Nombre: sólo columna Nombre, entre la cédula anterior y la actual.
+       let nameItems=items.filter(it=>
+         it.idx>(prev?prev.maxIdx:-1) &&
+         it.idx<cur.minIdx &&
+         it.x<B1
+       );
+       let name=arreglarNombre(
+         agruparPorY(nameItems,4.2)
+           .map(r=>unirFragmentos(r.items))
+           .filter(Boolean)
+           .join(" ")
+       );
+       name=name
+         .replace(/Lista de Aprobados/ig,"")
+         .replace(/\bNombre\b/ig,"")
+         .replace(/\s+/g," ")
+         .trim();
+
+       // Todo lo que pertenece al registro después de su cédula y antes de la siguiente.
+       const fin=next?next.minIdx:Infinity;
+       let afterItems=items.filter(it=>it.idx>cur.maxIdx&&it.idx<fin);
+
+       // Cartones: exclusivamente columna Cartones.
+       let cartItems=afterItems.filter(it=>it.x>=B2&&it.x<B3);
+       let cartLines=lineasCartones(cartItems,B2,B3);
+       let cartones=[...new Set(cartLines.flatMap(line=>carts(line)))];
+       cartones=cartones.filter(c=>c!==cur.cedClean);
+
+       // Pago móvil: exclusivamente columna Pago Móvil DEL MISMO SEGMENTO.
+       let payItems=afterItems.filter(it=>it.x>=B3);
+       let payLines=lineasColumna(payItems,B3,W+5);
+       let payText=payLines.join(" ");
+
+       let banco=detectarBanco(payText);
+       let telefono="";
+       for(let line of payLines){let t=tel(line);if(t){telefono=t;break}}
+       if(!telefono){
+         let candidates=payText.replace(/[\u2010-\u2015\u2212]/g,"-").match(/(\+?\d[\d\s\-\.]{7,20})/g)||[];
+         for(let cand of candidates){let t=tel(cand);if(t){telefono=t;break}}
+       }
+       let cedPago=extraerCedulaPago(payLines);
+
+       // SEGUNDA FUENTE DE VERIFICACIÓN:
+       // guardamos el segmento crudo reconstruido del PDF ANTES de crear REGISTROS.
+       // Luego, cuando sale un ganador, la app vuelve a buscar su cartón aquí,
+       // sin consultar CARTON_INDEX ni la lista procesada.
+       let segmentoActual={
+         pagina:p,
+         paginas:[p],
+         cedulaCompra:cur.cedClean,
+         nombreTexto:name,
+         cartLines:cartLines.slice(),
+         payLines:payLines.slice()
+       };
+       RAW_SEGMENTOS_VERIFICACION.push(segmentoActual);
+
+       // No inventamos ni completamos datos de otra fila: si algo no se pudo leer,
+       // queda vacío y la app lo marca REVISAR.
+       if(name && cur.cedClean && cartones.length){
+         let registroActual={
+           nombre:name,
+           cedulaCompra:cur.cedClean,
+           cartones,
+           banco:banco,
+           bancoCodigo:banco,
+           telefono,
+           pagina:p,
+           cedula:cedPago
+         };
+         regs.push(registroActual);
+         ultimoRegistroContinuable=registroActual;
+         ultimoSegmentoContinuable=segmentoActual;
+       }
+     }
+   }
+
+   // No adivinamos propietarios por proximidad visual.
+   // Si una fila no tiene un ancla de cliente confiable, quedará marcada para revisión manual.
+
+   // Construimos REGISTROS con los clientes obtenidos por anclas confiables.
+   // Los cartones huérfanos se revisan después sin adjudicarlos por simple proximidad.
+   let vistos=new Set();
+   REGISTROS=regs.filter(r=>{
+     let k=[norm(r.nombre),r.cedulaCompra,(r.cartones||[]).join(","),r.telefono,r.cedula,r.pagina].join("|");
+     if(vistos.has(k))return false;
+     vistos.add(k);
+     return true;
+   });
+
+   // RECUPERACIÓN SEGURA DE CARTONES HUÉRFANOS:
+   // La propiedad del cartón es independiente de que Pago Móvil esté completo.
+   // Si la lectura global ve un cartón que no quedó asignado, buscamos ese mismo
+   // número en los segmentos crudos. Sólo lo recuperamos cuando existe UNA ÚNICA
+   // coincidencia de cliente; nunca adivinamos entre dos personas.
+   {
+     const asignadosAhora=new Set();
+     REGISTROS.forEach(r=>(r.cartones||[]).forEach(c=>asignadosAhora.add(String(Number(c)))));
+     const rawUnicos=[...new Set(RAW_CARTONES.map(c=>String(Number(c))).filter(c=>c!=="NaN"&&c!=="0"))];
+     for(const cc of rawUnicos){
+       if(asignadosAhora.has(cc))continue;
+       const candidatos=RAW_SEGMENTOS_VERIFICACION.filter(seg=>
+         (seg.cartLines||[]).some(line=>carts(line).map(x=>String(Number(x))).includes(cc))
+       );
+       if(candidatos.length!==1)continue;
+       const seg=candidatos[0];
+       if(!seg.nombreTexto)continue;
+       let reg=REGISTROS.find(r=>
+         norm(r.nombre)===norm(seg.nombreTexto) &&
+         Number(r.pagina||0)===Number(seg.pagina||0) &&
+         (!seg.cedulaCompra || !r.cedulaCompra || ced(r.cedulaCompra)===ced(seg.cedulaCompra))
+       );
+       if(!reg){
+         const payLines=seg.payLines||[], payText=payLines.join(" ");
+         let telefono="";
+         for(const line of payLines){const t=tel(line);if(t){telefono=t;break}}
+         reg={
+           nombre:arreglarNombre(seg.nombreTexto),
+           cedulaCompra:ced(seg.cedulaCompra)||"",
+           cartones:[],
+           banco:detectarBanco(payText),
+           bancoCodigo:detectarBanco(payText),
+           telefono,
+           pagina:seg.pagina||null,
+           cedula:extraerCedulaPago(payLines)
+         };
+         REGISTROS.push(reg);
+       }
+       if(!(reg.cartones||[]).map(String).includes(cc))reg.cartones.push(cc);
+       asignadosAhora.add(cc);
+     }
+   }
+
+   // No ocultamos duplicados automáticamente. Si el PDF realmente repite un cartón,
+   // la app lo mostrará en "Cartones duplicados" para revisión, en vez de adjudicárselo
+   // silenciosamente a la primera persona encontrada.
+   REGISTROS=REGISTROS.filter(r=>r.cartones.length);
+   construirIndice();
+   textoLista.value=REGISTROS.map(c=>`${c.nombre} | ${c.cedulaCompra} | ${c.cartones.join(", ")} | ${c.bancoCodigo||c.banco||""} | ${c.telefono||""} | ${c.cedula||""}`).join("\n");
+   completarDatosDesdePDF();
+   // Auditoría automática: si hay duplicados, faltantes o lecturas inconsistentes, los pagos quedan bloqueados.
+   auditarPDF();
+   mostrarEstado(pdf.numPages);
+   guardarEstadoAhora();
+  }catch(e){
+   console.error(e);
+   alert("Error leyendo PDF: "+e.message);
+   estado.innerText="Error leyendo PDF: "+e.message;
+ }
+}
+
+function procesarManual(){
+ PDF_CARGADO_DIRECTO=false;AUDITORIA_OK=false;
+ RAW_CARTONES=[];
+ RAW_SEGMENTOS_VERIFICACION=[];
+ REGISTROS=[];
+ textoLista.value.split(/\n/).map(x=>x.trim()).filter(Boolean).forEach(l=>{
+  let p=l.split("|").map(x=>x.trim());
+  if(p.length>=6)REGISTROS.push({nombre:arreglarNombre(p[0]),cedulaCompra:ced(p[1]),cartones:carts(p[2]),banco:p[3],bancoCodigo:codBanco(p[3]),telefono:tel(p[4]),cedula:ced(p[5]),pagina:null});
+ });
+ construirIndice();
+ mostrarEstado(0);
+ guardarEstadoAhora();
+}
+
+function mostrarEstado(pags){
+ let total=REGISTROS.reduce((a,c)=>a+c.cartones.length,0);
+ let unicos=new Set();REGISTROS.forEach(c=>c.cartones.forEach(k=>unicos.add(k)));
+ let b=REGISTROS.filter(c=>c.bancoCodigo).length;
+ let t=REGISTROS.filter(c=>c.telefono).length;
+ let completos=REGISTROS.filter(c=>c.bancoCodigo&&c.telefono&&c.cedula).length;
+ let d=duplicados();
+ let c60=buscar("60");
+ estado.innerText=`${pags?`PDF leído: ${pags} páginas.\n`:""}Registros cargados: ${REGISTROS.length}
+Cartones cargados: ${total}
+Cartones únicos: ${unicos.size}
+Bancos reconocidos: ${b}/${REGISTROS.length}
+Teléfonos reconocidos: ${t}/${REGISTROS.length}
+Pagos completos: ${completos}/${REGISTROS.length}
+Cartones duplicados: ${d.length}${d.length?`\nDuplicados: ${d.slice(0,30).join(", ")}`:""}${c60?`\nVerificación cartón 60: ${c60.nombre}`:""}\nAuditoría automática: ${AUDITORIA_OK?"✅ APROBADA":"⚠️ REVISAR MANUALMENTE"}.`;
+}
+function duplicados(){
+ let m={},d=[];
+ REGISTROS.forEach(c=>c.cartones.forEach(k=>m[k]=(m[k]||0)+1));
+ Object.keys(m).forEach(k=>{if(m[k]>1)d.push(k)});
+ return d;
+}
+function segundaFuenteCarton(c){
+ let target=String(c);
+ let hallados=[];
+ for(const seg of RAW_SEGMENTOS_VERIFICACION){
+   let cs=[...new Set((seg.cartLines||[]).flatMap(line=>carts(line)).map(String))];
+   if(!cs.includes(target))continue;
+   let payLines=seg.payLines||[],payText=payLines.join(" ");
+   let banco=detectarBanco(payText),telefono="";
+   for(const line of payLines){let t=tel(line);if(t){telefono=t;break}}
+   if(!telefono){
+     let candidates=payText.replace(/[\u2010-\u2015\u2212]/g,"-").match(/(\+?\d[\d\s\-\.]{7,20})/g)||[];
+     for(const cand of candidates){let t=tel(cand);if(t){telefono=t;break}}
+   }
+   hallados.push({
+     nombre:arreglarNombre(seg.nombreTexto),
+     cedulaCompra:ced(seg.cedulaCompra),
+     bancoCodigo:banco,
+     telefono,
+     cedula:extraerCedulaPagoGlobal(payLines),
+     pagina:seg.pagina,
+     paginas:seg.paginas||[seg.pagina]
+   });
+ }
+ return hallados;
+}
+function extraerCedulaPagoGlobal(lines){
+ for(let i=lines.length-1;i>=0;i--){
+   let raw=String(lines[i]||"").trim(),d=raw.replace(/[^\d]/g,"");
+   if(!d)continue;
+   if(/^0\d{3}$/.test(d))continue;
+   if(tel(raw))continue;
+   if(d.length>=4&&d.length<=12)return d;
+ }
+ return "";
+}
+function dobleVerificacionCarton(c){
+ if(!PDF_CARGADO_DIRECTO)return{ok:true,motivo:"Entrada manual: sin segunda lectura del PDF.",segundo:null};
+ let primario=buscar(c);
+ if(!primario)return{ok:false,motivo:"El índice principal no encontró el cartón.",segundo:null};
+ let hallados=segundaFuenteCarton(c);
+ if(hallados.length!==1){
+   return{ok:false,motivo:hallados.length===0?"La segunda lectura no encontró el cartón.":`La segunda lectura encontró el cartón en ${hallados.length} registros.`,segundo:hallados[0]||null};
+ }
+ let s=hallados[0],difs=[];
+ if(norm(primario.nombre)!==norm(s.nombre))difs.push(`nombre (${primario.nombre} / ${s.nombre})`);
+ if(ced(primario.cedulaCompra)&&ced(s.cedulaCompra)&&ced(primario.cedulaCompra)!==ced(s.cedulaCompra))difs.push(`cédula registro (${primario.cedulaCompra} / ${s.cedulaCompra})`);
+ if(Number(primario.pagina||0)!==Number(s.pagina||0))difs.push(`página (${primario.pagina} / ${s.pagina})`);
+ if((primario.bancoCodigo||"")!==(s.bancoCodigo||""))difs.push(`banco (${primario.bancoCodigo||"vacío"} / ${s.bancoCodigo||"vacío"})`);
+ if((primario.telefono||"")!==(s.telefono||""))difs.push(`teléfono (${primario.telefono||"vacío"} / ${s.telefono||"vacío"})`);
+ if(ced(primario.cedula)!==ced(s.cedula))difs.push(`cédula Pago Móvil (${primario.cedula||"vacío"} / ${s.cedula||"vacío"})`);
+ return difs.length
+   ?{ok:false,motivo:"Las dos lecturas no coinciden: "+difs.join(", "),segundo:s}
+   :{ok:true,motivo:"✅ DOBLE VERIFICACIÓN APROBADA: ambas lecturas coinciden.",segundo:s};
+}
+
+function verificarCarton(){
+ let c=carts(buscarCartonInput.value)[0];
+ if(!c){verCarton.innerText="Coloca un cartón válido.";return}
+ if(CARTON_CONFLICTS.has(String(c))){
+   let dueños=REGISTROS.filter(r=>(r.cartones||[]).map(String).includes(String(c))).map(r=>r.nombre);
+   verCarton.innerText=`⚠️ Cartón ${c}: DUPLICADO EN EL PDF/LECTURA\nClientes detectados: ${[...new Set(dueños)].join(" / ")}\nREVISAR MANUALMENTE antes de usar estos datos.`;
+   return;
+ }
+ let x=buscar(c),dv=dobleVerificacionCarton(c);
+ verCarton.innerText=x?`Cartón ${c}
+Nombre: ${x.nombre}
+Página PDF: ${x.pagina||"REVISAR"}${(()=>{let s=RAW_SEGMENTOS_VERIFICACION.find(z=>ced(z.cedulaCompra)===ced(x.cedulaCompra)&&norm(z.nombreTexto)===norm(x.nombre)&&z.pagina===x.pagina);return s&&s.paginas&&s.paginas.length>1?` (continúa en pág. ${s.paginas.slice(1).join(", ")})`:""})()}
+Estado auditoría: ${PDF_CARGADO_DIRECTO?(AUDITORIA_OK?"✅ APROBADA":"⚠️ REVISAR MANUALMENTE"):"Entrada manual"}
+Segunda verificación: ${dv.ok?"✅ APROBADA":"⚠️ REVISAR MANUALMENTE"}
+${dv.motivo}
+Cédula registro: ${x.cedulaCompra}
+Cartones del registro: ${x.cartones.join(", ")}
+Banco: ${x.bancoCodigo||x.banco||"NO ENCONTRADO"}
+Teléfono: ${x.telefono||"REVISAR"}
+Cédula Pago Móvil: ${x.cedula||"REVISAR"}${x.cedula&&x.cedulaCompra&&x.cedula!==x.cedulaCompra?"\n⚠️ Las cédulas NO coinciden. Verifica cuál corresponde.":""}`:`Cartón ${c}: NO ENCONTRADO`;
+}
+
+function cedulaEnRango(v){
+ let d=ced(v),n=Number(d);return /^\d{4,9}$/.test(d)&&Number.isFinite(n)&&n>=1000&&n<=999999999;
+}
+function estadoCedulas(x){
+ if(!x)return{mismatch:false,registro:"",pago:"",regOk:false,pagoOk:false};
+ let registro=ced(x.cedulaCompra),pago=ced(x.cedula);
+ return{registro,pago,regOk:cedulaEnRango(registro),pagoOk:cedulaEnRango(pago),mismatch:!!registro&&!!pago&&registro!==pago};
+}
+function warn(x){
+ let w=[];if(!x)return["NO ENCONTRADO"];
+ if(!x.bancoCodigo)w.push("Banco sin código claro");
+ if(!x.telefono)w.push("Teléfono dudoso");
+ let ec=estadoCedulas(x);
+ if(!ec.regOk)w.push("Cédula del registro con formato inusual");
+ if(!ec.pagoOk)w.push("Cédula de Pago Móvil con formato inusual");
+ if(ec.mismatch)w.push("Cédulas no coinciden");
+ return w;
+}
+function repartirPremio(total,cantidad){
+ let por=Math.floor(Number(total||0)/Math.max(1,cantidad));
+ return Array.from({length:cantidad},()=>por);
+}
+function textoPagoConCedula(x,m,cedElegida){
+ let w=[];if(!x.bancoCodigo)w.push("Banco sin código claro");if(!x.telefono)w.push("Teléfono dudoso");
+ if(!cedulaEnRango(cedElegida))w.push("Cédula seleccionada con formato inusual");
+ return `${fmt(m)}\n${x.telefono||"REVISAR"}\n${cedElegida||"REVISAR"}\n${x.bancoCodigo||"NO ENCONTRADO"}${w.length?`\n\n⚠️ Revisar: ${w.join(", ")}`:""}`;
+}
+function pagoIndividual(c,x,m){
+ if(!x)return `${fmt(m)}\nREVISAR\nREVISAR\nNO ENCONTRADO`;
+ let ec=estadoCedulas(x),cedDefault=ec.pago||ec.registro;
+ return textoPagoConCedula(x,m,cedDefault);
+}
+function detallePago(c,x,m){
+ if(!x)return `${c} - NO ENCONTRADO\n${pagoIndividual(c,x,m)}`;
+ let ec=estadoCedulas(x);
+ let s=`${c} - ${x.nombre}\nMonto: ${fmt(m)} Bs\nTeléfono: ${x.telefono||"REVISAR"}\nBanco: ${x.bancoCodigo||"NO ENCONTRADO"}`;
+ if(ec.mismatch||!ec.regOk||!ec.pagoOk){
+   s+=`\n⚠️ VERIFICAR CÉDULA\n🪪 Registro: ${ec.registro||"NO DISPONIBLE"}${ec.regOk?"":" ⚠️"}\n📲 Pago Móvil: ${ec.pago||"NO DISPONIBLE"}${ec.pagoOk?"":" ⚠️"}`;
+ }else{
+   s+=`\nCédula: ${ec.pago||ec.registro||"REVISAR"}`;
+ }
+ return s;
+}
+function pagoLinea(c,x,m){return detallePago(c,x,m)}
+function crearBotonesPago(id,pagos,ok){
+ let cont=document.getElementById(id);if(!cont)return;cont.innerHTML="";
+ pagos.forEach((p,idx)=>{
+   let x=p.x,m=p.monto,c=p.carton||"",ec=estadoCedulas(x);
+   let div=document.createElement("div");div.id=id+"_p"+idx;div.className="msg";div.innerText=detallePago(c,x,m);cont.appendChild(div);
+   if(!x)return;
+   if(PDF_CARGADO_DIRECTO&&/^\d{1,4}$/.test(String(c))){
+     let dv=dobleVerificacionCarton(c);
+     if(!dv.ok){
+       let aviso=document.createElement("div");aviso.className="warnbox";
+       aviso.innerText="⚠️ REVISAR MANUALMENTE: "+dv.motivo+"\nLos datos detectados se muestran abajo; compáralos con el PDF antes de usarlos.";
+       cont.appendChild(aviso);
+     }
+   }
+   if(!x.telefono||!x.bancoCodigo){
+     let aviso=document.createElement("div");aviso.className="warnbox";
+     aviso.innerText="⚠️ REVISAR MANUALMENTE: falta o es dudoso el teléfono/banco. La app muestra lo que pudo leer; confirma estos datos en el PDF antes de usarlos.";
+     cont.appendChild(aviso);
+   }
+   if(ec.mismatch||!ec.regOk||!ec.pagoOk){
+     let info=document.createElement("div");info.className="warnbox";info.innerText="⚠️ Las cédulas requieren revisión. Elige cuál deseas usar para copiar el pago.";cont.appendChild(info);
+     let pagadoBtn=agregarBotonPagado(cont,id,p,true);
+     let b1=document.createElement("button");b1.className="copy";b1.innerText=`Usar cédula del registro: ${ec.registro||"NO DISPONIBLE"}`;
+     b1.onclick=async()=>{if(!ec.registro){alert("No hay cédula de registro");return}await copiarTexto(textoPagoConCedula(x,m,ec.registro),ok);habilitarBotonPagado(pagadoBtn)};cont.appendChild(b1);
+     let b2=document.createElement("button");b2.className=ec.pagoOk?"copy":"clear";b2.innerText=`Usar cédula Pago Móvil: ${ec.pago||"NO DISPONIBLE"}${ec.pagoOk?"":" ⚠️"}`;
+     b2.onclick=async()=>{if(!ec.pago){alert("No hay cédula de Pago Móvil");return}await copiarTexto(textoPagoConCedula(x,m,ec.pago),ok);habilitarBotonPagado(pagadoBtn)};cont.appendChild(b2);
+   }else{
+     let b=document.createElement("button");b.className="copy";b.innerText=`Copiar Pago #${idx+1} - ${p.nombre}`;
+     let ce=ec.pago||ec.registro;b.onclick=async()=>copiarTexto(textoPagoConCedula(x,m,ce),ok);cont.appendChild(b);
+     agregarBotonPagado(cont,id,p,false);
+   }
+ });
+}
+async function copiarTexto(t,ok){
+ try{await navigator.clipboard.writeText(t)}catch(e){let a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove()}
+ let o=document.getElementById(ok);if(o){o.style.display="block";setTimeout(()=>o.style.display="none",1200)}
+}
+function validarGanadoresAntesDePagar(cs){
+ let bloqueantes=[],avisos=[];
+ if(PDF_CARGADO_DIRECTO&&!AUDITORIA_OK) avisos.push("La auditoría general del PDF tiene diferencias.");
+ let repetidos=[...new Set(cs.filter((c,i)=>cs.indexOf(c)!==i))];
+ if(repetidos.length) bloqueantes.push(...repetidos.map(c=>`${c}: REPETIDO EN LA ENTRADA`));
+ [...new Set(cs)].forEach(c=>{
+   let st=estadoCarton(c);
+   if(st!=="OK"){bloqueantes.push(`${c}: ${st}`);return}
+   if(PDF_CARGADO_DIRECTO){
+     let dv=dobleVerificacionCarton(c);
+     if(!dv.ok)avisos.push(`${c}: ${dv.motivo}`);
+   }
+ });
+ if(bloqueantes.length){
+   alert("No hay un único cliente identificado para estos cartones; no voy a adjudicarlos automáticamente:\n"+bloqueantes.join("\n")+"\n\nRevísalos manualmente en el PDF.");
+   return false;
+ }
+ if(avisos.length){
+   alert("⚠️ REVISIÓN MANUAL RECOMENDADA\n\nLa app seguirá mostrando los datos detectados; revísalos contra el PDF antes de usarlos.\n\n"+avisos.join("\n"));
+ }
+ return true;
+}
+
+function mensajeVideoGanadorFinal(nombre){
+ let n=String(nombre||"").trim();
+ return `Hola${n?" "+n:""} 👋💜 ¡Felicidades nuevamente por ganar nuestro Cartón Lleno Final! 🥳🎉
+
+Queríamos pedirte, si es posible, un pequeño video contándonos tu experiencia y recomendando BingoAndino75 para compartirlo en nuestras redes sociales. 🎥💜
+
+🎁 Como agradecimiento te regalamos 4 cartones gratis para nuestro próximo sorteo.
+
+Si puedes enviarlo con la opción HD, sería de muchísima ayuda para que conserve una buena calidad. 🙌✨
+
+¡Muchas gracias por ser parte de BingoAndino75! 💜`;
+}
+function numeroWhatsAppGanador(x){
+ let t=String((x&&x.telefono)||"").replace(/\D/g,"");
+ if(!t)return "";
+ // Los teléfonos venezolanos del PDF suelen venir como 0412/0414/0416/0422/0424/0426...
+ // wa.me necesita código de país y sin el 0 inicial.
+ if(/^0(412|414|416|422|424|426)\d{7}$/.test(t))return "58"+t.slice(1);
+ if(/^(412|414|416|422|424|426)\d{7}$/.test(t))return "58"+t;
+ if(/^58(412|414|416|422|424|426)\d{7}$/.test(t))return t;
+ return "";
+}
+function botonVideoGanadorFinal(g){
+ let b=document.createElement("button");
+ b.className="wa";
+ b.innerText="🎥 Pedir video al ganador";
+ b.onclick=()=>{
+   let tel=numeroWhatsAppGanador(g.x);
+   if(!tel){
+     alert("⚠️ No pude identificar un número de WhatsApp válido para este ganador. Revisa el teléfono en el PDF.");
+     return;
+   }
+   location.href="https://wa.me/"+tel+"?text="+encodeURIComponent(mensajeVideoGanadorFinal(g.nombre));
+ };
+ return b;
+}
+
+function genR(i){
+ limpiarRonda(i);
+ let p=monto(document.getElementById(`pre${i}`).value),cs=carts(document.getElementById(`car${i}`).value),nm=document.getElementById(`nom${i}`).value;
+ if(!p||!cs.length){alert("Coloca premio y cartón");return false}
+ if(!validarGanadoresAntesDePagar(cs))return false;
+ let por=cs.length===1?Math.round(p):Math.floor(p/cs.length),gs=[],ps=[],ind=[];
+ cs.forEach(c=>{
+   let x=buscar(c);
+   gs.push(`🔥 🎟️ ${c} ${x.nombre} 🎉`);
+   ps.push(detallePago(c,x,por));
+   ind.push({nombre:x.nombre,carton:c,x,monto:por});
+ });
+ let titulo;
+ if(/CARTÓN LLENO FINAL/i.test(nm)){
+   titulo=cs.length>1?"GANADORES DEL CARTÓN LLENO FINAL":"GANADOR DEL CARTÓN LLENO FINAL";
+ }else{
+   titulo=cs.length>1?`GANADORES DE LA ${nm}`:`GANADOR DE LA ${nm}`;
+ }
+ let msg=`🥳✨ ${titulo} ✨🥳\n🎰 BingoAndino75\n🏆 Premio: ${fmt(p)} Bs`;
+ if(cs.length>1)msg+=`\n💰 ${fmt(por)} Bs c/u`;
+ msg+=`\n${gs.join("\n")}\n🙌💜 ¡Felicidades! 🎊`;
+ document.getElementById(`msg${i}`).innerText=msg;
+ document.getElementById(`pag${i}`).innerText="📲 DATOS PARA PAGO MÓVIL\n"+ps.join("\n\n");
+ crearBotonesPago(`pagosBtns${i}`,ind,`ok${i}`);
+ if(/CARTÓN LLENO FINAL/i.test(nm)){
+   let cont=document.getElementById(`pagosBtns${i}`);
+   ind.forEach(g=>cont.appendChild(botonVideoGanadorFinal(g)));
+ }
+ guardarEstadoAhora();
+ return true;
+}
+
+function generarPozo(){
+ limpiarPozo();
+ let p=monto(premioPozo.value),cs=carts(cartonPozo.value);
+ if(!p||!cs.length){alert("Coloca el premio del pozo y el/los cartón(es) ganador(es)");return false}
+ if(!validarGanadoresAntesDePagar(cs))return false;
+ let por=cs.length===1?Math.round(p):Math.floor(p/cs.length),gs=[],ps=[],ind=[];
+ cs.forEach(c=>{
+   let x=buscar(c);
+   gs.push(`🔥 🎟️ ${c} ${x.nombre} 🎉`);
+   ps.push(detallePago(c,x,por));
+   ind.push({nombre:x.nombre,carton:c,x,monto:por});
+ });
+ let msg=`💰🔥 ¡POZO ACUMULADO GANADO! 🔥💰\n🎰 BingoAndino75\n🏆 Premio del pozo: ${fmt(p)} Bs`;
+ if(cs.length>1)msg+=`\n💰 ${fmt(por)} Bs c/u`;
+ msg+=`\n${gs.join("\n")}\n🙌💜 ¡Felicidades! 🎊`;
+ msgPozo.innerText=msg;
+ pagPozo.innerText=`📲 DATOS PARA PAGO MÓVIL\n${ps.join("\n\n")}`;
+ crearBotonesPago("pagosBtnsPozo",ind,"okPozo");
+ guardarEstadoAhora();
+ return true;
+}
+
+function generarCon(){
+ limpiarCon();
+ let p=monto(premioCon.value),cs=carts(cartonesCon.value);
+ if(!p||!cs.length){alert("Coloca premio y cartones");return false}
+ if(!validarGanadoresAntesDePagar(cs))return false;
+ let gs=[],ps=[],ind=[];
+ cs.forEach(c=>{
+   let x=buscar(c);
+   gs.push(`🔥 🎟️ ${c} ${x.nombre} 🎉`);
+   ps.push(detallePago(c,x,p));
+   ind.push({nombre:x.nombre,carton:c,x,monto:p});
+ });
+ msgCon.innerText=`🥳✨ PREMIOS DE CONSOLACIÓN ✨🥳\n🎰 BingoAndino75\n🏆 Premio: ${fmt(p)} Bs c/u\n${gs.join("\n")}\n🙌💜 ¡Felicidades! 🎊`;
+ pagCon.innerText=`📲 DATOS PARA PAGO MÓVIL\n${ps.join("\n\n")}`;
+ crearBotonesPago("pagosBtnsCon",ind,"okCon");
+ guardarEstadoAhora();
+ return true;
+}
+
+async function copiar(id,ok){let t=document.getElementById(id).innerText;if(!t){alert("No hay texto");return}try{await navigator.clipboard.writeText(t)}catch(e){let a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove()}let o=document.getElementById(ok);if(o){o.style.display="block";setTimeout(()=>o.style.display="none",1200)}}
+function wa(id){let t=document.getElementById(id).innerText;if(!t){alert("No hay anuncio");return}location.href="https://wa.me/?text="+encodeURIComponent(t)}
+function generarTodos(){
+ for(let i=1;i<=+cant.value;i++){let pre=document.getElementById(`pre${i}`).value.trim(),car=document.getElementById(`car${i}`).value.trim();if(pre||car){if(!pre||!car){alert(`Completa premio y cartón(es) de la ronda ${i}`);return false}if(!genR(i))return false}}
+ let pp=premioPozo.value.trim(),cp=cartonPozo.value.trim();if(pp||cp){if(!pp||!cp){alert("Completa premio y cartón del Pozo acumulado");return false}if(!generarPozo())return false}
+ let pc=premioCon.value.trim(),cc=cartonesCon.value.trim();if(pc||cc){if(!pc||!cc){alert("Completa premio y cartones de consolación");return false}if(!generarCon())return false}
+ if(TOP_ACTIVO&&REGISTROS.length){if(!calcularTopCompras())return false}
+ return true;
+}
+function textoTodos(){if(!generarTodos())return"";let a=[];for(let i=1;i<=+cant.value;i++){let t=document.getElementById(`msg${i}`).innerText;if(t)a.push(t)}if(msgPozo.innerText)a.push(msgPozo.innerText);if(msgCon.innerText)a.push(msgCon.innerText);if(TOP_ACTIVO&&msgTop.innerText)a.push(msgTop.innerText);return a.join("\n\n")}
+function copiarTodos(){let txt=textoTodos();if(!txt)return;let d=document.createElement("div");d.id="tmp";d.innerText=txt;d.style.display="none";document.body.appendChild(d);copiar("tmp","okRes");d.remove()}
+function waTodos(){let t=textoTodos();if(t)location.href="https://wa.me/?text="+encodeURIComponent(t)}
+function resumen(){
+ res.innerText="";
+ if(!generarTodos())return false;
+ let r="🏆 RESUMEN DE GANADORES\n🎰 BingoAndino75";
+ for(let i=1;i<=+cant.value;i++){
+  let cs=carts(document.getElementById(`car${i}`).value);
+  if(cs.length){
+    let p=monto(document.getElementById(`pre${i}`).value),por=cs.length===1?Math.round(p):Math.floor(p/cs.length);
+    r+=`\n\n${document.getElementById(`nom${i}`).value}\n🏆 Premio: ${fmt(p)} Bs`;
+    if(cs.length>1)r+=`\n💰 ${fmt(por)} Bs c/u`;
+    cs.forEach(c=>{let x=buscar(c);r+=`\n🔥 🎟️ ${c} ${x?x.nombre:"NO ENCONTRADO"}${cs.length>1?` - ${fmt(por)} Bs`:""}`});
+  }
+ }
+ let cps=carts(cartonPozo.value),pp=monto(premioPozo.value);
+ if(cps.length&&pp){
+   let por=cps.length===1?Math.round(pp):Math.floor(pp/cps.length);
+   r+=`\n\n💰 POZO ACUMULADO\n🏆 Premio: ${fmt(pp)} Bs`;
+   if(cps.length>1)r+=`\n💰 ${fmt(por)} Bs c/u`;
+   cps.forEach(c=>{let xp=buscar(c);r+=`\n🔥 🎟️ ${c} ${xp?xp.nombre:"NO ENCONTRADO"}${cps.length>1?` - ${fmt(por)} Bs`:""}`});
+ }
+ let co=carts(cartonesCon.value),pc=monto(premioCon.value);
+ if(co.length){r+="\n\n🎁 PREMIOS DE CONSOLACIÓN";if(pc)r+=`\n🏆 Premio: ${fmt(pc)} Bs c/u`;co.forEach(c=>{let x=buscar(c);r+=`\n🔥 🎟️ ${c} ${x?x.nombre:"NO ENCONTRADO"}${pc?` - ${fmt(pc)} Bs`:""}`})}
+ if(TOP_ACTIVO&&TOP_RANKING.length){
+   let bs=[monto(topBs1.value),monto(topBs2.value),monto(topBs3.value)],med=["🥇","🥈","🥉"];
+   r+="\n\n🏅 TOP DE COMPRAS";
+   TOP_RANKING.forEach((x,i)=>{r+=`\n${med[i]} TOP ${i+1}: ${x.nombre} — ${x.cantidad} cartones — ${fmt(bs[i])} Bs`});
+ }
+ res.innerText=r;
+ return true;
+}
+
+function generarImagen(){
+ if(!generarTodos())return false;
+ const canvas=canvasImg,ctx=canvas.getContext("2d");canvas.width=1080;canvas.height=1080;
+ let bg=ctx.createRadialGradient(540,300,40,540,540,820);bg.addColorStop(0,"#3b005d");bg.addColorStop(.5,"#12001d");bg.addColorStop(1,"#020004");ctx.fillStyle=bg;ctx.fillRect(0,0,1080,1080);
+ function fit(text,x,y,w,s,color="#fff"){ctx.textAlign="center";ctx.textBaseline="middle";do{ctx.font="bold "+s+"px Arial";s--}while(ctx.measureText(text).width>w&&s>12);ctx.lineWidth=4;ctx.strokeStyle="#000";ctx.strokeText(text,x,y);ctx.fillStyle=color;ctx.fillText(text,x,y)}
+ fit("¡FELICITACIONES!",540,65,1000,62,"#ffd700");fit("BingoAndino75",540,135,850,52,"#fff");fit(fechaSorteo.value||"",540,190,700,28,"#fff");
+ let n=+cant.value,y=250,colors=["#b000ff","#0084ff","#00b936","#ff7b00","#e60070"];
+ for(let i=1;i<n;i++){let cs=carts(document.getElementById(`car${i}`).value);if(!cs.length)continue;let p=monto(document.getElementById(`pre${i}`).value),ms=repartirPremio(Math.round(p),cs.length),ig=ms.every(m=>m===ms[0]);ctx.fillStyle="rgba(0,0,0,.75)";ctx.strokeStyle=colors[(i-1)%5];ctx.lineWidth=4;ctx.strokeRect(45,y,585,80);ctx.fillRect(45,y,585,80);fit(document.getElementById(`nom${i}`).value,125,y+40,150,28,"#fff");fit(cs.map((c,idx)=>{let x=buscar(c);return c+" "+(x?x.nombre:"NO")+(ig?"":" "+fmt(ms[idx])+" Bs")}).join(" | "),365,y+35,360,23,"#fff");fit(ig?(fmt(ms[0])+" Bs"+(cs.length>1?" c/u":"")):"Reparto exacto",540,y+63,160,22,"#ffd700");y+=95}
+ let fcs=carts(document.getElementById(`car${n}`).value),fp=monto(document.getElementById(`pre${n}`).value),fms=fcs.length?repartirPremio(Math.round(fp),fcs.length):[],fig=fms.length?fms.every(m=>m===fms[0]):true;
+ ctx.fillStyle="rgba(0,0,0,.82)";ctx.strokeStyle="#ffd700";ctx.lineWidth=5;ctx.strokeRect(660,250,370,455);ctx.fillRect(660,250,370,455);
+ fit("CARTÓN LLENO FINAL",845,305,330,34,"#ffd700");fit("Premio: "+fmt(fp)+" Bs",845,370,320,30,"#ffd700");if(fcs.length>1)fit(fig?(fmt(fms[0])+" Bs c/u"):"Reparto exacto",845,425,310,34,"#ffd700");let fy=480;fcs.slice(0,5).forEach((c,idx)=>{let x=buscar(c);fit("🔥 "+c+" "+(x?x.nombre:"NO")+(fig?"":" "+fmt(fms[idx])+" Bs"),845,fy,330,26,"#fff");fy+=45});
+ let co=carts(cartonesCon.value),pc=monto(premioCon.value);fit("🎁 PREMIOS DE CONSOLACIÓN 🎁",540,765,850,34,"#ffd700");co.slice(0,8).forEach((c,idx)=>{let x=idx%2?585:80,yy=820+Math.floor(idx/2)*50,g=buscar(c);ctx.fillStyle="#fff";ctx.fillRect(x,yy,420,36);fit(c+" "+(g?g.nombre:"NO")+" "+(pc?fmt(pc)+" Bs":""),x+210,yy+18,390,20,"#111")});fit("💜 Gracias a todos por participar 💜",540,1040,850,34,"#fff");
+ previewImg.src=canvas.toDataURL("image/png");previewImg.style.display="block";
+ return true;
+}
+function descargarImagen(){if(!generarImagen())return;let a=document.createElement("a");a.href=canvasImg.toDataURL("image/png");a.download="ganadores_bingo_andino75.png";a.click()}
+function limpiarTodo(){nuevoSorteo()}
+
+// Guardado automático de cualquier cambio de formulario.
+document.addEventListener("input",e=>{
+ if(e.target&&["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName))programarGuardado();
+});
+document.addEventListener("change",e=>{
+ if(e.target&&["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName))programarGuardado();
+});
+window.addEventListener("pagehide",guardarEstadoAhora);
+document.addEventListener("visibilitychange",()=>{if(document.hidden)guardarEstadoAhora()});
+
+// Estado inicial y recuperación.
+actualizarEtiquetasRondas();
+setTimeout(async()=>{if(!(await restaurarEstado()))guardarEstadoAhora()},0);
+</script>
+<script>
+if("serviceWorker" in navigator && location.protocol === "https:"){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(e=>console.warn("Sin modo sin conexión",e)));}
+</script>
+</body>
+</html>
