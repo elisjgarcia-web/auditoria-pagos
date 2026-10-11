@@ -35,8 +35,8 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 <div id="saveStatus" class="savebar">💾 Guardado automático activado</div>
 <div class="card">
   <div class="title">📄 Informe PDF del sorteo</div>
-  <div class="small">Descarga el resumen de ganadores del día con fecha, cartones, premios, total repartido, consolación, pozo y Top cuando correspondan. No incluye datos bancarios personales.</div>
-  <button class="copy" onclick="descargarInformePDF()">📄 Descargar PDF de ganadores</button>
+  <div class="small">Descarga un informe privado del sorteo con todos los ganadores, sus premios, teléfonos, bancos, cédulas de Pago Móvil, consolación, pozo y Top cuando correspondan. Contiene datos personales: no compartir públicamente.</div>
+  <button class="copy" onclick="descargarInformePDF()">📄 Descargar PDF completo del sorteo</button>
   <div id="estadoInformePDF" class="small"></div>
 </div>
 
@@ -338,7 +338,7 @@ async function descargarInformePDF(){
    const montoTotal=num(premio),por=Math.floor(montoTotal/cartones.length);
    const detalles=cartones.map(c=>{
     const persona=buscar(c);
-    return "Cartón "+c+" - "+(persona?persona.nombre:"Nombre no encontrado")+" - "+fmt(por)+" Bs";
+    return detallePago(c,persona,por);
    });
    lineas.push({titulo,detalle:detalles,monto:montoTotal});
    total+=montoTotal;ganadores+=cartones.length;
@@ -352,13 +352,15 @@ async function descargarInformePDF(){
   const cons=carts(document.getElementById("cartonesCon").value);
   if(cons.length){
    const p=num(document.getElementById("premioCon").value);
-   const detalles=cons.map(c=>{const persona=buscar(c);return "Cartón "+c+" - "+(persona?persona.nombre:"Nombre no encontrado")+" - "+fmt(p)+" Bs"});
+   const detalles=cons.map(c=>detallePago(c,buscar(c),p));
    lineas.push({titulo:"CONSOLACIÓN",detalle:detalles,monto:p*cons.length});
    total+=p*cons.length;ganadores+=cons.length;
   }
   const topTexto=(document.getElementById("topResultados").innerText||"").trim();
   const lineasTop=topTexto?topTexto.split("\n").filter(x=>x.trim()):[];
   if(lineasTop.length)lineas.push({titulo:"TOP DE COMPRADORES (INFORMATIVO)",detalle:lineasTop,monto:0});
+  const topPagos=(document.getElementById("pagTop")?.innerText||"").trim();
+  if(topPagos)lineas.push({titulo:"DATOS DE PAGO TOP",detalle:[topPagos],monto:0});
   if(!lineas.some(x=>x.detalle.some(y=>y!=="Sin ganador registrado"))){alert("Primero registra los cartones ganadores del sorteo.");status.innerText="";return}
   let y=19;
   const salto=(alto=7)=>{if(y+alto>278){doc.addPage();y=18}};
@@ -376,14 +378,15 @@ async function descargarInformePDF(){
   for(const item of lineas){
    salto(18);doc.setDrawColor(205,215,225);doc.line(16,y,194,y);y+=5;
    texto(item.titulo,11,true);
-   for(const detalle of item.detalle)texto(detalle,10);
+   for(const detalle of item.detalle){for(const linea of String(detalle).split("\\n"))texto(linea,9)}
    if(item.monto)texto("Premio de esta sección: "+fmt(item.monto)+" Bs",9,true);
    y+=3;
   }
   salto(25);doc.line(16,y,194,y);y+=7;
   texto("TOTAL DE PREMIOS REGISTRADOS: "+fmt(total)+" Bs",12,true);
   texto("Cartones ganadores registrados: "+ganadores,10);
-  texto("El total no incluye montos de Top si no están registrados como premios por ronda.",8);
+  texto("Total calculado con rondas, consolación y pozo registrados. Los premios Top se muestran por separado.",8);
+  texto("Documento privado: contiene teléfonos, cédulas y datos de Pago Móvil. No compartir públicamente.",8,true);
   const fechaArchivo=new Date().toISOString().slice(0,10);
   doc.save("BingoAndino75_Ganadores_"+fechaArchivo+".pdf");
   status.innerText="✅ Informe PDF generado. Revisa Descargas.";
