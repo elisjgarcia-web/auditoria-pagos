@@ -93,11 +93,18 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 
   <div id="opcionesEscalera" class="card hidden" style="margin-top:10px">
     <div class="title">🪜 Configuración de escalera</div>
-    <div class="small">Los premios suben en cada ronda. La última ronda es el Cartón Lleno Final y también forma parte de la escalera. Puedes ajustar cada premio en Bs después de convertir.</div>
+    <div class="small">El Cartón Lleno Final forma parte de la escalera. Consolación y pozo acumulado se calculan aparte.</div>
+    <label>Modalidad de escalera</label>
+    <select id="escaleraModo" onchange="previsualizarEscalera();programarGuardado()">
+      <option value="total">Automática · total a repartir</option>
+      <option value="manual">Manual · premio por ronda</option>
+    </select>
     <div class="row2">
-      <div><label>$ Primera ronda</label><input id="escaleraInicio" inputmode="decimal" value="40" oninput="previsualizarEscalera();programarGuardado()"></div>
-      <div><label>$ Aumento por ronda</label><input id="escaleraPaso" inputmode="decimal" value="10" oninput="previsualizarEscalera();programarGuardado()"></div>
+      <div><label>$ Total a repartir en rondas</label><input id="escaleraTotal" inputmode="decimal" value="400" oninput="previsualizarEscalera();programarGuardado()"></div>
+      <div id="escaleraInicioWrap"><label>$ Primera ronda</label><input id="escaleraInicio" inputmode="decimal" value="40" oninput="previsualizarEscalera();programarGuardado()"></div>
     </div>
+    <input id="escaleraPaso" type="hidden" value="10">
+    <div id="escaleraManualWrap" class="hidden"></div>
     <div id="vistaEscalera" class="msg"></div>
     <button class="sec" onclick="previsualizarEscalera()">🪜 Ver distribución</button>
   </div>
@@ -275,7 +282,7 @@ async function borrarIDB(){
 function datosFormularioGuardables(){
  let campos=[
   "fechaSorteo","cartonesDia","cant","plantillaPremios","tasaCambio",
-  "usdGrupo1","usdGrupo2","usdFinal","usdConsol","usdPozo","escaleraInicio","escaleraPaso",
+  "usdGrupo1","usdGrupo2","usdFinal","usdConsol","usdPozo","escaleraInicio","escaleraPaso","escaleraModo","escaleraTotal","escaleraManual1","escaleraManual2","escaleraManual3","escaleraManual4","escaleraManual5","escaleraManual6",
   "topUsd1","topUsd2","topUsd3","topBs1","topBs2","topBs3",
   "premioPozo","cartonPozo","premioCon","cartonesCon","buscarCartonInput","textoLista"
  ];
@@ -570,11 +577,57 @@ function limpiarTop(){if(typeof msgTop!=="undefined"){msgTop.innerText="";pagTop
 function num(v){return Number(String(v||"").replace(",",".").replace(/[^\d.]/g,""))||0}
 
 function esEscalera(){return /^escalera[56]$/.test(plantillaPremios.value)}
+function calcularEscalera(){
+ const n=Number(cant.value), total=num(escaleraTotal.value), ini=num(escaleraInicio.value);
+ const manual=escaleraModo.value==="manual";
+ let valores=[],error="";
+ if(manual){
+   for(let i=1;i<=n;i++){
+     const el=document.getElementById("escaleraManual"+i);
+     valores.push(el?num(el.value):0);
+   }
+   if(valores.some(v=>v<=0))error="Completa todos los premios con montos mayores que cero.";
+ }else{
+   if(total<=0||ini<=0)error="Indica un total y un primer premio mayores que cero.";
+   const paso=n>1?2*(total-n*ini)/(n*(n-1)):0;
+   if(!error&&paso<=0)error="El total no alcanza para una escalera ascendente con ese premio inicial.";
+   if(!error){
+     // Redondeo a centavos, conservando exactamente el total en la última ronda.
+     let centavos=Math.round(total*100),acum=0;
+     for(let i=0;i<n-1;i++){let c=Math.round((ini+i*paso)*100);valores.push(c/100);acum+=c}
+     valores.push((centavos-acum)/100);
+     if(valores.some((v,i)=>v<=0||(i>0&&v<=valores[i-1])))error="No es posible formar una escalera ascendente con estos valores. Ajusta el total o el premio inicial.";
+   }
+ }
+ const suma=Math.round(valores.reduce((a,b)=>a+b,0)*100)/100;
+ if(!error&&total>0&&Math.abs(suma-total)>0.009)error="La suma ($"+suma.toFixed(2)+") no coincide con el total a repartir ($"+total.toFixed(2)+").";
+ if(!error&&valores.some((v,i)=>i>0&&v<=valores[i-1]))error="Los premios deben subir en cada ronda.";
+ return {valores,total,suma,error};
+}
+function prepararCamposEscalera(){
+ const n=Number(cant.value);
+ for(let i=1;i<=6;i++){
+   let el=document.getElementById("escaleraManual"+i);
+   if(!el){
+     let div=document.createElement("div");
+     div.innerHTML='<label>'+(i===n?'$ Cartón Lleno Final':'$ Ronda '+i)+'</label><input id="escaleraManual'+i+'" inputmode="decimal" placeholder="Ej: 50" oninput="previsualizarEscalera();programarGuardado()">';
+     escaleraManualWrap.appendChild(div);
+   }else{
+     el.previousElementSibling.innerText=i===n?'$ Cartón Lleno Final':'$ Ronda '+i;
+   }
+   document.getElementById("escaleraManual"+i).parentElement.classList.toggle("hidden",i>n);
+ }
+}
 function previsualizarEscalera(){
- let n=Number(cant.value),ini=num(escaleraInicio.value),paso=num(escaleraPaso.value);
  if(!esEscalera())return;
- let a=[];for(let i=1;i<=n;i++)a.push(`${i===n?'LLENO FINAL':`Ronda ${i}`}: $${(ini+(i-1)*paso).toFixed(2).replace(/\.00$/,'')}`);
- vistaEscalera.innerText=a.join('  →  ')+`\nTotal rondas: $${(n*ini+paso*n*(n-1)/2).toFixed(2)}`;
+ prepararCamposEscalera();
+ const manual=escaleraModo.value==="manual";
+ escaleraInicioWrap.classList.toggle("hidden",manual);
+ escaleraManualWrap.classList.toggle("hidden",!manual);
+ const r=calcularEscalera();
+ const lineas=r.valores.map((v,i)=>(i===r.valores.length-1?"LLENO FINAL":"Ronda "+(i+1))+": $"+v.toFixed(2));
+ vistaEscalera.innerText=(lineas.join("  →  ")||"Introduce los premios")+"\nTotal rondas: $"+r.suma.toFixed(2)+(r.total>0?" / $"+r.total.toFixed(2):"")+(r.error?"\n⚠️ "+r.error:"\n✅ Premios cuadrados correctamente");
+ vistaEscalera.style.color=r.error?"#ffb5a9":"";
 }
 function actualizarEtiquetasRondas(){
  opcionesEscalera.classList.toggle("hidden",!esEscalera());
@@ -613,7 +666,7 @@ function aplicarPlantilla(){
  if(t==="escalera5"||t==="escalera6"){
    cant.value=t==="escalera5"?"5":"6";
    crearRondas();actualizarEtiquetasRondas();
-   estadoConversion.innerText="🪜 Escalera activada. Configura el inicio y el aumento; después convierte a Bs.";
+   estadoConversion.innerText="🪜 Escalera activada. Elige distribución automática o manual y comprueba el total antes de convertir.";
    programarGuardado();return;
  }
  let p=presetValores(t); if(!p)return;
@@ -646,9 +699,9 @@ function convertirPremios(){
  if(!tasa){alert("Coloca la tasa Bs/$");return false}
  let n=+cant.value,g1=num(usdGrupo1.value),g2=num(usdGrupo2.value),fin=num(usdFinal.value),con=num(usdConsol.value),pozo=num(usdPozo.value);
  if(esEscalera()){
-   let ini=num(escaleraInicio.value),paso=num(escaleraPaso.value);
-   if(ini<=0||paso<=0){alert("Indica un premio inicial y aumento por ronda mayores que cero.");return false}
-   for(let i=1;i<=n;i++)document.getElementById(`pre${i}`).value=Math.round((ini+(i-1)*paso)*tasa);
+   const esc=calcularEscalera();
+   if(esc.error){alert("⚠️ "+esc.error);previsualizarEscalera();return false}
+   for(let i=1;i<=n;i++)document.getElementById(`pre${i}`).value=Math.round(esc.valores[i-1]*tasa);
  }else
  if(n===5){
    for(let i=1;i<=4;i++)document.getElementById(`pre${i}`).value=Math.round(g1*tasa);
