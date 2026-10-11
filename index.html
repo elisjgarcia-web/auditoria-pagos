@@ -34,6 +34,13 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 <div class="sub">PDF + pagos + conversión $/Bs + Top + doble verificación</div>
 <div id="saveStatus" class="savebar">💾 Guardado automático activado</div>
 <div class="card">
+  <div class="title">📄 Informe PDF del sorteo</div>
+  <div class="small">Descarga el resumen de ganadores del día con fecha, cartones, premios, total repartido, consolación, pozo y Top cuando correspondan. No incluye datos bancarios personales.</div>
+  <button class="copy" onclick="descargarInformePDF()">📄 Descargar PDF de ganadores</button>
+  <div id="estadoInformePDF" class="small"></div>
+</div>
+
+<div class="card">
   <div class="title">♻️ Trabajo guardado</div>
   <div class="small">La app guarda automáticamente los datos en este teléfono. Si Chrome recarga, intentará recuperar los datos. Para evitar pérdidas, descarga una copia del sorteo regularmente, especialmente antes de salir de Chrome.</div>
   <button class="copy" onclick="exportarRespaldo()">📥 Descargar copia del sorteo</button>
@@ -306,6 +313,81 @@ function datosFormularioGuardables(){
  f.topResultados=(document.getElementById("topResultados")||{}).innerText||"";
  f.res=(document.getElementById("res")||{}).innerText||"";
  return f;
+}
+async function descargarInformePDF(){
+ const status=document.getElementById("estadoInformePDF");
+ try{
+  status.innerText="Preparando informe PDF...";
+  if(!window.jspdf){
+   await new Promise((resolve,reject)=>{
+    const script=document.createElement("script");
+    script.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js";
+    script.onload=resolve;script.onerror=()=>reject(new Error("No se pudo cargar el generador PDF. Conéctate a internet."));
+    document.head.appendChild(script);
+   });
+  }
+  const {jsPDF}=window.jspdf,doc=new jsPDF({unit:"mm",format:"a4"});
+  const fecha=(document.getElementById("fechaSorteo").value||PDF_FECHA_DETECTADA||new Date().toLocaleDateString("es-VE")).trim();
+  const tasa=num(document.getElementById("tasaCambio").value);
+  const cantidad=Number(document.getElementById("cant").value);
+  const lineas=[];
+  let total=0,ganadores=0;
+  const agregar=(titulo,premio,entrada)=>{
+   const cartones=carts(entrada);
+   if(!cartones.length){lineas.push({titulo,detalle:["Sin ganador registrado"],monto:0});return}
+   const montoTotal=num(premio),por=Math.floor(montoTotal/cartones.length);
+   const detalles=cartones.map(c=>{
+    const persona=buscar(c);
+    return "Cartón "+c+" - "+(persona?persona.nombre:"Nombre no encontrado")+" - "+fmt(por)+" Bs";
+   });
+   lineas.push({titulo,detalle:detalles,monto:montoTotal});
+   total+=montoTotal;ganadores+=cartones.length;
+  };
+  for(let i=1;i<=cantidad;i++){
+   const p=document.getElementById("pre"+i),c=document.getElementById("car"+i);
+   agregar(i===cantidad?"CARTÓN LLENO FINAL":"RONDA "+i,p?p.value:"",c?c.value:"");
+  }
+  const pozo=carts(document.getElementById("cartonPozo").value);
+  if(pozo.length)agregar("POZO ACUMULADO",document.getElementById("premioPozo").value,document.getElementById("cartonPozo").value);
+  const cons=carts(document.getElementById("cartonesCon").value);
+  if(cons.length){
+   const p=num(document.getElementById("premioCon").value);
+   const detalles=cons.map(c=>{const persona=buscar(c);return "Cartón "+c+" - "+(persona?persona.nombre:"Nombre no encontrado")+" - "+fmt(p)+" Bs"});
+   lineas.push({titulo:"CONSOLACIÓN",detalle:detalles,monto:p*cons.length});
+   total+=p*cons.length;ganadores+=cons.length;
+  }
+  const topTexto=(document.getElementById("topResultados").innerText||"").trim();
+  const lineasTop=topTexto?topTexto.split("\n").filter(x=>x.trim()):[];
+  if(lineasTop.length)lineas.push({titulo:"TOP DE COMPRADORES (INFORMATIVO)",detalle:lineasTop,monto:0});
+  if(!lineas.some(x=>x.detalle.some(y=>y!=="Sin ganador registrado"))){alert("Primero registra los cartones ganadores del sorteo.");status.innerText="";return}
+  let y=19;
+  const salto=(alto=7)=>{if(y+alto>278){doc.addPage();y=18}};
+  const texto=(t,size=10,negrita=false)=>{
+   doc.setFont("helvetica",negrita?"bold":"normal");doc.setFontSize(size);
+   const partes=doc.splitTextToSize(String(t),177);
+   for(const parte of partes){salto(6);doc.text(parte,16,y);y+=size>=14?7:5.5}
+  };
+  texto("BINGOANDINO75",17,true);
+  texto("INFORME DE GANADORES DEL SORTEO",13,true);y+=3;
+  texto("Fecha: "+fecha+"  |  Cartones del día: "+(document.getElementById("cartonesDia").value||"No indicado"));
+  texto("Rondas: "+cantidad+"  |  Modalidad: "+(esEscalera()?"Escalera manual":"Regular"));
+  texto("Tasa: "+(tasa?fmt(tasa)+" Bs/USD":"No indicada"));
+  y+=5;
+  for(const item of lineas){
+   salto(18);doc.setDrawColor(205,215,225);doc.line(16,y,194,y);y+=5;
+   texto(item.titulo,11,true);
+   for(const detalle of item.detalle)texto(detalle,10);
+   if(item.monto)texto("Premio de esta sección: "+fmt(item.monto)+" Bs",9,true);
+   y+=3;
+  }
+  salto(25);doc.line(16,y,194,y);y+=7;
+  texto("TOTAL DE PREMIOS REGISTRADOS: "+fmt(total)+" Bs",12,true);
+  texto("Cartones ganadores registrados: "+ganadores,10);
+  texto("El total no incluye montos de Top si no están registrados como premios por ronda.",8);
+  const fechaArchivo=new Date().toISOString().slice(0,10);
+  doc.save("BingoAndino75_Ganadores_"+fechaArchivo+".pdf");
+  status.innerText="✅ Informe PDF generado. Revisa Descargas.";
+ }catch(e){console.error(e);status.innerText="⚠️ "+e.message;alert("No se pudo generar el PDF: "+e.message)}
 }
 function construirRespaldo(){
  return {tipo:"BINGOANDINO75_RESPALDO",version:4,savedAt:new Date().toISOString(),form:datosFormularioGuardables(),REGISTROS,RAW_CARTONES,RAW_SEGMENTOS_VERIFICACION,PDF_FECHA_DETECTADA,PDF_CARGADO_DIRECTO,TOP_ACTIVO,PAGO_ESTADOS};
