@@ -1740,13 +1740,18 @@ function pagoIndividual(c,x,m){
  return textoPagoConCedula(x,m,cedDefault);
 }
 function detallePago(c,x,m){
- if(!x)return `${c} - NO ENCONTRADO\n${pagoIndividual(c,x,m)}`;
- let ec=estadoCedulas(x);
- let s=`${c} - ${x.nombre}\nMonto: ${fmt(m)} Bs\nTeléfono: ${x.telefono||"REVISAR"}\nBanco: ${x.bancoCodigo||"NO ENCONTRADO"}`;
- if(ec.mismatch||!ec.regOk||!ec.pagoOk){
-   s+=`\n⚠️ VERIFICAR CÉDULA\n🪪 Registro: ${ec.registro||"NO DISPONIBLE"}${ec.regOk?"":" ⚠️"}\n📲 Pago Móvil: ${ec.pago||"NO DISPONIBLE"}${ec.pagoOk?"":" ⚠️"}`;
+ if(!x)return String(c)+" - NO ENCONTRADO";
+ const original="Teléfono Pago Móvil: "+(x.telefono||"NO DISPONIBLE")+"\nCédula Pago Móvil: "+(x.cedula||"NO DISPONIBLE");
+ let s=String(c)+" - "+x.nombre+"\nMonto: "+fmt(m)+" Bs\nBanco: "+(x.bancoCodigo||"NO ENCONTRADO");
+ if(supaSwap(x)){
+   s+="\n⚠️ DATOS ORIGINALES INTERCAMBIADOS — NO USAR\n"+original;
+   s+="\n\n🔄 OPCIÓN INTERCAMBIADA — VERIFICAR CON BENEFICIARIO";
+   s+="\nTeléfono: "+x.cedula+"\nCédula: "+x.telefono;
  }else{
-   s+=`\nCédula: ${ec.pago||ec.registro||"REVISAR"}`;
+   s+="\n"+original;
+   if(!supaValidPago(x))s+="\n⚠️ DATOS INCOMPATIBLES — COPIA BLOQUEADA";
+   const ec=estadoCedulas(x);
+   if(ec.mismatch)s+="\n⚠️ Cédula de registro distinta: "+(ec.registro||"NO DISPONIBLE");
  }
  return s;
 }
@@ -1774,7 +1779,7 @@ function crearBotonesPago(id,pagos,ok){
       const aviso=document.createElement("div");aviso.className="warnbox";aviso.innerText="⚠️ Posible teléfono y cédula intercambiados. Verifica con el beneficiario antes de pagar.";cont.appendChild(aviso);
       const st=x.cedula,sc=x.telefono;
       if(x.bancoCodigo&&supaValidTel(st)&&supaValidCed(sc)){
-       const b=document.createElement("button");b.className="copy";b.innerText="🔄 Copiar opción intercambiada";b.onclick=()=>copiarTexto([fmt(m),st,sc,x.bancoCodigo].join("\\n"),ok);cont.appendChild(b);
+       const b=document.createElement("button");b.className="copy";b.innerText="🔄 Copiar opción intercambiada";b.onclick=()=>copiarTexto([fmt(m),st,sc,x.bancoCodigo].join("\n"),ok);cont.appendChild(b);
       }
       return;
     }
