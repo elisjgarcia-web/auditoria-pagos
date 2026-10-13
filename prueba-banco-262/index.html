@@ -1964,5 +1964,19 @@ setTimeout(async()=>{if(!(await restaurarEstado()))guardarEstadoAhora()},0);
 <script>
 /* Prueba aislada: no registrar service worker */
 </script>
+<div style="background:#fff;color:#17203b;padding:14px;margin:12px auto;max-width:900px;border:2px solid #eaa300;border-radius:12px">
+<strong>🔎 Diagnóstico del cartón 262 (solo prueba)</strong>
+<button type="button" onclick="diagnosticar262()" style="display:block;background:#ffb21a;color:#111;padding:12px;margin:8px 0;border-radius:8px;font-weight:bold">REVISAR LECTURA DEL BANCO 262</button>
+<pre id="diagnostico262" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px"></pre>
+</div>
+<script>
+function diagnosticar262(){
+ const destino=document.getElementById("diagnostico262");
+ const segs=(typeof RAW_SEGMENTOS_VERIFICACION!=="undefined"?RAW_SEGMENTOS_VERIFICACION:[]).filter(seg=>(seg.cartLines||[]).some(line=>carts(line).map(String).includes("262")));
+ const reg=typeof buscar==="function"?buscar("262"):null;
+ const data={registro:reg?{nombre:reg.nombre,banco:reg.bancoCodigo,pagina:reg.pagina}:null,segmentos:segs.map(seg=>({pagina:seg.pagina,lineasPago:seg.payLines,codigoDetectado:detectarBanco((seg.payLines||[]).join(" "))}))};
+ destino.textContent=JSON.stringify(data,null,2);
+}
+</script>
 </body>
 </html>
