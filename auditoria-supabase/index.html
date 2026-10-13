@@ -1770,7 +1770,19 @@ function crearBotonesPago(id,pagos,ok){
      aviso.innerText="⚠️ REVISAR MANUALMENTE: falta o es dudoso el teléfono/banco. La app muestra lo que pudo leer; confirma estos datos en el PDF antes de usarlos.";
      cont.appendChild(aviso);
    }
-   if(ec.mismatch||!ec.regOk||!ec.pagoOk){
+   if(supaSwap(x)){
+      const aviso=document.createElement("div");aviso.className="warnbox";aviso.innerText="⚠️ Posible teléfono y cédula intercambiados. Verifica con el beneficiario antes de pagar.";cont.appendChild(aviso);
+      const st=x.cedula,sc=x.telefono;
+      if(x.bancoCodigo&&supaValidTel(st)&&supaValidCed(sc)){
+       const b=document.createElement("button");b.className="copy";b.innerText="🔄 Copiar opción intercambiada";b.onclick=()=>copiarTexto([fmt(m),st,sc,x.bancoCodigo].join("\\n"),ok);cont.appendChild(b);
+      }
+      return;
+    }
+    if(!supaValidPago(x)){
+      const aviso=document.createElement("div");aviso.className="warnbox";aviso.innerText="⚠️ Pago Móvil con datos incompletos o incompatibles. Copia bloqueada.";cont.appendChild(aviso);
+      return;
+    }
+    if(ec.mismatch||!ec.regOk||!ec.pagoOk){
      let info=document.createElement("div");info.className="warnbox";info.innerText="⚠️ Las cédulas requieren revisión. Elige cuál deseas usar para copiar el pago.";cont.appendChild(info);
      let pagadoBtn=agregarBotonPagado(cont,id,p,true);
      let b1=document.createElement("button");b1.className="copy";b1.innerText=`Usar cédula del registro: ${ec.registro||"NO DISPONIBLE"}`;
