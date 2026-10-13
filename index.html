@@ -1427,6 +1427,21 @@ async function leerPDF(){
        let payText=payLines.join(" ");
 
        let banco=detectarBanco(payText);
+       // Algunos PDF colocan el banco antes de la cédula en el orden
+       // interno, aunque visualmente esté en la misma fila.
+       // Rescate limitado a la columna Pago Móvil y a la misma altura.
+       if(!banco){
+         const bancosCercanos=items.filter(it=>
+           it.x>=B3 && Math.abs(it.y-cur.y)<=13 && detectarBanco(it.str)
+         );
+         const codigosCercanos=[...new Set(bancosCercanos.map(it=>detectarBanco(it.str)).filter(Boolean))];
+         if(codigosCercanos.length===1){
+           banco=codigosCercanos[0];
+           // La segunda lectura debe disponer del mismo dato original.
+           payLines=[...payLines,...bancosCercanos.map(it=>it.str)];
+           payText=payLines.join(" ");
+         }
+       }
        let telefono="";
        for(let line of payLines){let t=tel(line);if(t){telefono=t;break}}
        if(!telefono){
