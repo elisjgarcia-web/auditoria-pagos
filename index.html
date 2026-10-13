@@ -1429,6 +1429,27 @@ async function leerPDF(){
        let payText=payLines.join(" ");
 
        let banco=detectarBanco(payText);
+       // El PDF puede emitir el banco ANTES de la cédula en su orden
+       // interno. Reconstruir la línea completa evita fallos si PDF.js
+       // divide "Banco de Venezuela" en fragmentos separados.
+       if(!banco){
+         const proximos=items.filter(it=>
+           it.x>=B3-35 && it.x<=W+5 &&
+           it.y>cur.y+6 && it.y<cur.y+28
+         );
+         const filasBanco=agruparPorY(proximos,4.5)
+           .map(f=>({y:f.y,texto:unirFragmentos(f.items)}))
+           .map(f=>({...f,codigo:detectarBanco(f.texto)}))
+           .filter(f=>f.codigo)
+           .sort((a,b)=>a.y-b.y);
+         // Sólo se rescata el banco más próximo y cuando no existe
+         // otro nombre de banco diferente en el mismo sector.
+         if(filasBanco.length && new Set(filasBanco.map(f=>f.codigo)).size===1){
+           banco=filasBanco[0].codigo;
+           payLines=[...payLines,filasBanco[0].texto];
+           payText=payLines.join(" ");
+         }
+       }
        let telefono="";
        for(let line of payLines){let t=tel(line);if(t){telefono=t;break}}
        if(!telefono){
