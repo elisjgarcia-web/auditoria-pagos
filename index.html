@@ -4,12 +4,12 @@
 <meta name="theme-color" content="#123b55">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<link rel="manifest" href="./manifest.webmanifest">
-<link rel="icon" href="./icon-192.png" type="image/png">
+
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Bingo Andino 75 - Pagos Mejorado</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<title>BingoAndino75 · Auditoría Supabase sin PDF</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial,Helvetica,sans-serif;background:radial-gradient(circle at top,#4b0073,#12001f 55%,#020004);color:#fff;padding:12px}
@@ -52,26 +52,15 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 </div>
 
 <div class="card">
-  <div class="title">🔗 Pagos desde Supabase · Integración inicial</div>
-  <div class="small">Consulta en vivo las compras aprobadas, busca el cartón ganador, revisa comprobantes y copia Pago Móvil con validación de teléfono/cédula. Esta sección no modifica las compras ni el historial de esta auditoría.</div>
-  <details id="panelSupabasePagos" style="margin-top:10px">
-    <summary style="cursor:pointer;color:#ffd700;font-weight:bold;padding:10px 0">▶ Abrir pagos del día (Supabase)</summary>
-    <div class="small">Este módulo funciona de forma independiente mientras se valida la integración con los cálculos y rondas existentes. Los pagos no se marcan automáticamente como realizados.</div>
-    <iframe title="Pagos del día desde Supabase" loading="lazy" src="./prueba-intercambio/index.html?integrado=1" style="display:block;width:100%;height:780px;border:1px solid #9b4dff;border-radius:12px;background:#f1f5f9;margin-top:10px"></iframe>
-  </details>
+<div class="title">🔗 Compradores aprobados · Supabase</div>
+<div class="small">Única fuente de compradores y cartones. Consulta de solo lectura. Los datos de Pago Móvil son prioritarios y se muestran las inconsistencias para verificar antes de pagar.</div>
+<div id="supaAuth"><label>Correo autorizado</label><input id="supaEmail" type="email" placeholder="Tu correo de acceso"><button class="sec" onclick="supaEnviar()">Enviar código</button><label>Código recibido</label><input id="supaOtp" inputmode="numeric" placeholder="Código de acceso"><button class="sec" onclick="supaVerificar()">Verificar acceso</button></div>
+<button class="gen" onclick="supaCargar()">▶ Iniciar pagos del día</button>
+<button class="sec" onclick="supaCargar()">↻ Actualizar aprobados</button>
+<button class="clear" onclick="supaSalir()">Salir de Supabase</button>
+<div id="supaEstado" class="msg">Sin cargar. Inicia sesión y pulsa Iniciar pagos del día.</div>
+<div id="auditoria" class="msg"></div><div id="estado" class="msg">Sin cargar.</div>
 </div>
-<div class="card">
-  <div class="title">📄 Subir PDF de aprobados</div>
-  <label>Selecciona el PDF</label>
-  <input type="file" id="pdfFile" accept="application/pdf">
-  <button class="sec" onclick="leerPDF()">Leer PDF y cargar clientes</button>
-  <button class="copy" onclick="reauditarPDF()" style="margin-top:10px">🔎 Volver a auditar PDF</button>
-  <div class="small">La auditoría se ejecuta automáticamente al cargar el PDF. Si detecta diferencias, la app te avisará para que revises manualmente, pero seguirá mostrando los datos encontrados.</div>
-  <div id="auditoria" class="msg"></div>
-  <div class="small">Busca por índice exacto de cartón. Cartones válidos: 1 al 9999.</div>
-  <div id="estado" class="msg">Sin cargar.</div><div class="small">🔎 La auditoría y la segunda lectura funcionan como advertencias de seguridad. Si encuentran diferencias, la app mostrará lo detectado y te pedirá revisar manualmente antes de usar los datos.</div>
-</div>
-
 <div class="card">
   <div class="title">🔍 Verificar cartón</div>
   <label>Cartón</label><input id="buscarCartonInput" placeholder="Ej: 60" inputmode="numeric" pattern="[0-9, ]*" autocomplete="off">
@@ -90,10 +79,10 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 
 <div class="card">
   <div class="title">⚙️ Configuración y conversión de premios</div>
-  <label>Fecha del sorteo</label><input id="fechaSorteo" placeholder="Se lee del PDF"><div class="small">La app intenta tomar la fecha del encabezado del PDF; puedes corregirla manualmente.</div>
+  <label>Fecha del sorteo</label><input id="fechaSorteo" placeholder="Fecha del sorteo (dd/mm/aaaa)"><div class="small">Se propone la fecha actual al iniciar los pagos. Puedes cambiarla si estás preparando otro sorteo.</div>
 
   <div class="row2">
-    <div><label>Cartones del día</label><input id="cartonesDia" inputmode="numeric" placeholder="Se llena desde el PDF" oninput="sugerirPlantilla();programarGuardado()"><div class="small">Se completa automáticamente con los cartones únicos del PDF.</div></div>
+    <div><label>Cartones del día</label><input id="cartonesDia" inputmode="numeric" placeholder="Se carga desde Supabase" oninput="sugerirPlantilla();programarGuardado()"><div class="small">Se actualiza automáticamente con los cartones únicos de las compras aprobadas en Supabase.</div></div>
     <div><label>Cantidad de rondas</label><select id="cant" onchange="cambiarRondas();programarGuardado()"><option value="5">5 rondas</option><option value="6" selected>6 rondas</option></select></div>
   </div>
 
@@ -211,7 +200,37 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 </div>
 
 <script>
-if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";}
+
+
+
+const SUPA_URL="https://dbkixcpwirjwjvjintkr.supabase.co", SUPA_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRia2l4Y3B3aXJqd2p2amludGtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYwNjYxNDksImV4cCI6MjA2MTY0MjE0OX0.QJmWLWSe-pRYwxWeel8df7JLhNUvMKaTpL0MCDorgho";
+const supa=window.supabase.createClient(SUPA_URL,SUPA_ANON);
+function supaMensaje(t){document.getElementById('supaEstado').textContent=t}
+async function supaEnviar(){let email=document.getElementById('supaEmail').value.trim();if(!email){supaMensaje('Escribe el correo autorizado');return}const {error}=await supa.auth.signInWithOtp({email});supaMensaje(error?'Error: '+error.message:'Revisa tu correo e introduce el código')}
+async function supaVerificar(){const {error}=await supa.auth.verifyOtp({email:document.getElementById('supaEmail').value.trim(),token:document.getElementById('supaOtp').value.trim(),type:'email'});supaMensaje(error?'Error: '+error.message:'Acceso verificado. Pulsa Iniciar pagos del día.')}
+async function supaSalir(){await supa.auth.signOut();supaMensaje('Sesión cerrada')}
+const supaDigits=x=>String(x||'').replace(/\D/g,'');
+const supaValidTel=x=>/^(?:58)?0?4(?:12|14|16|22|24|26)\d{7}$/.test(supaDigits(x));
+const supaValidCed=x=>/^\d{4,9}$/.test(supaDigits(x));
+function supaSwap(x){return !supaValidTel(x.telefono)&&!supaValidCed(x.cedula)&&supaValidCed(x.telefono)&&supaValidTel(x.cedula)}
+function supaValidPago(x){return !!(x&&x.bancoCodigo&&supaValidTel(x.telefono)&&supaValidCed(x.cedula))}
+async function supaCargar(){
+ const {data:{session}}=await supa.auth.getSession();if(!session){supaMensaje('Primero verifica tu acceso con el código enviado al correo');return}
+ supaMensaje('Consultando compras aprobadas...');let all=[];
+ try{
+ for(let i=0;i<20000;i+=500){const {data,error}=await supa.from('inscripciones').select('id,nombre,telefono,cedula,cartones,pago_banco,pago_telefono,pago_cedula,comprobante,estado').eq('estado','aprobado').range(i,i+499);if(error)throw error;all.push(...data);if(data.length<500)break}
+ const regs=all.map(r=>({nombre:r.nombre||'',cedulaCompra:supaDigits(r.cedula),cartones:(Array.isArray(r.cartones)?r.cartones:[]).map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=9999),banco:r.pago_banco||'',bancoCodigo:codBanco(r.pago_banco||''),telefono:supaDigits(r.pago_telefono||r.telefono),cedula:supaDigits(r.pago_cedula||r.cedula),telefonoRegistro:supaDigits(r.telefono),comprobante:r.comprobante,pagoTelefonoOriginal:r.pago_telefono,pagoCedulaOriginal:r.pago_cedula,pagina:null}));
+ const conflictos=new Map();for(const r of regs)for(const c of r.cartones)conflictos.set(c,(conflictos.get(c)||0)+1);
+ const repetidos=[...conflictos].filter(([c,n])=>n>1).map(([c])=>c);
+ if(!regs.length){supaMensaje('No se encontraron compras aprobadas. Se conservan los datos actuales para evitar borrados accidentales.');return}
+ REGISTROS=regs;RAW_CARTONES=[];RAW_SEGMENTOS_VERIFICACION=[];PDF_CARGADO_DIRECTO=false;AUDITORIA_OK=repetidos.length===0;construirIndice();
+ cartonesDia.value=[...conflictos.keys()].length;if(!fechaSorteo.value.trim())fechaSorteo.value=new Date().toLocaleDateString('es-VE');
+ textoLista.value=regs.map(r=>[r.nombre,r.cedulaCompra,r.cartones.join(', '),r.bancoCodigo,r.telefono,r.cedula].join(' | ')).join('\n');
+ mostrarEstado(0);sugerirPlantilla();programarGuardado();
+ const issues=regs.filter(r=>!supaValidPago(r)||supaSwap(r));
+ supaMensaje(all.length+' compras aprobadas · '+[...conflictos.keys()].length+' cartones únicos. '+issues.length+' compras con datos de pago para revisar.'+(repetidos.length?' ⚠️ CARTONES DUPLICADOS: '+repetidos.slice(0,20).join(', '):''));
+ }catch(e){supaMensaje('Error consultando Supabase: '+e.message+' (verifica acceso y permisos RLS). No se modificaron los datos anteriores.')}
+}
 
 let REGISTROS=[];
 let CARTON_INDEX={};
@@ -226,7 +245,7 @@ let RAW_SEGMENTOS_VERIFICACION=[];
 let PAGO_ESTADOS={};
 let RESTAURANDO_ESTADO=false;
 let TIMER_GUARDADO=null;
-const STORAGE_KEY="bingoandino75_estado_v4_parser251";
+const STORAGE_KEY="bingoandino75_supabase_auditoria_v1";
 
 const BANCOS={
  "0102":"0102","0134":"0134","0105":"0105","0108":"0108","0191":"0191","0151":"0151","0172":"0172","0114":"0114","0115":"0115","0163":"0163","0174":"0174","0175":"0175","0104":"0104",
@@ -243,7 +262,7 @@ const PREF_VE=["412","414","416","422","424","426"];
 
 
 
-const IDB_DB="BingoAndino75DB";
+const IDB_DB="BingoAndino75SupabaseDB";
 const IDB_STORE="estado";
 function abrirIDB(){
  return new Promise((resolve,reject)=>{
@@ -1721,48 +1740,51 @@ function pagoIndividual(c,x,m){
  return textoPagoConCedula(x,m,cedDefault);
 }
 function detallePago(c,x,m){
- if(!x)return `${c} - NO ENCONTRADO\n${pagoIndividual(c,x,m)}`;
- let ec=estadoCedulas(x);
- let s=`${c} - ${x.nombre}\nMonto: ${fmt(m)} Bs\nTeléfono: ${x.telefono||"REVISAR"}\nBanco: ${x.bancoCodigo||"NO ENCONTRADO"}`;
- if(ec.mismatch||!ec.regOk||!ec.pagoOk){
-   s+=`\n⚠️ VERIFICAR CÉDULA\n🪪 Registro: ${ec.registro||"NO DISPONIBLE"}${ec.regOk?"":" ⚠️"}\n📲 Pago Móvil: ${ec.pago||"NO DISPONIBLE"}${ec.pagoOk?"":" ⚠️"}`;
- }else{
-   s+=`\nCédula: ${ec.pago||ec.registro||"REVISAR"}`;
- }
- return s;
+ if(!x)return String(c)+" - NO ENCONTRADO";
+ const swap=supaSwap(x),tel=swap?x.cedula:x.telefono,ci=swap?x.telefono:x.cedula;
+ let t=String(c)+" - "+x.nombre+"\nMonto: "+fmt(m)+" Bs\nBanco: "+(x.bancoCodigo||"NO ENCONTRADO");
+ t+="\nTeléfono: "+(tel||"REVISAR")+"\nCédula: "+(ci||"REVISAR");
+ if(swap)t+="\n⚠️ DATOS INTERCAMBIADOS: CONFIRMAR CON BENEFICIARIO ANTES DE PAGAR";
+ else if(!supaValidPago(x))t+="\n⚠️ DATOS INCOMPATIBLES — COPIA BLOQUEADA";
+ return t;
 }
 function pagoLinea(c,x,m){return detallePago(c,x,m)}
 function crearBotonesPago(id,pagos,ok){
- let cont=document.getElementById(id);if(!cont)return;cont.innerHTML="";
+ const cont=document.getElementById(id);if(!cont)return;
+ cont.replaceChildren();
  pagos.forEach((p,idx)=>{
-   let x=p.x,m=p.monto,c=p.carton||"",ec=estadoCedulas(x);
-   let div=document.createElement("div");div.id=id+"_p"+idx;div.className="msg";div.innerText=detallePago(c,x,m);cont.appendChild(div);
-   if(!x)return;
-   if(PDF_CARGADO_DIRECTO&&/^\d{1,4}$/.test(String(c))){
-     let dv=dobleVerificacionCarton(c);
-     if(!dv.ok){
-       let aviso=document.createElement("div");aviso.className="warnbox";
-       aviso.innerText="⚠️ REVISAR MANUALMENTE: "+dv.motivo+"\nLos datos detectados se muestran abajo; compáralos con el PDF antes de usarlos.";
-       cont.appendChild(aviso);
-     }
-   }
-   if(!x.telefono||!x.bancoCodigo){
-     let aviso=document.createElement("div");aviso.className="warnbox";
-     aviso.innerText="⚠️ REVISAR MANUALMENTE: falta o es dudoso el teléfono/banco. La app muestra lo que pudo leer; confirma estos datos en el PDF antes de usarlos.";
-     cont.appendChild(aviso);
-   }
-   if(ec.mismatch||!ec.regOk||!ec.pagoOk){
-     let info=document.createElement("div");info.className="warnbox";info.innerText="⚠️ Las cédulas requieren revisión. Elige cuál deseas usar para copiar el pago.";cont.appendChild(info);
-     let pagadoBtn=agregarBotonPagado(cont,id,p,true);
-     let b1=document.createElement("button");b1.className="copy";b1.innerText=`Usar cédula del registro: ${ec.registro||"NO DISPONIBLE"}`;
-     b1.onclick=async()=>{if(!ec.registro){alert("No hay cédula de registro");return}await copiarTexto(textoPagoConCedula(x,m,ec.registro),ok);habilitarBotonPagado(pagadoBtn)};cont.appendChild(b1);
-     let b2=document.createElement("button");b2.className=ec.pagoOk?"copy":"clear";b2.innerText=`Usar cédula Pago Móvil: ${ec.pago||"NO DISPONIBLE"}${ec.pagoOk?"":" ⚠️"}`;
-     b2.onclick=async()=>{if(!ec.pago){alert("No hay cédula de Pago Móvil");return}await copiarTexto(textoPagoConCedula(x,m,ec.pago),ok);habilitarBotonPagado(pagadoBtn)};cont.appendChild(b2);
-   }else{
-     let b=document.createElement("button");b.className="copy";b.innerText=`Copiar Pago #${idx+1} - ${p.nombre}`;
-     let ce=ec.pago||ec.registro;b.onclick=async()=>copiarTexto(textoPagoConCedula(x,m,ce),ok);cont.appendChild(b);
-     agregarBotonPagado(cont,id,p,false);
-   }
+  const x=p.x,m=p.monto,c=p.carton||"";
+  if(!x){const d=document.createElement("div");d.className="warnbox";d.textContent="Cartón no encontrado";cont.append(d);return}
+  const sw=supaSwap(x),tel=sw?x.cedula:x.telefono,ci=sw?x.telefono:x.cedula;
+  const valid=!!(x.bancoCodigo&&supaValidTel(tel)&&supaValidCed(ci));
+  const d=document.createElement("div");d.className="msg";d.textContent=detallePago(c,x,m);cont.append(d);
+  if(sw){
+   const warning=document.createElement("div");warning.className="warnbox";warning.textContent="⚠️ Posible teléfono y cédula intercambiados. Confirma con el beneficiario antes de pagar.";cont.append(warning);
+   const details=document.createElement("details");
+   const summary=document.createElement("summary");summary.textContent="Revisar datos originales (no usar sin verificar)";details.append(summary);
+   const original=document.createElement("pre");original.textContent="Teléfono original: "+x.telefono+"\nCédula original: "+x.cedula;details.append(original);cont.append(details);
+  }
+  if(valid){
+   const copy=document.createElement("button");copy.className="copy";copy.textContent=sw?"🔄 Copiar opción intercambiada":"📋 Copiar Pago Móvil";
+   copy.onclick=()=>copiarTexto([fmt(m),tel,ci,x.bancoCodigo].join("\n"),ok);cont.append(copy);
+  }else{
+   const w=document.createElement("div");w.className="warnbox";w.textContent="⚠️ Datos de Pago Móvil incompletos o incompatibles. Copia bloqueada.";cont.append(w);
+  }
+  const more=document.createElement("details");more.style.marginTop="8px";
+  const label=document.createElement("summary");label.textContent="🧾 Captura y contacto";more.append(label);
+  if(x.comprobante&&/^https:\/\//i.test(x.comprobante)){
+   const a=document.createElement("a");a.href=x.comprobante;a.target="_blank";a.rel="noopener noreferrer";a.textContent="🧾 Ver captura del comprobante";a.style.display="block";a.style.margin="10px 0";more.append(a);
+  }else{
+   const no=document.createElement("p");no.textContent="Comprobante no disponible";more.append(no);
+  }
+  const wa=numeroWhatsAppGanador(x);
+  if(wa){
+   const contact=document.createElement("button");contact.className="wa";contact.textContent="💬 Contactar ganador";
+   contact.onclick=()=>window.open("https://wa.me/"+wa+"?text="+encodeURIComponent("Hola, "+x.nombre+". Te contactamos de BingoAndino75 por tu premio."),"_blank","noopener,noreferrer");more.append(contact);
+  }else{
+   const w=document.createElement("p");w.textContent="⚠️ Teléfono de registro no válido para WhatsApp";more.append(w);
+  }
+  cont.append(more);
  });
 }
 async function copiarTexto(t,ok){
@@ -1805,7 +1827,7 @@ Si puedes enviarlo con la opción HD, sería de muchísima ayuda para que conser
 ¡Muchas gracias por ser parte de BingoAndino75! 💜`;
 }
 function numeroWhatsAppGanador(x){
- let t=String((x&&x.telefono)||"").replace(/\D/g,"");
+ let t=String((x&&(x.telefonoRegistro||x.telefono))||"").replace(/\D/g,"");
  if(!t)return "";
  // Los teléfonos venezolanos del PDF suelen venir como 0412/0414/0416/0422/0424/0426...
  // wa.me necesita código de país y sin el 0 inicial.
@@ -1821,7 +1843,7 @@ function botonVideoGanadorFinal(g){
  b.onclick=()=>{
    let tel=numeroWhatsAppGanador(g.x);
    if(!tel){
-     alert("⚠️ No pude identificar un número de WhatsApp válido para este ganador. Revisa el teléfono en el PDF.");
+     alert("⚠️ No pude identificar un número de WhatsApp válido para este ganador. Revisa el teléfono de registro en Supabase.");
      return;
    }
    location.href="https://wa.me/"+tel+"?text="+encodeURIComponent(mensajeVideoGanadorFinal(g.nombre));
@@ -1977,8 +1999,6 @@ document.addEventListener("visibilitychange",()=>{if(document.hidden)guardarEsta
 actualizarEtiquetasRondas();
 setTimeout(async()=>{if(!(await restaurarEstado()))guardarEstadoAhora()},0);
 </script>
-<script>
-if("serviceWorker" in navigator && location.protocol === "https:"){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(e=>console.warn("Sin modo sin conexión",e)));}
-</script>
+
 </body>
 </html>
