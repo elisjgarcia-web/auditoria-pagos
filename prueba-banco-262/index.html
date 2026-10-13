@@ -42,7 +42,7 @@ function diagnosticar262(){
  const destino=document.getElementById("diagnostico262");
  const segs=(typeof RAW_SEGMENTOS_VERIFICACION!=="undefined"?RAW_SEGMENTOS_VERIFICACION:[]).filter(seg=>(seg.cartLines||[]).some(line=>carts(line).map(String).includes("262")));
  const reg=typeof buscar==="function"?buscar("262"):null;
- const data={registro:reg?{nombre:reg.nombre,banco:reg.bancoCodigo,pagina:reg.pagina}:null,segmentos:segs.map(seg=>({pagina:seg.pagina,lineasPago:seg.payLines,codigoDetectado:detectarBanco((seg.payLines||[]).join(" "))}))};
+ const data={registro:reg?{nombre:reg.nombre,banco:reg.bancoCodigo,pagina:reg.pagina}:null,segmentos:segs.map(seg=>({pagina:seg.pagina,lineasPago:seg.payLines,codigoDetectado:detectarBanco((seg.payLines||[]).join(" "))})),nota:"El banco está 16 puntos por encima de la cédula y comienza antes del límite anterior de Pago Móvil."};
  destino.textContent=JSON.stringify(data,null,2);
 }
 </script>
@@ -1449,8 +1449,8 @@ async function leerPDF(){
        // divide "Banco de Venezuela" en fragmentos separados.
        if(!banco){
          const proximos=items.filter(it=>
-           it.x>=B3-12 && it.x<=W+5 &&
-           it.y>cur.y+3 && it.y<cur.y+65
+           it.x>=B3-35 && it.x<=W+5 &&
+           it.y>cur.y+6 && it.y<cur.y+28
          );
          const filasBanco=agruparPorY(proximos,4.5)
            .map(f=>({y:f.y,texto:unirFragmentos(f.items)}))
