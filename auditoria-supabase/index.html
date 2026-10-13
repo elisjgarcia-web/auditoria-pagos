@@ -79,10 +79,10 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 
 <div class="card">
   <div class="title">⚙️ Configuración y conversión de premios</div>
-  <label>Fecha del sorteo</label><input id="fechaSorteo" placeholder="Se lee del PDF"><div class="small">La app intenta tomar la fecha del encabezado del PDF; puedes corregirla manualmente.</div>
+  <label>Fecha del sorteo</label><input id="fechaSorteo" placeholder="Fecha del sorteo (dd/mm/aaaa)"><div class="small">Se propone la fecha actual al iniciar los pagos. Puedes cambiarla si estás preparando otro sorteo.</div>
 
   <div class="row2">
-    <div><label>Cartones del día</label><input id="cartonesDia" inputmode="numeric" placeholder="Se llena desde el PDF" oninput="sugerirPlantilla();programarGuardado()"><div class="small">Se completa automáticamente con los cartones únicos del PDF.</div></div>
+    <div><label>Cartones del día</label><input id="cartonesDia" inputmode="numeric" placeholder="Se carga desde Supabase" oninput="sugerirPlantilla();programarGuardado()"><div class="small">Se actualiza automáticamente con los cartones únicos de las compras aprobadas en Supabase.</div></div>
     <div><label>Cantidad de rondas</label><select id="cant" onchange="cambiarRondas();programarGuardado()"><option value="5">5 rondas</option><option value="6" selected>6 rondas</option></select></div>
   </div>
 
@@ -224,7 +224,7 @@ async function supaCargar(){
  const repetidos=[...conflictos].filter(([c,n])=>n>1).map(([c])=>c);
  if(!regs.length){supaMensaje('No se encontraron compras aprobadas. Se conservan los datos actuales para evitar borrados accidentales.');return}
  REGISTROS=regs;RAW_CARTONES=[];RAW_SEGMENTOS_VERIFICACION=[];PDF_CARGADO_DIRECTO=false;AUDITORIA_OK=repetidos.length===0;construirIndice();
- cartonesDia.value=[...conflictos.keys()].length;fechaSorteo.value=new Date().toLocaleDateString('es-VE');
+ cartonesDia.value=[...conflictos.keys()].length;if(!fechaSorteo.value.trim())fechaSorteo.value=new Date().toLocaleDateString('es-VE');
  textoLista.value=regs.map(r=>[r.nombre,r.cedulaCompra,r.cartones.join(', '),r.bancoCodigo,r.telefono,r.cedula].join(' | ')).join('\n');
  mostrarEstado(0);sugerirPlantilla();programarGuardado();
  const issues=regs.filter(r=>!supaValidPago(r)||supaSwap(r));
