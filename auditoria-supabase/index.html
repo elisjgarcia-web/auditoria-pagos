@@ -1741,64 +1741,50 @@ function pagoIndividual(c,x,m){
 }
 function detallePago(c,x,m){
  if(!x)return String(c)+" - NO ENCONTRADO";
- const original="Teléfono Pago Móvil: "+(x.telefono||"NO DISPONIBLE")+"\nCédula Pago Móvil: "+(x.cedula||"NO DISPONIBLE");
- let s=String(c)+" - "+x.nombre+"\nMonto: "+fmt(m)+" Bs\nBanco: "+(x.bancoCodigo||"NO ENCONTRADO");
- if(supaSwap(x)){
-   s+="\n⚠️ DATOS ORIGINALES INTERCAMBIADOS — NO USAR\n"+original;
-   s+="\n\n🔄 OPCIÓN INTERCAMBIADA — VERIFICAR CON BENEFICIARIO";
-   s+="\nTeléfono: "+x.cedula+"\nCédula: "+x.telefono;
- }else{
-   s+="\n"+original;
-   if(!supaValidPago(x))s+="\n⚠️ DATOS INCOMPATIBLES — COPIA BLOQUEADA";
-   const ec=estadoCedulas(x);
-   if(ec.mismatch)s+="\n⚠️ Cédula de registro distinta: "+(ec.registro||"NO DISPONIBLE");
- }
- return s;
+ const swap=supaSwap(x),tel=swap?x.cedula:x.telefono,ci=swap?x.telefono:x.cedula;
+ let t=String(c)+" - "+x.nombre+"\nMonto: "+fmt(m)+" Bs\nBanco: "+(x.bancoCodigo||"NO ENCONTRADO");
+ t+="\nTeléfono: "+(tel||"REVISAR")+"\nCédula: "+(ci||"REVISAR");
+ if(swap)t+="\n⚠️ DATOS INTERCAMBIADOS: CONFIRMAR CON BENEFICIARIO ANTES DE PAGAR";
+ else if(!supaValidPago(x))t+="\n⚠️ DATOS INCOMPATIBLES — COPIA BLOQUEADA";
+ return t;
 }
 function pagoLinea(c,x,m){return detallePago(c,x,m)}
 function crearBotonesPago(id,pagos,ok){
- let cont=document.getElementById(id);if(!cont)return;cont.innerHTML="";
+ const cont=document.getElementById(id);if(!cont)return;
+ cont.replaceChildren();
  pagos.forEach((p,idx)=>{
-   let x=p.x,m=p.monto,c=p.carton||"",ec=estadoCedulas(x);
-   let div=document.createElement("div");div.id=id+"_p"+idx;div.className="msg";div.innerText=detallePago(c,x,m);cont.appendChild(div);
-   if(!x)return;
-   if(PDF_CARGADO_DIRECTO&&/^\d{1,4}$/.test(String(c))){
-     let dv=dobleVerificacionCarton(c);
-     if(!dv.ok){
-       let aviso=document.createElement("div");aviso.className="warnbox";
-       aviso.innerText="⚠️ REVISAR MANUALMENTE: "+dv.motivo+"\nLos datos detectados se muestran abajo; compáralos con el PDF antes de usarlos.";
-       cont.appendChild(aviso);
-     }
-   }
-   if(!x.telefono||!x.bancoCodigo){
-     let aviso=document.createElement("div");aviso.className="warnbox";
-     aviso.innerText="⚠️ REVISAR MANUALMENTE: falta o es dudoso el teléfono/banco. La app muestra lo que pudo leer; confirma estos datos en el PDF antes de usarlos.";
-     cont.appendChild(aviso);
-   }
-   if(supaSwap(x)){
-      const aviso=document.createElement("div");aviso.className="warnbox";aviso.innerText="⚠️ Posible teléfono y cédula intercambiados. Verifica con el beneficiario antes de pagar.";cont.appendChild(aviso);
-      const st=x.cedula,sc=x.telefono;
-      if(x.bancoCodigo&&supaValidTel(st)&&supaValidCed(sc)){
-       const b=document.createElement("button");b.className="copy";b.innerText="🔄 Copiar opción intercambiada";b.onclick=()=>copiarTexto([fmt(m),st,sc,x.bancoCodigo].join("\n"),ok);cont.appendChild(b);
-      }
-      return;
-    }
-    if(!supaValidPago(x)){
-      const aviso=document.createElement("div");aviso.className="warnbox";aviso.innerText="⚠️ Pago Móvil con datos incompletos o incompatibles. Copia bloqueada.";cont.appendChild(aviso);
-      return;
-    }
-    if(ec.mismatch||!ec.regOk||!ec.pagoOk){
-     let info=document.createElement("div");info.className="warnbox";info.innerText="⚠️ Las cédulas requieren revisión. Elige cuál deseas usar para copiar el pago.";cont.appendChild(info);
-     let pagadoBtn=agregarBotonPagado(cont,id,p,true);
-     let b1=document.createElement("button");b1.className="copy";b1.innerText=`Usar cédula del registro: ${ec.registro||"NO DISPONIBLE"}`;
-     b1.onclick=async()=>{if(!ec.registro){alert("No hay cédula de registro");return}await copiarTexto(textoPagoConCedula(x,m,ec.registro),ok);habilitarBotonPagado(pagadoBtn)};cont.appendChild(b1);
-     let b2=document.createElement("button");b2.className=ec.pagoOk?"copy":"clear";b2.innerText=`Usar cédula Pago Móvil: ${ec.pago||"NO DISPONIBLE"}${ec.pagoOk?"":" ⚠️"}`;
-     b2.onclick=async()=>{if(!ec.pago){alert("No hay cédula de Pago Móvil");return}await copiarTexto(textoPagoConCedula(x,m,ec.pago),ok);habilitarBotonPagado(pagadoBtn)};cont.appendChild(b2);
-   }else{
-     let b=document.createElement("button");b.className="copy";b.innerText=`Copiar Pago #${idx+1} - ${p.nombre}`;
-     let ce=ec.pago||ec.registro;b.onclick=async()=>copiarTexto(textoPagoConCedula(x,m,ce),ok);cont.appendChild(b);
-     agregarBotonPagado(cont,id,p,false);
-   }
+  const x=p.x,m=p.monto,c=p.carton||"";
+  if(!x){const d=document.createElement("div");d.className="warnbox";d.textContent="Cartón no encontrado";cont.append(d);return}
+  const sw=supaSwap(x),tel=sw?x.cedula:x.telefono,ci=sw?x.telefono:x.cedula;
+  const valid=!!(x.bancoCodigo&&supaValidTel(tel)&&supaValidCed(ci));
+  const d=document.createElement("div");d.className="msg";d.textContent=detallePago(c,x,m);cont.append(d);
+  if(sw){
+   const warning=document.createElement("div");warning.className="warnbox";warning.textContent="⚠️ Posible teléfono y cédula intercambiados. Confirma con el beneficiario antes de pagar.";cont.append(warning);
+   const details=document.createElement("details");
+   const summary=document.createElement("summary");summary.textContent="Revisar datos originales (no usar sin verificar)";details.append(summary);
+   const original=document.createElement("pre");original.textContent="Teléfono original: "+x.telefono+"\nCédula original: "+x.cedula;details.append(original);cont.append(details);
+  }
+  if(valid){
+   const copy=document.createElement("button");copy.className="copy";copy.textContent=sw?"🔄 Copiar opción intercambiada":"📋 Copiar Pago Móvil";
+   copy.onclick=()=>copiarTexto([fmt(m),tel,ci,x.bancoCodigo].join("\n"),ok);cont.append(copy);
+  }else{
+   const w=document.createElement("div");w.className="warnbox";w.textContent="⚠️ Datos de Pago Móvil incompletos o incompatibles. Copia bloqueada.";cont.append(w);
+  }
+  const more=document.createElement("details");more.style.marginTop="8px";
+  const label=document.createElement("summary");label.textContent="🧾 Captura y contacto";more.append(label);
+  if(x.comprobante&&/^https:\/\//i.test(x.comprobante)){
+   const a=document.createElement("a");a.href=x.comprobante;a.target="_blank";a.rel="noopener noreferrer";a.textContent="🧾 Ver captura del comprobante";a.style.display="block";a.style.margin="10px 0";more.append(a);
+  }else{
+   const no=document.createElement("p");no.textContent="Comprobante no disponible";more.append(no);
+  }
+  const wa=numeroWhatsAppGanador(x);
+  if(wa){
+   const contact=document.createElement("button");contact.className="wa";contact.textContent="💬 Contactar ganador";
+   contact.onclick=()=>window.open("https://wa.me/"+wa+"?text="+encodeURIComponent("Hola, "+x.nombre+". Te contactamos de BingoAndino75 por tu premio."),"_blank","noopener,noreferrer");more.append(contact);
+  }else{
+   const w=document.createElement("p");w.textContent="⚠️ Teléfono de registro no válido para WhatsApp";more.append(w);
+  }
+  cont.append(more);
  });
 }
 async function copiarTexto(t,ok){
@@ -1841,7 +1827,7 @@ Si puedes enviarlo con la opción HD, sería de muchísima ayuda para que conser
 ¡Muchas gracias por ser parte de BingoAndino75! 💜`;
 }
 function numeroWhatsAppGanador(x){
- let t=String((x&&x.telefono)||"").replace(/\D/g,"");
+ let t=String((x&&(x.telefonoRegistro||x.telefono))||"").replace(/\D/g,"");
  if(!t)return "";
  // Los teléfonos venezolanos del PDF suelen venir como 0412/0414/0416/0422/0424/0426...
  // wa.me necesita código de país y sin el 0 inicial.
@@ -1857,7 +1843,7 @@ function botonVideoGanadorFinal(g){
  b.onclick=()=>{
    let tel=numeroWhatsAppGanador(g.x);
    if(!tel){
-     alert("⚠️ No pude identificar un número de WhatsApp válido para este ganador. Revisa el teléfono en el PDF.");
+     alert("⚠️ No pude identificar un número de WhatsApp válido para este ganador. Revisa el teléfono de registro en Supabase.");
      return;
    }
    location.href="https://wa.me/"+tel+"?text="+encodeURIComponent(mensajeVideoGanadorFinal(g.nombre));
