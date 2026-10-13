@@ -540,6 +540,8 @@ function actualizarBotonPagado(boton,clave){
  boton.innerText=si?"✅ PAGADO · tocar para desmarcar":"⬜ Marcar como PAGADO";
 }
 function agregarBotonPagado(contenedor,contexto,p,bloqueado=false){
+ // Control retirado: el pago se verifica fuera de esta aplicación.
+ return null;
  let clave=clavePago(contexto,p);
  let b=document.createElement("button");
  actualizarBotonPagado(b,clave);
