@@ -32,6 +32,20 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 <body>
 <div style="background:#fff0b3;color:#5b3300;padding:12px;text-align:center;font-weight:800;border:3px solid #ed9900;border-radius:10px;margin:8px auto;max-width:900px">🧪 VERSIÓN DE PRUEBA — Banco de Venezuela / cartón 262<br><small>Datos guardados por separado. No uses esta página para pagos reales.</small></div>
 <h1>🎰 Bingo Andino 75</h1>
+<div style="background:#fff;color:#17203b;padding:14px;margin:12px auto;max-width:900px;border:2px solid #eaa300;border-radius:12px">
+<strong>🔎 Diagnóstico del cartón 262 (solo prueba)</strong>
+<button type="button" onclick="diagnosticar262()" style="display:block;background:#ffb21a;color:#111;padding:12px;margin:8px 0;border-radius:8px;font-weight:bold">REVISAR LECTURA DEL BANCO 262</button>
+<pre id="diagnostico262" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px"></pre>
+</div>
+<script>
+function diagnosticar262(){
+ const destino=document.getElementById("diagnostico262");
+ const segs=(typeof RAW_SEGMENTOS_VERIFICACION!=="undefined"?RAW_SEGMENTOS_VERIFICACION:[]).filter(seg=>(seg.cartLines||[]).some(line=>carts(line).map(String).includes("262")));
+ const reg=typeof buscar==="function"?buscar("262"):null;
+ const data={registro:reg?{nombre:reg.nombre,banco:reg.bancoCodigo,pagina:reg.pagina}:null,segmentos:segs.map(seg=>({pagina:seg.pagina,lineasPago:seg.payLines,codigoDetectado:detectarBanco((seg.payLines||[]).join(" "))}))};
+ destino.textContent=JSON.stringify(data,null,2);
+}
+</script>
 <div class="sub">PDF + pagos + conversión $/Bs + Top + doble verificación</div>
 <div id="saveStatus" class="savebar">💾 Guardado automático activado</div>
 <div class="card">
@@ -1964,19 +1978,6 @@ setTimeout(async()=>{if(!(await restaurarEstado()))guardarEstadoAhora()},0);
 <script>
 /* Prueba aislada: no registrar service worker */
 </script>
-<div style="background:#fff;color:#17203b;padding:14px;margin:12px auto;max-width:900px;border:2px solid #eaa300;border-radius:12px">
-<strong>🔎 Diagnóstico del cartón 262 (solo prueba)</strong>
-<button type="button" onclick="diagnosticar262()" style="display:block;background:#ffb21a;color:#111;padding:12px;margin:8px 0;border-radius:8px;font-weight:bold">REVISAR LECTURA DEL BANCO 262</button>
-<pre id="diagnostico262" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px"></pre>
-</div>
-<script>
-function diagnosticar262(){
- const destino=document.getElementById("diagnostico262");
- const segs=(typeof RAW_SEGMENTOS_VERIFICACION!=="undefined"?RAW_SEGMENTOS_VERIFICACION:[]).filter(seg=>(seg.cartLines||[]).some(line=>carts(line).map(String).includes("262")));
- const reg=typeof buscar==="function"?buscar("262"):null;
- const data={registro:reg?{nombre:reg.nombre,banco:reg.bancoCodigo,pagina:reg.pagina}:null,segmentos:segs.map(seg=>({pagina:seg.pagina,lineasPago:seg.payLines,codigoDetectado:detectarBanco((seg.payLines||[]).join(" "))}))};
- destino.textContent=JSON.stringify(data,null,2);
-}
-</script>
+
 </body>
 </html>
