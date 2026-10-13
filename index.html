@@ -52,6 +52,15 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 </div>
 
 <div class="card">
+  <div class="title">🔗 Pagos desde Supabase · Integración inicial</div>
+  <div class="small">Consulta en vivo las compras aprobadas, busca el cartón ganador, revisa comprobantes y copia Pago Móvil con validación de teléfono/cédula. Esta sección no modifica las compras ni el historial de esta auditoría.</div>
+  <details id="panelSupabasePagos" style="margin-top:10px">
+    <summary style="cursor:pointer;color:#ffd700;font-weight:bold;padding:10px 0">▶ Abrir pagos del día (Supabase)</summary>
+    <div class="small">Este módulo funciona de forma independiente mientras se valida la integración con los cálculos y rondas existentes. Los pagos no se marcan automáticamente como realizados.</div>
+    <iframe title="Pagos del día desde Supabase" loading="lazy" src="./prueba-intercambio/index.html?integrado=1" style="display:block;width:100%;height:780px;border:1px solid #9b4dff;border-radius:12px;background:#f1f5f9;margin-top:10px"></iframe>
+  </details>
+</div>
+<div class="card">
   <div class="title">📄 Subir PDF de aprobados</div>
   <label>Selecciona el PDF</label>
   <input type="file" id="pdfFile" accept="application/pdf">
