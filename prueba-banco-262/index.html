@@ -1449,7 +1449,7 @@ async function leerPDF(){
        // Rescate limitado a la columna Pago Móvil y a la misma altura.
        if(!banco){
          const bancosCercanos=items.filter(it=>
-           it.x>=B3 && Math.abs(it.y-cur.y)<=13 && detectarBanco(it.str)
+           it.x>=B3 && it.y>=cur.y-4 && it.y<=cur.y+42 && detectarBanco(it.str)
          );
          const codigosCercanos=[...new Set(bancosCercanos.map(it=>detectarBanco(it.str)).filter(Boolean))];
          if(codigosCercanos.length===1){
