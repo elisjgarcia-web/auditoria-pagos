@@ -642,7 +642,7 @@ function crearRondas(){
  let n=+cant.value,h="";
  for(let i=1;i<=n;i++){
   let nm=i===n?"CARTÓN LLENO FINAL":R[i-1];
-  h+=`<div class="card"><div class="title">🥳 ${nm}</div><label>Nombre</label><input id="nom${i}" value="${nm}"><label>Premio total Bs</label><input id="pre${i}" inputmode="decimal" oninput="limpiarRonda(${i});programarGuardado()"><label>Cartón(es) ganador(es)</label><input id="car${i}" inputmode="numeric" pattern="[0-9, ]*" autocomplete="off" placeholder="708 o 252,523" oninput="limpiarRonda(${i});programarGuardado()"><button class="gen" onclick="genR(${i})">Generar anuncio y pagos</button><button class="copy" onclick="copiar('msg${i}','ok${i}')">Copiar anuncio</button><button class="wa" onclick="wa('msg${i}')">WhatsApp anuncio</button><div id="msg${i}" class="msg"></div><div id="pag${i}" class="msg"></div><div id="pagosBtns${i}"></div><div id="ok${i}" class="ok">Copiado ✅</div></div>`;
+  h+=`<div class="card"><div class="title">🥳 ${nm}</div><label>Nombre</label><input id="nom${i}" value="${nm}"><label>Premio total Bs</label><input id="pre${i}" inputmode="decimal" oninput="limpiarRonda(${i});programarGuardado()"><label>Cartón(es) ganador(es)</label><input id="car${i}" inputmode="numeric" pattern="[0-9, ]*" autocomplete="off" placeholder="708 o 252,523" oninput="limpiarRonda(${i});programarGuardado()"><button class="gen" onclick="genR(${i})">Generar anuncio y pagos</button><button class="wa" onclick="wa('msg${i}')">WhatsApp anuncio</button><div id="msg${i}" class="msg"></div><div id="pag${i}" class="msg" style="display:none" aria-hidden="true"></div><div id="pagosBtns${i}"></div><div id="ok${i}" class="ok">Copiado ✅</div></div>`;
  }
  rondas.innerHTML=h;
  actualizarEtiquetasRondas();
