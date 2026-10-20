@@ -34,6 +34,24 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 <div class="sub">PDF + pagos + conversión $/Bs + Top + doble verificación</div>
 <div id="saveStatus" class="savebar">💾 Guardado automático activado</div>
 <div class="card">
+  <div class="title">🏆 Publicación de ganadores</div>
+  <p class="small">Publica fecha, rondas, cartones y premios. Consolación y pozo se incluyen al registrar sus cartones. Los resultados publicados se conservan al iniciar un nuevo sorteo.</p>
+  <button class="gen" onclick="vistaPreviaGanadores()">Publicar ganadores</button>
+  <div id="publicarEstado" class="small" role="status" aria-live="polite"></div>
+  <button class="sec" onclick="historialGanadores()">Consultar historial por fecha</button>
+  <label>Buscar cualquier fecha publicada</label><input id="buscarFechaPublicada" type="date"><button class="sec" onclick="verFechaPublicada()">Ver fecha</button>
+  <div id="historialPublicaciones"></div><div id="resultadoHistorico"></div>
+</div>
+<dialog id="dialogoPublicacion" aria-labelledby="tituloPublicacion" style="width:min(95vw,650px);max-height:90vh;overflow:auto;background:#130020;color:white;border:2px solid #00d084;border-radius:16px">
+  <h2 id="tituloPublicacion">Confirmar publicación</h2>
+  <p>Esta es la información que verá el público. No incluye nombres, cédulas, teléfonos ni datos bancarios.</p>
+  <div id="vistaPublicacion"></div>
+  <p>Revisa la fecha y los premios. La publicación será permanente y no podrá sobrescribirse desde la app. Los premios compartidos usan el mismo redondeo que los pagos actuales.</p>
+  <button id="confirmarPublicacion" class="gen" onclick="confirmarGanadores()" disabled>Confirmar y publicar</button>
+  <button class="sec" onclick="document.getElementById('dialogoPublicacion').close()">Cancelar</button>
+</dialog>
+
+<div class="card">
   <div class="title">📄 Informe PDF del sorteo</div>
   <div class="small">Descarga un informe privado del sorteo con todos los ganadores, sus premios, teléfonos, bancos, cédulas de Pago Móvil, consolación, pozo y Top cuando correspondan. Contiene datos personales: no compartir públicamente.</div>
   <button class="copy" onclick="descargarInformePDF()">📄 Descargar PDF completo del sorteo</button>
@@ -603,7 +621,7 @@ function regenerarBotonesTrasRestaurar(){
  guardarEstadoAhora();
 }
 async function nuevoSorteo(){
- if(!confirm("¿Borrar todos los datos guardados y comenzar un sorteo nuevo?"))return;
+ if(!confirm("¿Borrar el trabajo local y comenzar un sorteo nuevo? Los resultados publicados en Supabase se conservan."))return;
  try{localStorage.removeItem(STORAGE_KEY)}catch(e){}
  await borrarIDB();
  location.reload();
@@ -867,10 +885,6 @@ function toggleTop(){mostrarTop(!TOP_ACTIVO)}
 
 
 
-async 
-
-
-async 
 
 
 function datosTopConsistentes(lista){
@@ -2000,5 +2014,7 @@ actualizarEtiquetasRondas();
 setTimeout(async()=>{if(!(await restaurarEstado()))guardarEstadoAhora()},0);
 </script>
 
-<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script></body>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script><script src="publicacion.js?v=1"></script>
+<script src="publicar-ganadores.js?v=1"></script>
+</body>
 </html>

@@ -1,5 +1,5 @@
-const CACHE='auditoria-supabase-pwa-v7';
-const CORE=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
+const CACHE='auditoria-supabase-pwa-v8';
+const CORE=['./','./index.html','./publicacion.js?v=1','./publicar-ganadores.js?v=1','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 const PDFJS=[];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(async c=>{await c.addAll(CORE);await Promise.all(PDFJS.map(u=>c.add(u).catch(()=>{})));}));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
