@@ -1,11 +1,17 @@
 -- Aplicar primero en una rama de desarrollo, después de respaldar esquema y datos.
 begin;
-create table public.publicadores_resultados (
+create schema if not exists privado_resultados;
+revoke all on schema privado_resultados from public, anon, authenticated;
+grant usage on schema privado_resultados to authenticated;
+-- La tabla histórica antigua contiene campos personales y no será una API pública.
+drop policy if exists public_read_ganadores on public.ganadores;
+revoke select on public.ganadores from anon;
+create table privado_resultados.publicadores_resultados (
  usuario_id uuid primary key references auth.users(id),
  activo boolean not null default true
 );
-alter table public.publicadores_resultados enable row level security;
-revoke all on public.publicadores_resultados from public, anon, authenticated;
+alter table privado_resultados.publicadores_resultados enable row level security;
+revoke all on privado_resultados.publicadores_resultados from public, anon, authenticated;
 
 -- Sin FK a inscripciones, cartones o sorteos: los reinicios no se propagan aquí.
 create table public.resultados_publicados (
@@ -18,17 +24,17 @@ revoke all on public.resultados_publicados from public, anon, authenticated;
 grant select on public.resultados_publicados to anon, authenticated;
 create policy resultados_lectura on public.resultados_publicados for select to anon, authenticated using (true);
 
-create function public.resultados_inmutables() returns trigger
+create function privado_resultados.resultados_inmutables() returns trigger
 language plpgsql set search_path = '' as $$
 begin raise exception 'Los resultados publicados son permanentes; no se pueden borrar ni modificar.'; end;
 $$;
-revoke all on function public.resultados_inmutables() from public, anon, authenticated;
+revoke all on function privado_resultados.resultados_inmutables() from public, anon, authenticated;
 create trigger proteger_resultados before update or delete on public.resultados_publicados
-for each row execute function public.resultados_inmutables();
+for each row execute function privado_resultados.resultados_inmutables();
 create trigger proteger_resultados_truncate before truncate on public.resultados_publicados
-for each statement execute function public.resultados_inmutables();
+for each statement execute function privado_resultados.resultados_inmutables();
 
-create function public.publicar_resultados_v1(p_resultado jsonb) returns jsonb
+create function privado_resultados.publicar_resultados_v1(p_resultado jsonb) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
  f date; g jsonb; w jsonb; n int; pos int := 0; regulares int := 0;
@@ -36,7 +42,7 @@ declare
  c int; premio bigint; vistos int[]; anterior jsonb; aprobados int;
 begin
  if auth.uid() is null or not exists (
-  select 1 from public.publicadores_resultados where usuario_id=auth.uid() and activo
+  select 1 from privado_resultados.publicadores_resultados where usuario_id=auth.uid() and activo
  ) then raise exception 'Usuario no autorizado para publicar' using errcode='42501'; end if;
  if p_resultado is null or jsonb_typeof(p_resultado)<>'object' or
     p_resultado - array['version','fecha','grupos'] <> '{}'::jsonb or
@@ -102,6 +108,13 @@ begin
  insert into public.resultados_publicados(fecha,resultado) values(f,p_resultado);
  return jsonb_build_object('fecha',f,'ya_publicado',false);
 end;
+$$;
+revoke all on function privado_resultados.publicar_resultados_v1(jsonb) from public, anon;
+grant execute on function privado_resultados.publicar_resultados_v1(jsonb) to authenticated;
+-- Solo esta envoltura sin privilegios elevados se expone a PostgREST.
+create function public.publicar_resultados_v1(p_resultado jsonb) returns jsonb
+language sql security invoker set search_path = '' as $$
+ select privado_resultados.publicar_resultados_v1(p_resultado);
 $$;
 revoke all on function public.publicar_resultados_v1(jsonb) from public, anon;
 grant execute on function public.publicar_resultados_v1(jsonb) to authenticated;
