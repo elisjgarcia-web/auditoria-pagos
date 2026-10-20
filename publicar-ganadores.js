@@ -12,7 +12,7 @@ window.vistaPreviaGanadores=async function(){
  try{
   pendiente=null;el('confirmarPublicacion').disabled=true;
   const {data:{session},error}=await supa.auth.getSession();if(error||!session)throw Error('Primero verifica tu acceso a Supabase.');
-  pendiente=preparar();ResultadosPublicos.mostrar(el('vistaPublicacion'),pendiente);
+  pendiente=preparar();const nombres={};pendiente.grupos.forEach(g=>g.ganadores.forEach(w=>{nombres[w.carton]=buscar(String(w.carton))?.nombre||''}));ResultadosPublicos.mostrar(el('vistaPublicacion'),{...pendiente,nombres});
   el('dialogoPublicacion').showModal();el('confirmarPublicacion').disabled=false;estado('Vista previa lista. Revisa la fecha, todos los cartones y sus premios.');
  }catch(e){estado(e.message)}
 };
@@ -31,14 +31,14 @@ window.confirmarGanadores=async function(){
 window.verFechaPublicada=async function(fecha){
  try{
   const f=ResultadosPublicos.fechaISO(fecha||el('buscarFechaPublicada').value);
-  const {data,error}=await supa.from('resultados_publicados').select('resultado').eq('fecha',f).single();
+  const {data,error}=await supa.from('resultados_publicos_con_nombres').select('resultado').eq('fecha',f).single();
   if(error)throw Error('No se encontró una publicación o no se pudo consultar esa fecha.');
   ResultadosPublicos.mostrar(el('resultadoHistorico'),data.resultado);
  }catch(e){estado(e.message)}
 };
 window.historialGanadores=async function(){
  const box=el('historialPublicaciones');box.replaceChildren();
- const {data,error}=await supa.from('resultados_publicados').select('fecha,publicado_en').order('fecha',{ascending:false}).limit(100);
+ const {data,error}=await supa.from('resultados_publicos_con_nombres').select('fecha,publicado_en').order('fecha',{ascending:false}).limit(100);
  if(error){box.textContent='No se pudo consultar el historial. '+error.message;return}
  if(!data.length){box.textContent='Aún no hay resultados publicados.';return}
  data.forEach(r=>{const b=document.createElement('button');b.className='sec';b.textContent=r.fecha;b.onclick=()=>verFechaPublicada(r.fecha);box.appendChild(b)});

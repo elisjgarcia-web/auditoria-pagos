@@ -10,12 +10,12 @@ test('DOM: vista previa, confirmación, datos cambiados, error, reintento e hist
  try{
  w.eval(read('publicacion.js'));w.eval(read('publicar-ganadores.js'));
  // Alimenta el índice por el método real de consulta, sin exponer datos personales al módulo público.
- mock.from=()=>({select:()=>({eq:()=>({range:async()=>({data:[{nombre:'PRIVADO',cedula:'12345678',cartones:[1,2,3],estado:'aprobado'}]})})})});
+ mock.from=()=>({select:()=>({eq:()=>({range:async()=>({data:[{nombre:'Ana Prueba',cedula:'12345678',cartones:[1,2,3],estado:'aprobado'}]})})})});
  await w.supaCargar();w.document.getElementById('fechaSorteo').value='19/10/2026';w.document.getElementById('cant').value='5';w.crearRondas();
  const set=(id,value)=>w.document.getElementById(id).value=value;
  set('car1','1,2');set('pre1','100');set('car2','3');set('pre2','200');for(let i=3;i<=5;i++){set('car'+i,'1');set('pre'+i,'200')}
  mock.from=()=>({select:()=>({order:()=>({limit:async()=>({data:saved?[{fecha:saved.fecha}]:[]})}),eq:()=>({single:async()=>({data:{resultado:saved}})})})});
- await w.vistaPreviaGanadores();assert.equal(w.document.getElementById('dialogoPublicacion').open,true);assert.equal(calls.length,0);assert.ok(!w.document.getElementById('vistaPublicacion').textContent.includes('PRIVADO'));
+ await w.vistaPreviaGanadores();assert.equal(w.document.getElementById('dialogoPublicacion').open,true);assert.equal(calls.length,0);assert.ok(w.document.getElementById('vistaPublicacion').textContent.includes('Ana Prueba'));
  set('pre1','102');await w.confirmarGanadores();assert.match(w.document.getElementById('publicarEstado').textContent,/cambiaron/);assert.equal(calls.length,0);
  await w.vistaPreviaGanadores();fail=true;await w.confirmarGanadores();assert.match(w.document.getElementById('publicarEstado').textContent,/No se pudo publicar/);
  fail=false;await w.confirmarGanadores();assert.match(w.document.getElementById('publicarEstado').textContent,/Publicado y confirmado/);assert.equal(w.document.getElementById('dialogoPublicacion').open,false);
