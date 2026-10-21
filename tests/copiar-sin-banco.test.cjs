@@ -38,7 +38,44 @@ test('copiar pagos sin banco omite el banco, conserva la advertencia y protege d
   assert.equal(copies.at(-1),expected);
   for(const x of [{...cliente,telefono:'123'}, {...cliente,cedula:'ABC'}, null]){
    w.crearBotonesPago('pagosBtnsCon',[{carton:1,x,monto:35280}],'okCon');
-   assert.equal(w.document.querySelector('#pagosBtnsCon button.copy'),null);
+   assert.equal(w.document.querySelector('#pagosBtnsCon > button.copy'),null);
   }
+ }finally{w.close()}
+});
+
+test('Pago Móvil 2 queda cerrado y copia solamente los datos del registro, también en Top',async()=>{
+ const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g,'');
+ const copies=[];
+ const dom=new JSDOM(html,{url:'https://local.test',runScripts:'dangerously',virtualConsole:new VirtualConsole(),beforeParse(w){
+  w.supabase={createClient:()=>({})};w.setTimeout=()=>0;w.alert=()=>{};
+  Object.defineProperty(w.navigator,'clipboard',{value:{writeText:async text=>copies.push(text)}});
+ }});
+ const w=dom.window;
+ try{
+  const cliente={nombre:'Cliente prueba',telefono:'04121234567',cedula:'12345678',bancoCodigo:'0105',telefonoRegistro:'0416-7654321',cedulaCompra:'87654321'};
+  const expected=[w.fmt(100),'04167654321','87654321'].join('\n');
+  for(const id of ['pagosBtns1','pagosBtns6','pagosBtnsPozo','pagosBtnsCon']){
+   w.crearBotonesPago(id,[{carton:1,x:cliente,monto:100}],'okCon');
+   const opcion=w.document.querySelector('#'+id+' details.pago-registro');
+   assert.equal(opcion.open,false);
+   assert.match(opcion.textContent,/no una cuenta de Pago Móvil confirmada/);
+   opcion.querySelector('summary').click();assert.equal(opcion.open,true);
+   await opcion.querySelector('button').onclick();assert.equal(copies.at(-1),expected);
+   await w.document.querySelector('#'+id+' > button.copy').onclick();
+   assert.equal(copies.at(-1),[w.fmt(100),cliente.telefono,cliente.cedula,'0105'].join('\n'));
+  }
+  // La transformación de las compras para Top debe conservar el teléfono del registro.
+  w.renderPagosTop([{carton:1,nombre:cliente.nombre,x:cliente,lista:[cliente],monto:100}]);
+  await w.document.querySelector('#pagosBtnsTop details.pago-registro button').onclick();
+  assert.equal(copies.at(-1),expected);
+  w.crearBotonesPago('pagosBtnsCon',[{carton:1,x:{...cliente,telefonoRegistro:'',cedulaCompra:''},monto:100}],'okCon');
+  const vacio=w.document.querySelector('#pagosBtnsCon details.pago-registro');
+  assert.equal(vacio.querySelector('button'),null);
+  assert.match(vacio.textContent,/No hay teléfono ni cédula del registro/);
+  w.crearBotonesPago('pagosBtnsCon',[{carton:1,x:{...cliente,telefonoRegistro:'',cedulaCompra:'87654321'},monto:100}],'okCon');
+  const parcial=w.document.querySelector('#pagosBtnsCon details.pago-registro');
+  assert.match(parcial.textContent,/incompletos/);
+  await parcial.querySelector('button').onclick();
+  assert.equal(copies.at(-1),[w.fmt(100),'','87654321'].join('\n'));
  }finally{w.close()}
 });

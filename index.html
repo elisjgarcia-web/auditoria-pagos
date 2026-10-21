@@ -914,6 +914,7 @@ function opcionesPagoTop(lista){
      telefono,
      cedula,
      cedulaCompra:ced(r.cedulaCompra),
+     telefonoRegistro:r.telefonoRegistro,
      nombre:r.nombre,
      pagina:r.pagina
    });
@@ -1028,11 +1029,13 @@ function renderPagosTop(pagos){
          op.classList.add("goodbox");
        };
        caja.appendChild(btn);
+       agregarOpcionPagoRegistro(caja,x,p.monto,"okTop");
      });
 
      resumen.push(`${p.carton} - ${p.nombre}\n⚠️ ELEGIR ENTRE ${opciones.length} OPCIONES DE PAGO MÓVIL`);
    }
 
+   if(opciones.length<=1)agregarOpcionPagoRegistro(caja,opciones[0]||p.x,p.monto,"okTop");
    pagosBtnsTop.appendChild(caja);
  });
 
@@ -1764,6 +1767,24 @@ function detallePago(c,x,m){
  return t;
 }
 function pagoLinea(c,x,m){return detallePago(c,x,m)}
+function agregarOpcionPagoRegistro(cont,x,m,ok){
+ if(!x)return;
+ const telefono=supaDigits(x.telefonoRegistro),cedula=supaDigits(x.cedulaCompra);
+ const opcion=document.createElement("details");opcion.className="pago-registro";opcion.style.marginTop="8px";
+ const titulo=document.createElement("summary");titulo.textContent="📲 Pago Móvil 2 · Datos del registro";opcion.append(titulo);
+ const aviso=document.createElement("div");aviso.className="warnbox";aviso.textContent="⚠️ Estos son los datos del registro, no una cuenta de Pago Móvil confirmada. Verifica con el ganador. El registro no tiene banco propio; búscalo antes de pagar.";opcion.append(aviso);
+ const datos=document.createElement("div");datos.className="msg";datos.textContent="Monto: "+fmt(m)+" Bs\nTeléfono del registro: "+(telefono||"NO DISPONIBLE")+"\nCédula del registro: "+(cedula||"NO DISPONIBLE");opcion.append(datos);
+ if(telefono||cedula){
+  if(!supaValidTel(telefono)||!supaValidCed(cedula)){
+   const incompleto=document.createElement("p");incompleto.textContent="⚠️ Datos del registro incompletos o con formato inusual. Revisa los datos antes de usarlos.";opcion.append(incompleto);
+  }
+  const copiar=document.createElement("button");copiar.className="copy";copiar.textContent="📋 Copiar Pago Móvil 2";
+  copiar.onclick=()=>copiarTexto([fmt(m),telefono,cedula].join("\n"),ok);opcion.append(copiar);
+ }else{
+  const vacio=document.createElement("p");vacio.textContent="No hay teléfono ni cédula del registro disponibles para copiar.";opcion.append(vacio);
+ }
+ cont.append(opcion);
+}
 function crearBotonesPago(id,pagos,ok){
  const cont=document.getElementById(id);if(!cont)return;
  cont.replaceChildren();
@@ -1785,6 +1806,7 @@ function crearBotonesPago(id,pagos,ok){
   }else{
    const w=document.createElement("div");w.className="warnbox";w.textContent="⚠️ Datos de Pago Móvil incompletos o incompatibles. Copia bloqueada.";cont.append(w);
   }
+  agregarOpcionPagoRegistro(cont,x,m,ok);
   const more=document.createElement("details");more.style.marginTop="8px";
   const label=document.createElement("summary");label.textContent="🧾 Captura y contacto";more.append(label);
   if(x.comprobante&&/^https:\/\//i.test(x.comprobante)){
