@@ -1744,9 +1744,9 @@ function repartirPremio(total,cantidad){
  return Array.from({length:cantidad},()=>por);
 }
 function textoPagoConCedula(x,m,cedElegida){
- let w=[];if(!x.bancoCodigo)w.push("Banco sin código claro");if(!x.telefono)w.push("Teléfono dudoso");
+ let w=[];if(!x.telefono)w.push("Teléfono dudoso");
  if(!cedulaEnRango(cedElegida))w.push("Cédula seleccionada con formato inusual");
- return `${fmt(m)}\n${x.telefono||"REVISAR"}\n${cedElegida||"REVISAR"}\n${x.bancoCodigo||"NO ENCONTRADO"}${w.length?`\n\n⚠️ Revisar: ${w.join(", ")}`:""}`;
+ return `${[fmt(m),x.telefono||"REVISAR",cedElegida||"REVISAR",...(x.bancoCodigo?[x.bancoCodigo]:[])].join("\n")}${w.length?`\n\n⚠️ Revisar: ${w.join(", ")}`:""}`;
 }
 function pagoIndividual(c,x,m){
  if(!x)return `${fmt(m)}\nREVISAR\nREVISAR\nNO ENCONTRADO`;
@@ -1759,7 +1759,8 @@ function detallePago(c,x,m){
  let t=String(c)+" - "+x.nombre+"\nMonto: "+fmt(m)+" Bs\nBanco: "+(x.bancoCodigo||"NO ENCONTRADO");
  t+="\nTeléfono: "+(tel||"REVISAR")+"\nCédula: "+(ci||"REVISAR");
  if(swap)t+="\n⚠️ DATOS INTERCAMBIADOS: CONFIRMAR CON BENEFICIARIO ANTES DE PAGAR";
- else if(!supaValidPago(x))t+="\n⚠️ DATOS INCOMPATIBLES — COPIA BLOQUEADA";
+ else if(!supaValidTel(tel)||!supaValidCed(ci))t+="\n⚠️ DATOS INCOMPATIBLES — COPIA BLOQUEADA";
+ if(!x.bancoCodigo)t+="\n⚠️ Banco no indicado o no reconocido. Búscalo y verifica antes de pagar.";
  return t;
 }
 function pagoLinea(c,x,m){return detallePago(c,x,m)}
@@ -1770,7 +1771,7 @@ function crearBotonesPago(id,pagos,ok){
   const x=p.x,m=p.monto,c=p.carton||"";
   if(!x){const d=document.createElement("div");d.className="warnbox";d.textContent="Cartón no encontrado";cont.append(d);return}
   const sw=supaSwap(x),tel=sw?x.cedula:x.telefono,ci=sw?x.telefono:x.cedula;
-  const valid=!!(x.bancoCodigo&&supaValidTel(tel)&&supaValidCed(ci));
+  const valid=!!(supaValidTel(tel)&&supaValidCed(ci));
   const d=document.createElement("div");d.className="msg";d.textContent=detallePago(c,x,m);cont.append(d);
   if(sw){
    const warning=document.createElement("div");warning.className="warnbox";warning.textContent="⚠️ Posible teléfono y cédula intercambiados. Confirma con el beneficiario antes de pagar.";cont.append(warning);
@@ -1780,7 +1781,7 @@ function crearBotonesPago(id,pagos,ok){
   }
   if(valid){
    const copy=document.createElement("button");copy.className="copy";copy.textContent=sw?"🔄 Copiar opción intercambiada":"📋 Copiar Pago Móvil";
-   copy.onclick=()=>copiarTexto([fmt(m),tel,ci,x.bancoCodigo].join("\n"),ok);cont.append(copy);
+   copy.onclick=()=>copiarTexto([fmt(m),tel,ci,...(x.bancoCodigo?[x.bancoCodigo]:[])].join("\n"),ok);cont.append(copy);
   }else{
    const w=document.createElement("div");w.className="warnbox";w.textContent="⚠️ Datos de Pago Móvil incompletos o incompatibles. Copia bloqueada.";cont.append(w);
   }
