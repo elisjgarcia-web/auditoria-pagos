@@ -232,6 +232,14 @@ const supaValidTel=x=>/^(?:58)?0?4(?:12|14|16|22|24|26)\d{7}$/.test(supaDigits(x
 const supaValidCed=x=>/^\d{4,9}$/.test(supaDigits(x));
 function supaSwap(x){return !supaValidTel(x.telefono)&&!supaValidCed(x.cedula)&&supaValidCed(x.telefono)&&supaValidTel(x.cedula)}
 function supaValidPago(x){return !!(x&&x.bancoCodigo&&supaValidTel(x.telefono)&&supaValidCed(x.cedula))}
+async function supaAbrirComprobante(evento,url){
+ evento.preventDefault();
+ const prefijo=SUPA_URL+'/storage/v1/object/public/comprobantes/';
+ if(!String(url).startsWith(prefijo)){alert('Recarga las compras para abrir este comprobante.');return}
+ const ventana=window.open('about:blank','_blank');if(ventana)ventana.opener=null;
+ try{const {data,error}=await supa.storage.from('comprobantes').createSignedUrl(url.slice(prefijo.length),300);if(error||!data?.signedUrl)throw Error('sin acceso');if(ventana)ventana.location.replace(data.signedUrl);else alert('Permite abrir ventanas para ver el comprobante.');}
+ catch{if(ventana)ventana.close();alert('No se pudo abrir el comprobante. Verifica tu sesión y vuelve a intentarlo.');}
+}
 async function supaCargar(){
  const {data:{session}}=await supa.auth.getSession();if(!session){supaMensaje('Primero verifica tu acceso con el código enviado al correo');return}
  supaMensaje('Consultando compras aprobadas...');let all=[];
@@ -1810,7 +1818,7 @@ function crearBotonesPago(id,pagos,ok){
   const more=document.createElement("details");more.style.marginTop="8px";
   const label=document.createElement("summary");label.textContent="🧾 Captura y contacto";more.append(label);
   if(x.comprobante&&/^https:\/\//i.test(x.comprobante)){
-   const a=document.createElement("a");a.href=x.comprobante;a.target="_blank";a.rel="noopener noreferrer";a.textContent="🧾 Ver captura del comprobante";a.style.display="block";a.style.margin="10px 0";more.append(a);
+   const a=document.createElement("a");a.href="#";a.onclick=evento=>supaAbrirComprobante(evento,x.comprobante);a.target="_blank";a.rel="noopener noreferrer";a.textContent="🧾 Ver captura del comprobante";a.style.display="block";a.style.margin="10px 0";more.append(a);
   }else{
    const no=document.createElement("p");no.textContent="Comprobante no disponible";more.append(no);
   }
@@ -2041,3 +2049,4 @@ setTimeout(async()=>{if(!(await restaurarEstado()))guardarEstadoAhora()},0);
 <script src="publicar-ganadores.js?v=2"></script>
 </body>
 </html>
+
