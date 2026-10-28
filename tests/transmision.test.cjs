@@ -45,3 +45,19 @@ test('app de pagos: enlaces inválidos, sin sesión, fallo de lectura/escritura 
  const a=await admin({pending:true});try{a.el('transmisionEnlace').value='https://youtu.be/Abcd_123-xy';a.el('transmisionEnviar').click();a.el('transmisionEnviar').click();await a.settle();assert.equal(a.calls.length,1);a.finish();await a.settle();}finally{a.close()}
 });
 test('app: consultar conserva enlace que se está editando',async()=>{const a=await admin();try{a.el('transmisionEnlace').value='https://youtu.be/ZyXw_123-xy';a.el('transmisionEnlace').dispatchEvent(new a.w.Event('input'));a.el('transmisionConsultar').click();await a.settle();assert.equal(a.el('transmisionEnlace').value,'https://youtu.be/ZyXw_123-xy')}finally{a.close()}});
+test('copiar anuncio incluye todo el mensaje y el enlace recién pegado, sin envíos remotos',async()=>{
+ const a=await admin();try{
+  const copied=[];Object.defineProperty(a.w.navigator,'clipboard',{value:{writeText:async text=>copied.push(text)},configurable:true});
+  const link='https://www.youtube.com/live/Abcd_123-xy?si=mi-enlace';a.el('transmisionEnlace').value=link;
+  a.el('transmisionCopiar').click();await a.settle();
+  assert.equal(copied[0],'🔴🎱 ¡YA ESTAMOS EN VIVO, FAMILIA BINGUERA!\n\nÚnete a la transmisión de *Bingo Andino 75* y disfruta cada ronda con nosotros. 🥳✨\n\n👇 Toca el enlace para entrar:\n'+link+'\n\n🍀 ¡Mucha suerte para todos!');
+  a.el('transmisionEnlace').value='https://youtu.be/ZyXw_123-xy';a.el('transmisionCopiar').click();await a.settle();assert.ok(copied[1].includes('https://youtu.be/ZyXw_123-xy'));assert.ok(!copied[1].includes(link));assert.equal(a.calls.length,0);assert.equal(a.el('transmisionAnuncio').hidden,true);
+ }finally{a.close()}
+});
+test('copiar rechaza enlace vacío o falso, y ofrece anuncio seleccionable si el portapapeles falla',async()=>{
+ const a=await admin({readError:{message:'offline'}});try{
+  const copied=[];Object.defineProperty(a.w.navigator,'clipboard',{value:{writeText:async text=>{copied.push(text);throw Error('denegado')}},configurable:true});
+  for(const value of ['', 'https://youtube.com.ejemplo.test/watch?v=Abcd_123-xy']){a.el('transmisionEnlace').value=value;a.el('transmisionCopiar').click();await a.settle();assert.equal(copied.length,0);}
+  a.el('transmisionEnlace').value='https://youtu.be/Abcd_123-xy';a.el('transmisionCopiar').click();await a.settle();assert.equal(a.el('transmisionAnuncio').hidden,false);assert.ok(a.el('transmisionAnuncio').value.includes('¡Mucha suerte para todos!'));assert.equal(a.el('transmisionAnuncio').selectionEnd,a.el('transmisionAnuncio').value.length);assert.equal(a.el('transmisionCopiar').disabled,false);assert.equal(a.calls.length,0);
+ }finally{a.close()}
+});
