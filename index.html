@@ -32,7 +32,7 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 <body>
 <h1>🎰 Bingo Andino 75</h1>
 <div class="sub">PDF + pagos + conversión $/Bs + Top + doble verificación</div>
-<div id="saveStatus" class="savebar">💾 Guardado automático activado</div>
+<section class="card" aria-labelledby="transmisionTitulo"><h2 id="transmisionTitulo" class="title">📺 Transmisión para tus jugadores</h2><label for="transmisionEnlace">Enlace de la transmisión de YouTube</label><input id="transmisionEnlace" type="url" maxlength="2048" placeholder="https://www.youtube.com/live/…" autocomplete="off"><button id="transmisionEnviar" class="gen" disabled>Enviar transmisión a la página</button><button id="transmisionConsultar" class="sec">Consultar estado</button><button id="transmisionQuitar" class="clear" disabled>Quitar transmisión</button><p id="transmisionActual" class="small"></p><p class="small">Se mostrará en Jugar con tus cartones. Requiere tu acceso autorizado. El enlace vence a las 18 horas; puedes reenviarlo para renovarlo. No modifica compras, pagos ni ganadores.</p><p id="transmisionEstado" class="small" role="status" aria-live="polite"></p></section><div id="saveStatus" class="savebar">💾 Guardado automático activado</div>
 <div class="card">
   <div class="title">🏆 Publicación de ganadores</div>
   <p class="small">Publica fecha, rondas, nombres, cartones y premios. Consolación y pozo se incluyen al registrar sus cartones. Los resultados publicados se conservan al iniciar un nuevo sorteo.</p>
@@ -2047,6 +2047,7 @@ setTimeout(async()=>{if(!(await restaurarEstado()))guardarEstadoAhora()},0);
 
 <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script><script src="publicacion.js?v=3"></script>
 <script src="publicar-ganadores.js?v=2"></script>
-</body>
+<script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=1"></script></body>
 </html>
+
 
