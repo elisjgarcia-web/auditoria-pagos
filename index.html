@@ -244,8 +244,8 @@ async function supaCargar(){
  const {data:{session}}=await supa.auth.getSession();if(!session){supaMensaje('Primero verifica tu acceso con el código enviado al correo');return}
  supaMensaje('Consultando compras aprobadas...');let all=[];
  try{
- for(let i=0;i<20000;i+=500){const {data,error}=await supa.from('inscripciones').select('id,nombre,telefono,cedula,cartones,pago_banco,pago_telefono,pago_cedula,comprobante,estado').eq('estado','aprobado').range(i,i+499);if(error)throw error;all.push(...data);if(data.length<500)break}
- const regs=all.map(r=>({nombre:r.nombre||'',cedulaCompra:supaDigits(r.cedula),cartones:(Array.isArray(r.cartones)?r.cartones:[]).map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=9999),banco:r.pago_banco||'',bancoCodigo:codBanco(r.pago_banco||''),telefono:supaDigits(r.pago_telefono||r.telefono),cedula:supaDigits(r.pago_cedula||r.cedula),telefonoRegistro:supaDigits(r.telefono),comprobante:r.comprobante,pagoTelefonoOriginal:r.pago_telefono,pagoCedulaOriginal:r.pago_cedula,pagina:null}));
+ for(let i=0;i<20000;i+=500){const {data,error}=await supa.from('inscripciones').select('id,nombre,telefono,cedula,cartones,pago_banco,pago_telefono,pago_cedula,comprobante,estado,origen_registro').eq('estado','aprobado').range(i,i+499);if(error)throw error;all.push(...data);if(data.length<500)break}
+ const regs=all.map(r=>({esPremioSlot:r.origen_registro==='premio_slot',nombre:r.nombre||'',cedulaCompra:supaDigits(r.cedula),cartones:(Array.isArray(r.cartones)?r.cartones:[]).map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=9999),banco:r.pago_banco||'',bancoCodigo:codBanco(r.pago_banco||''),telefono:supaDigits(r.pago_telefono||r.telefono),cedula:supaDigits(r.pago_cedula||r.cedula),telefonoRegistro:supaDigits(r.telefono),comprobante:r.comprobante,pagoTelefonoOriginal:r.pago_telefono,pagoCedulaOriginal:r.pago_cedula,pagina:null}));
  const conflictos=new Map();for(const r of regs)for(const c of r.cartones)conflictos.set(c,(conflictos.get(c)||0)+1);
  const repetidos=[...conflictos].filter(([c,n])=>n>1).map(([c])=>c);
  if(!regs.length){supaMensaje('No se encontraron compras aprobadas. Se conservan los datos actuales para evitar borrados accidentales.');return}
@@ -1053,7 +1053,7 @@ function renderPagosTop(pagos){
 function calcularTopCompras(){
  if(!REGISTROS.length){alert("Primero carga el PDF de aprobados");return false}
  let porCed=new Map();
- REGISTROS.forEach(r=>{
+ REGISTROS.filter(r=>!r.esPremioSlot).forEach(r=>{
    let key=r.cedulaCompra||norm(r.nombre);
    if(!porCed.has(key))porCed.set(key,[]);
    porCed.get(key).push(r);
@@ -2049,5 +2049,3 @@ setTimeout(async()=>{if(!(await restaurarEstado()))guardarEstadoAhora()},0);
 <script src="publicar-ganadores.js?v=2"></script>
 <script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=2"></script></body>
 </html>
-
-
