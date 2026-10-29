@@ -1,4 +1,4 @@
-const CACHE='auditoria-supabase-pwa-v16-premios-slot';
+const CACHE='auditoria-supabase-pwa-v17-compartir-rondas';
 const CORE=['./shared/youtube.js?v=1','./transmision.js?v=2','./','./index.html','./publicacion.js?v=3','./publicacion.css?v=1','./publicar-ganadores.js?v=2','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 const PDFJS=[];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(async c=>{await c.addAll(CORE);await Promise.all(PDFJS.map(u=>c.add(u).catch(()=>{})));}));self.skipWaiting()});
