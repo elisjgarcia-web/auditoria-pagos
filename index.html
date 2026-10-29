@@ -149,6 +149,14 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 
 <div id="rondas"></div>
 
+<div class="card" id="compartirRondasCard">
+  <div class="title">🏆 Ganadores de las rondas</div>
+  <button class="copy" onclick="copiarGanadoresRondas()">📋 Copiar ganadores de las rondas</button>
+  <button class="wa" onclick="compartirGanadoresRondas()">💬 Compartir rondas por WhatsApp</button>
+  <div id="resumenRondas" class="msg" aria-live="polite"></div>
+  <div id="okRondas" class="ok">Copiado ✅</div>
+</div>
+
 <div class="card hidden" id="topCard">
   <div class="title">🏅 TOP DE COMPRAS · sábado</div>
   <div class="small">La app suma todos los cartones de la misma persona aunque tenga varias compras en el PDF. Si una persona usó distintos Pago Móvil, te mostrará las opciones para que elijas cuál usar. Los premios en $ son editables.</div>
@@ -1981,6 +1989,43 @@ function generarTodos(){
 function textoTodos(){if(!generarTodos())return"";let a=[];for(let i=1;i<=+cant.value;i++){let t=document.getElementById(`msg${i}`).innerText;if(t)a.push(t)}if(msgPozo.innerText)a.push(msgPozo.innerText);if(msgCon.innerText)a.push(msgCon.innerText);if(TOP_ACTIVO&&msgTop.innerText)a.push(msgTop.innerText);return a.join("\n\n")}
 function copiarTodos(){let txt=textoTodos();if(!txt)return;let d=document.createElement("div");d.id="tmp";d.innerText=txt;d.style.display="none";document.body.appendChild(d);copiar("tmp","okRes");d.remove()}
 function waTodos(){let t=textoTodos();if(t)location.href="https://wa.me/?text="+encodeURIComponent(t)}
+function textoGanadoresRondas(){
+ const vista=document.getElementById('resumenRondas');
+ vista.textContent='';
+ const n=Number(cant.value),lineas=[];
+ for(let i=1;i<=n;i++){
+  const entrada=document.getElementById(`car${i}`).value.trim();
+  if(!entrada)continue;
+  const cs=carts(entrada);
+  if(!cs.length||new Set(cs).size!==cs.length){alert(`Revisa los cartones de la ronda ${i}.`);return '';}
+  const nombres=[];
+  for(const c of cs){
+   const x=buscar(c);
+   if(estadoCarton(c)!=='OK'||!x||!String(x.nombre||'').trim()){
+    alert(`Revisa el cartón ${c} de la ronda ${i}: no hay un ganador identificado. Carga los aprobados antes de compartir.`);
+    return '';
+   }
+   const nombre=String(x.nombre).replace(/\s+/g,' ').trim();
+   if(!nombres.includes(nombre))nombres.push(nombre);
+  }
+  const etiqueta=i===n?'Lleno final':`Ronda ${i}`;
+  lineas.push(`${etiqueta}: ${nombres.length===1?'ganó':'ganaron'} ${nombres.join(', ')}.`);
+ }
+ if(!lineas.length){alert('Primero registra los cartones ganadores de las rondas.');return '';}
+ const texto=lineas.join('\n');
+ vista.textContent=texto;
+ return texto;
+}
+function copiarGanadoresRondas(){
+ const texto=textoGanadoresRondas();
+ if(texto)return copiarTexto(texto,'okRondas');
+}
+function compartirGanadoresRondas(){
+ const texto=textoGanadoresRondas();
+ if(texto)location.href='https://wa.me/?text='+encodeURIComponent(texto);
+}
+document.addEventListener('input',()=>{document.getElementById('resumenRondas').textContent='';});
+document.addEventListener('change',()=>{document.getElementById('resumenRondas').textContent='';});
 function resumen(){
  res.innerText="";
  if(!generarTodos())return false;
@@ -2049,3 +2094,4 @@ setTimeout(async()=>{if(!(await restaurarEstado()))guardarEstadoAhora()},0);
 <script src="publicar-ganadores.js?v=2"></script>
 <script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=2"></script></body>
 </html>
+
