@@ -8,11 +8,11 @@ test('preparation includes every tied round winner and final, ignores consolatio
  assert.throws(()=>preparar(f,c=>c!==2));assert.throws(()=>preparar({...f,rondas:['','','','','','']},()=>true));
 });
 test('payments DOM sends only approved current-bingo rounds; update and failure handling; no purchase or payment writes',async()=>{
- let sent=[],source='80',fail=false;
+ let sent=[],source='80',fail=false,hold=null;
  const records=[{nombre:'Ana Prueba',cedula:'123',cartones:[1,2],estado:'aprobado'},{nombre:'Luis Prueba',cedula:'456',cartones:[3],estado:'aprobado'}];
  const mock={auth:{getSession:async()=>({data:{session:{}}})},from:()=>({select:()=>({eq:()=>({range:async()=>({data:records})})})}),rpc:(name,args)=>({then(resolve,reject){return (async()=>{
   if(name==='slot_estado_rondas')return {data:{source,sent:false,winners:[]}};
-  assert.equal(name,'slot_enviar_rondas');sent.push(args);if(fail)return {error:{message:'Error de conexión'}};
+  assert.equal(name,'slot_enviar_rondas');sent.push(args);if(hold){const wait=hold;hold=null;await wait;}if(fail)return {error:{message:'Error de conexión'}};
   return {data:{source,sent:true,people:2,sentAt:'2026-10-29T20:00:00Z',winners:[{name:'Ana Prueba',ticket:'1',round:1,type:'ronda'},{name:'Luis Prueba',ticket:'3',round:1,type:'ronda'}]}};
  })().then(resolve,reject);}})};
  const errors=new VirtualConsole();errors.on('jsdomError',e=>{if(!e.message.includes('navigation'))throw e;});
@@ -25,5 +25,16 @@ test('payments DOM sends only approved current-bingo rounds; update and failure 
  assert.equal(sent[0].p_source,'80');assert.equal(sent[0].p_rondas[0].cartones.length,2);assert.equal(sent[0].p_rondas[1].tipo,'final');assert.match(el('ruletaEstado').textContent,/2 personas/);assert.match(el('ruletaLista').textContent,/Luis Prueba/);assert.ok(!JSON.stringify(sent).includes('cedula'));
  el('car1').value='3';el('car1').dispatchEvent(new w.Event('input',{bubbles:true}));assert.match(el('ruletaEstado').textContent,/modificadas/);await w.enviarRondasRuleta();assert.deepEqual(Array.from(sent[1].p_rondas[0].cartones),[3]);
  fail=true;await w.enviarRondasRuleta();assert.match(el('ruletaEstado').textContent,/Error de conexión/);assert.equal(el('enviarRondasRuleta').disabled,false);
+ const flush=()=>new Promise(resolve=>setImmediate(resolve));
+ fail=false;el('pre1').value='100';el('car1').value='1,3';
+ const before=sent.length;assert.equal(w.genR(1),true);assert.equal(w.genR(1),true);await flush();
+ assert.equal(sent.length,before+1);assert.equal(sent.at(-1).p_rondas[0].cartones.length,2);
+ assert.match(el('msg1').innerText,/Ana Prueba/);assert.match(w.document.querySelector('[data-ruleta-auto]').textContent,/personas excluidas/);
+ fail=true;assert.equal(w.genR(1),true);await flush();assert.match(el('msg1').innerText,/Luis Prueba/);assert.match(w.document.querySelector('[data-ruleta-auto]').textContent,/No se actualizó la ruleta/);
+ fail=false;let release;hold=new Promise(resolve=>release=resolve);w.genR(1);await flush();
+ el('car1').value='3';w.genR(1);await flush();release();await flush();await flush();
+ assert.deepEqual(Array.from(sent.at(-1).p_rondas[0].cartones),[3]);
+ const count=sent.length;el('pre1').value='';assert.equal(w.genR(1),false);await flush();assert.equal(sent.length,count);
+
  }finally{w.close();}
 });

@@ -718,7 +718,7 @@ function crearRondas(){
  let n=+cant.value,h="";
  for(let i=1;i<=n;i++){
   let nm=i===n?"CARTÓN LLENO FINAL":R[i-1];
-  h+=`<div class="card"><div class="title">🥳 ${nm}</div><label>Nombre</label><input id="nom${i}" value="${nm}"><label>Premio total Bs</label><input id="pre${i}" inputmode="decimal" oninput="limpiarRonda(${i});programarGuardado()"><label>Cartón(es) ganador(es)</label><input id="car${i}" inputmode="numeric" pattern="[0-9, ]*" autocomplete="off" placeholder="708 o 252,523" oninput="limpiarRonda(${i});programarGuardado()"><button class="gen" onclick="genR(${i})">Generar anuncio y pagos</button><button class="wa" onclick="wa('msg${i}')">WhatsApp anuncio</button><div id="msg${i}" class="msg"></div><div id="pag${i}" class="msg" style="display:none" aria-hidden="true"></div><div id="pagosBtns${i}"></div><div id="ok${i}" class="ok">Copiado ✅</div></div>`;
+  h+=`<div class="card"><div class="title">🥳 ${nm}</div><label>Nombre</label><input id="nom${i}" value="${nm}"><label>Premio total Bs</label><input id="pre${i}" inputmode="decimal" oninput="limpiarRonda(${i});programarGuardado()"><label>Cartón(es) ganador(es)</label><input id="car${i}" inputmode="numeric" pattern="[0-9, ]*" autocomplete="off" placeholder="708 o 252,523" oninput="limpiarRonda(${i});programarGuardado()"><button class="gen" onclick="genR(${i})">Generar anuncio y pagos</button><button class="wa" onclick="wa('msg${i}')">WhatsApp anuncio</button><div id="msg${i}" class="msg"></div><p class="small" data-ruleta-auto role="status"></p><div id="pag${i}" class="msg" style="display:none" aria-hidden="true"></div><div id="pagosBtns${i}"></div><div id="ok${i}" class="ok">Copiado ✅</div></div>`;
  }
  rondas.innerHTML=h;
  actualizarEtiquetasRondas();
@@ -1947,6 +1947,7 @@ function genR(i){
    ind.forEach(g=>cont.appendChild(botonVideoGanadorFinal(g)));
  }
  guardarEstadoAhora();
+ document.dispatchEvent(new Event('ronda-anuncio-generado'));
  return true;
 }
 
@@ -2106,7 +2107,7 @@ setTimeout(async()=>{if(!(await restaurarEstado()))guardarEstadoAhora()},0);
 
 <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script><script src="publicacion.js?v=3"></script>
 <script src="publicar-ganadores.js?v=2"></script>
-<script src="rondas-ruleta.js?v=1"></script>
+<script src="rondas-ruleta.js?v=2"></script>
 <script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=2"></script></body>
 </html>
 
