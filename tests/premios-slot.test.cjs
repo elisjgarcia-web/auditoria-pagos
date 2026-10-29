@@ -6,7 +6,7 @@ test('approved free cards remain searchable with registered payment data but nev
  const records=[base(1,'Ana','111111',[1,2]),base(2,'Luis','222222',[3]),base(3,'Mara','333333',[4]),base(4,'Ana','111111',[9,10,11,12],'premio_slot'),base(5,'Solo premio','444444',[20,21,22,23,24],'premio_slot')];
  let fields,rendered;
  const ctx={REGISTROS:[],CARTON_INDEX:{},CARTON_CONFLICTS:new Set(),PDF_CARGADO_DIRECTO:false,RAW_CARTONES:[],RAW_SEGMENTOS_VERIFICACION:[],TOP_RANKING:[],AUDITORIA_OK:false,
- supa:{auth:{getSession:async()=>({data:{session:{}}})},from:()=>({select:s=>{fields=s;return{eq:()=>({range:async()=>({data:records,error:null})})}}})},
+ supa:{rpc:async()=>({data:{source:'80',sent:false,winners:[]}}),auth:{getSession:async()=>({data:{session:{}}})},from:()=>({select:s=>{fields=s;return{eq:()=>({range:async()=>({data:records,error:null})})}}})},
  supaDigits:x=>String(x||'').replace(/\D/g,''),codBanco:x=>x,supaValidPago:()=>true,supaSwap:()=>false,supaMensaje:()=>{},mostrarEstado:()=>{},sugerirPlantilla:()=>{},programarGuardado:()=>{},guardarEstadoAhora:()=>{},
  cartonesDia:{},fechaSorteo:{value:'2026-10-28'},textoLista:{},norm:x=>x,monto:Number,num:Number,fmt:String,mejorRegistroTop:l=>l[0],datosTopConsistentes:()=>({ok:true}),renderPagosTop:x=>rendered=x,
  topBs1:{value:'25'},topBs2:{value:'15'},topBs3:{value:'10'},topUsd1:{value:''},topUsd2:{value:''},topUsd3:{value:''},topResultados:{},msgTop:{},alert:m=>{throw Error(m)},console,Date,Map,Set};
@@ -17,3 +17,4 @@ test('approved free cards remain searchable with registered payment data but nev
  assert.equal(ctx.buscar(20).nombre,'Solo premio');
  assert.equal(ctx.calcularTopCompras(),true);assert.deepEqual(Array.from(ctx.TOP_RANKING,r=>r.nombre),['Ana','Luis','Mara']);assert.deepEqual(Array.from(ctx.TOP_RANKING,r=>r.cantidad),[2,1,1]);assert.equal(rendered.length,3);
 });
+

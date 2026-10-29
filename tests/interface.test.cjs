@@ -2,7 +2,7 @@ const {test}=require('node:test');const assert=require('node:assert/strict');con
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 test('DOM: vista previa, confirmación, datos cambiados, error, reintento e historial',async()=>{
  const calls=[];let saved=null,fail=false;
- const mock={auth:{getSession:async()=>({data:{session:{}}})},rpc:async(name,args)=>{calls.push({name,args});if(fail)return {error:{message:'Sin conexión'}};saved=args.p_resultado;return {data:{fecha:saved.fecha}}},from:()=>({select:()=>({order:()=>({limit:async()=>({data:saved?[{fecha:saved.fecha}]:[]})}),eq:()=>({single:async()=>({data:{resultado:saved}})})})})};
+ const mock={auth:{getSession:async()=>({data:{session:{}}})},rpc:async(name,args)=>{if(name==='slot_estado_rondas')return {data:{source:'80',sent:false,winners:[]}};calls.push({name,args});if(fail)return {error:{message:'Sin conexión'}};saved=args.p_resultado;return {data:{fecha:saved.fecha}}},from:()=>({select:()=>({order:()=>({limit:async()=>({data:saved?[{fecha:saved.fecha}]:[]})}),eq:()=>({single:async()=>({data:{resultado:saved}})})})})};
  const html=read('index.html').replace(/<script[^>]*src=[^>]*><\/script>/g,'');
  const console=new VirtualConsole();console.on('jsdomError',e=>{if(!e.message.includes('navigation'))throw e});
  const dom=new JSDOM(html,{virtualConsole:console,url:'https://local.test',runScripts:'dangerously',beforeParse(w){w.supabase={createClient:()=>mock};w.setTimeout=()=>0;w.alert=()=>{};w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};}});
@@ -24,3 +24,4 @@ test('DOM: vista previa, confirmación, datos cambiados, error, reintento e hist
  const before=JSON.stringify(saved),count=calls.length;w.confirm=()=>true;await w.nuevoSorteo();assert.equal(JSON.stringify(saved),before);assert.equal(calls.length,count);
  }finally{w.close()}
 });
+

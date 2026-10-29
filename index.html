@@ -148,6 +148,14 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 </div>
 
 <div id="rondas"></div>
+<section class="card" aria-labelledby="ruletaTitulo">
+ <h2 id="ruletaTitulo" class="title">🎰 Consolación de 10 USD · Ruleta</h2>
+ <p class="small">Envía todos los ganadores de las rondas, incluido el lleno final. Se excluirán con todos sus cartones solo de los 10 USD. Siguen participando por 1 cartón gratis.</p>
+ <button class="gen" id="enviarRondasRuleta" onclick="enviarRondasRuleta()">Enviar / actualizar ganadores en la ruleta</button>
+ <button class="sec" onclick="consultarRondasRuleta()">Consultar lista enviada</button>
+ <p id="ruletaEstado" class="small" role="status" aria-live="polite">⚠️ No se han consultado los ganadores enviados.</p>
+ <details><summary>Ver ganadores excluidos de 10 USD</summary><div id="ruletaLista" class="small"></div></details>
+</section>
 
 <div class="card" id="compartirRondasCard">
   <div class="title">🏆 Ganadores de las rondas</div>
@@ -231,6 +239,7 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 
 const SUPA_URL="https://dbkixcpwirjwjvjintkr.supabase.co", SUPA_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRia2l4Y3B3aXJqd2p2amludGtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYwNjYxNDksImV4cCI6MjA2MTY0MjE0OX0.QJmWLWSe-pRYwxWeel8df7JLhNUvMKaTpL0MCDorgho";
 const supa=window.supabase.createClient(SUPA_URL,SUPA_ANON);
+let SLOT_APPROVED_SOURCE=null;
 function supaMensaje(t){document.getElementById('supaEstado').textContent=t}
 async function supaEnviar(){let email=document.getElementById('supaEmail').value.trim();if(!email){supaMensaje('Escribe el correo autorizado');return}const {error}=await supa.auth.signInWithOtp({email});supaMensaje(error?'Error: '+error.message:'Revisa tu correo e introduce el código')}
 async function supaVerificar(){const {error}=await supa.auth.verifyOtp({email:document.getElementById('supaEmail').value.trim(),token:document.getElementById('supaOtp').value.trim(),type:'email'});supaMensaje(error?'Error: '+error.message:'Acceso verificado. Pulsa Iniciar pagos del día.')}
@@ -252,11 +261,16 @@ async function supaCargar(){
  const {data:{session}}=await supa.auth.getSession();if(!session){supaMensaje('Primero verifica tu acceso con el código enviado al correo');return}
  supaMensaje('Consultando compras aprobadas...');let all=[];
  try{
+ SLOT_APPROVED_SOURCE=null;
+ const origenInicial=await supa.rpc('slot_estado_rondas').catch(()=>({data:null}));
  for(let i=0;i<20000;i+=500){const {data,error}=await supa.from('inscripciones').select('id,nombre,telefono,cedula,cartones,pago_banco,pago_telefono,pago_cedula,comprobante,estado,origen_registro').eq('estado','aprobado').range(i,i+499);if(error)throw error;all.push(...data);if(data.length<500)break}
  const regs=all.map(r=>({esPremioSlot:r.origen_registro==='premio_slot',nombre:r.nombre||'',cedulaCompra:supaDigits(r.cedula),cartones:(Array.isArray(r.cartones)?r.cartones:[]).map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=9999),banco:r.pago_banco||'',bancoCodigo:codBanco(r.pago_banco||''),telefono:supaDigits(r.pago_telefono||r.telefono),cedula:supaDigits(r.pago_cedula||r.cedula),telefonoRegistro:supaDigits(r.telefono),comprobante:r.comprobante,pagoTelefonoOriginal:r.pago_telefono,pagoCedulaOriginal:r.pago_cedula,pagina:null}));
  const conflictos=new Map();for(const r of regs)for(const c of r.cartones)conflictos.set(c,(conflictos.get(c)||0)+1);
  const repetidos=[...conflictos].filter(([c,n])=>n>1).map(([c])=>c);
  if(!regs.length){supaMensaje('No se encontraron compras aprobadas. Se conservan los datos actuales para evitar borrados accidentales.');return}
+ const origenFinal=await supa.rpc('slot_estado_rondas').catch(()=>({data:null}));
+ if(origenInicial.data?.source&&origenFinal.data?.source&&origenInicial.data.source!==origenFinal.data.source)throw Error('El sorteo cambió mientras cargaban los aprobados. Vuelve a cargar.');
+ SLOT_APPROVED_SOURCE=origenInicial.data?.source&&origenInicial.data.source===origenFinal.data?.source?origenFinal.data.source:null;
  REGISTROS=regs;RAW_CARTONES=[];RAW_SEGMENTOS_VERIFICACION=[];PDF_CARGADO_DIRECTO=false;AUDITORIA_OK=repetidos.length===0;construirIndice();
  cartonesDia.value=[...conflictos.keys()].length;if(!fechaSorteo.value.trim())fechaSorteo.value=new Date().toLocaleDateString('es-VE');
  textoLista.value=regs.map(r=>[r.nombre,r.cedulaCompra,r.cartones.join(', '),r.bancoCodigo,r.telefono,r.cedula].join(' | ')).join('\n');
@@ -2092,6 +2106,8 @@ setTimeout(async()=>{if(!(await restaurarEstado()))guardarEstadoAhora()},0);
 
 <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script><script src="publicacion.js?v=3"></script>
 <script src="publicar-ganadores.js?v=2"></script>
+<script src="rondas-ruleta.js?v=1"></script>
 <script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=2"></script></body>
 </html>
+
 
