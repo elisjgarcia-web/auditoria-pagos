@@ -262,13 +262,13 @@ async function supaCargar(){
  supaMensaje('Consultando compras aprobadas...');let all=[];
  try{
  SLOT_APPROVED_SOURCE=null;
- const origenInicial=await supa.rpc('slot_estado_rondas').catch(()=>({data:null}));
+ const origenInicial=await Promise.resolve(supa.rpc('slot_estado_rondas')).catch(()=>({data:null}));
  for(let i=0;i<20000;i+=500){const {data,error}=await supa.from('inscripciones').select('id,nombre,telefono,cedula,cartones,pago_banco,pago_telefono,pago_cedula,comprobante,estado,origen_registro').eq('estado','aprobado').range(i,i+499);if(error)throw error;all.push(...data);if(data.length<500)break}
  const regs=all.map(r=>({esPremioSlot:r.origen_registro==='premio_slot',nombre:r.nombre||'',cedulaCompra:supaDigits(r.cedula),cartones:(Array.isArray(r.cartones)?r.cartones:[]).map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=9999),banco:r.pago_banco||'',bancoCodigo:codBanco(r.pago_banco||''),telefono:supaDigits(r.pago_telefono||r.telefono),cedula:supaDigits(r.pago_cedula||r.cedula),telefonoRegistro:supaDigits(r.telefono),comprobante:r.comprobante,pagoTelefonoOriginal:r.pago_telefono,pagoCedulaOriginal:r.pago_cedula,pagina:null}));
  const conflictos=new Map();for(const r of regs)for(const c of r.cartones)conflictos.set(c,(conflictos.get(c)||0)+1);
  const repetidos=[...conflictos].filter(([c,n])=>n>1).map(([c])=>c);
  if(!regs.length){supaMensaje('No se encontraron compras aprobadas. Se conservan los datos actuales para evitar borrados accidentales.');return}
- const origenFinal=await supa.rpc('slot_estado_rondas').catch(()=>({data:null}));
+ const origenFinal=await Promise.resolve(supa.rpc('slot_estado_rondas')).catch(()=>({data:null}));
  if(origenInicial.data?.source&&origenFinal.data?.source&&origenInicial.data.source!==origenFinal.data.source)throw Error('El sorteo cambió mientras cargaban los aprobados. Vuelve a cargar.');
  SLOT_APPROVED_SOURCE=origenInicial.data?.source&&origenInicial.data.source===origenFinal.data?.source?origenFinal.data.source:null;
  REGISTROS=regs;RAW_CARTONES=[];RAW_SEGMENTOS_VERIFICACION=[];PDF_CARGADO_DIRECTO=false;AUDITORIA_OK=repetidos.length===0;construirIndice();

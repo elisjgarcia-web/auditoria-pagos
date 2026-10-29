@@ -10,11 +10,11 @@ test('preparation includes every tied round winner and final, ignores consolatio
 test('payments DOM sends only approved current-bingo rounds; update and failure handling; no purchase or payment writes',async()=>{
  let sent=[],source='80',fail=false;
  const records=[{nombre:'Ana Prueba',cedula:'123',cartones:[1,2],estado:'aprobado'},{nombre:'Luis Prueba',cedula:'456',cartones:[3],estado:'aprobado'}];
- const mock={auth:{getSession:async()=>({data:{session:{}}})},from:()=>({select:()=>({eq:()=>({range:async()=>({data:records})})})}),rpc:async(name,args)=>{
+ const mock={auth:{getSession:async()=>({data:{session:{}}})},from:()=>({select:()=>({eq:()=>({range:async()=>({data:records})})})}),rpc:(name,args)=>({then(resolve,reject){return (async()=>{
   if(name==='slot_estado_rondas')return {data:{source,sent:false,winners:[]}};
   assert.equal(name,'slot_enviar_rondas');sent.push(args);if(fail)return {error:{message:'Error de conexión'}};
   return {data:{source,sent:true,people:2,sentAt:'2026-10-29T20:00:00Z',winners:[{name:'Ana Prueba',ticket:'1',round:1,type:'ronda'},{name:'Luis Prueba',ticket:'3',round:1,type:'ronda'}]}};
- }};
+ })().then(resolve,reject);}})};
  const errors=new VirtualConsole();errors.on('jsdomError',e=>{if(!e.message.includes('navigation'))throw e;});
  const dom=new JSDOM(read('index.html').replace(/<script[^>]*src=[^>]*><\/script>/g,''),{url:'https://local.test',runScripts:'dangerously',virtualConsole:errors,beforeParse(w){w.supabase={createClient:()=>mock};w.setTimeout=()=>0;w.alert=()=>{};}});const w=dom.window,el=id=>w.document.getElementById(id);
  try{
