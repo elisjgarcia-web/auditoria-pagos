@@ -1,9 +1,9 @@
 (function(root){
 'use strict';
 function crear(ad){
- let connected=false,online=false,controller=false,revision=-1,formRevision=-1,applying=false,busy=false,dirty=false,timer=null,needsReload=false,lastShared='',latest=null;
+ let connected=false,online=false,controller=false,revision=-1,formRevision=-1,applying=false,busy=false,dirty=false,timer=null,needsReload=false,lastShared='',latest=null,paymentKeys=[];
  const device=ad.device,label=ad.label;let source=null;
- const estado=()=>({connected,online,controller,busy,applying,revision,formRevision,latest});
+ const estado=()=>({connected,online,controller,busy,applying,revision,formRevision,latest,paymentKeys});
  function notice(text){ad.notice(text,estado());}
  function render(){ad.roles(estado());}
  async function rpc(action,extra={}){
@@ -11,7 +11,7 @@ function crear(ad){
   if(r.error)throw Error(r.error.message||'No se pudo sincronizar');return r.data;
  }
  async function accept(data,own=false){
-  latest=data;online=true;controller=data.controller;revision=data.revision;
+  latest=data;if(data.state)paymentKeys=data.state.paymentKeys||[];online=true;controller=data.controller;revision=data.revision;
   if(data.state&&(!own||needsReload)){
    if(dirty)ad.backup(ad.snapshot());
    applying=true;try{await ad.apply(data.state);}finally{applying=false;}
@@ -40,7 +40,7 @@ function crear(ad){
  }
  async function marcar(key){
   if(dirty&&controller)await guardar();
-  if(!connected||!online||busy||!(latest?.state?.paymentKeys||ad.snapshot().paymentKeys).includes(key))return false;
+  if(!connected||!online||busy||!paymentKeys.includes(key))return false;
   const previous=!!(latest?.payments||{})[key];
   return ejecutar('payment',{key,previous,value:!previous});
  }
@@ -66,7 +66,7 @@ function bloquear(s){
   if(locked&&!n.disabled){n.dataset.syncLocked='1';n.disabled=true;}
   if(!locked&&n.dataset.syncLocked){n.disabled=false;delete n.dataset.syncLocked;}
  });
- document.querySelectorAll('[data-clave-pago]').forEach(n=>{n.disabled=n.dataset.paymentBlocked==='1'||(s.connected&&(!s.online||s.busy));});
+ document.querySelectorAll('[data-clave-pago]').forEach(n=>{n.disabled=n.dataset.paymentBlocked==='1'||(s.connected&&(!s.online||s.busy||!s.paymentKeys.includes(n.dataset.clavePago)));});
  el('syncClaim').disabled=!s.connected||!s.online||s.busy||s.controller;
  el('syncRelease').disabled=!s.connected||!s.online||s.busy||!s.controller;
  el('syncConnect').disabled=s.busy||connecting;
@@ -75,7 +75,7 @@ function bloquear(s){
 }
 client=crear({device,label:()=>el('syncLabel').value.trim()||'Teléfono',uuid:()=>crypto.randomUUID(),
  rpc:a=>supa.rpc('pagos_sincronizar',{a}),snapshot:()=>capturarPagosCompartidos(),apply:s=>aplicarPagosCompartidos(s),
- backup:s=>{try{localStorage.setItem('andino_pagos_borrador_'+Date.now(),JSON.stringify(s));}catch{}},
+ backup:s=>{try{localStorage.setItem('andino_pagos_borrador_v1',JSON.stringify({savedAt:new Date().toISOString(),state:s}));}catch{}},
  payments:p=>{PAGO_ESTADOS=p;document.querySelectorAll('[data-clave-pago]').forEach(b=>actualizarBotonPagado(b,b.dataset.clavePago));},
  notice:text=>{el('syncStatus').textContent=text;},roles:bloquear,
  events:events=>{el('syncEvents').replaceChildren();for(const e of events){const p=document.createElement('p');const names={claim:'Tomó el control',release:'Liberó el control',save:'Actualizó ganadores o premios',payment:e.detalle?.pagado?'Marcó un pago realizado':'Desmarcó un pago'};p.textContent=new Date(e.fecha).toLocaleTimeString('es-VE',{timeZone:'America/Caracas'})+' · '+e.dispositivo+' · '+(names[e.accion]||e.accion)+(e.accion==='payment'?' · '+e.detalle.pago:'');el('syncEvents').appendChild(p);}}
