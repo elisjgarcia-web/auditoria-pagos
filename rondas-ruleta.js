@@ -19,7 +19,7 @@ if(typeof document==='undefined')return;
 const el=id=>document.getElementById(id);
 let busy=false,queued=false,scheduled=false;
 function estado(text){el('ruletaEstado').textContent=text;document.querySelectorAll('[data-ruleta-auto]').forEach(node=>node.textContent=text);}
-function programarEnvio(){if(scheduled)return;scheduled=true;Promise.resolve().then(()=>{scheduled=false;window.enviarRondasRuleta();});}
+function programarEnvio(){if(root.PagosCompartidos?.aplicando||root.PagosCompartidos?.puedeEditar===false)return;if(scheduled)return;scheduled=true;Promise.resolve().then(()=>{scheduled=false;window.enviarRondasRuleta();});}
 document.addEventListener('ronda-anuncio-generado',programarEnvio);
 function formulario(){return {fecha:el('fechaSorteo').value,cantidad:Number(el('cant').value),rondas:Array.from({length:Number(el('cant').value)},(_,i)=>el('car'+(i+1)).value)};}
 function mostrar(data){
