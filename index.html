@@ -32,7 +32,7 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 <body>
 <h1>🎰 Bingo Andino 75</h1>
 <div class="sub">PDF + pagos + conversión $/Bs + Top + doble verificación</div>
-<section class="card" aria-labelledby="transmisionTitulo"><h2 id="transmisionTitulo" class="title">📺 Transmisión para tus jugadores</h2><label for="transmisionEnlace">Enlace de la transmisión de YouTube</label><input id="transmisionEnlace" type="url" maxlength="2048" placeholder="https://www.youtube.com/live/…" autocomplete="off"><button id="transmisionEnviar" class="gen" disabled>Enviar transmisión a la página</button><button id="transmisionCopiar" class="copy">📋 Copiar anuncio de en vivo</button><textarea id="transmisionAnuncio" aria-label="Anuncio completo para copiar" readonly hidden rows="9" style="width:100%;margin-top:8px;font-size:15px;padding:10px"></textarea><button id="transmisionConsultar" class="sec">Consultar estado</button><button id="transmisionQuitar" class="clear" disabled>Quitar transmisión</button><p id="transmisionActual" class="small"></p><p class="small">Se mostrará en Jugar con tus cartones. Requiere tu acceso autorizado. El enlace vence a las 18 horas; puedes reenviarlo para renovarlo. No modifica compras, pagos ni ganadores.</p><p id="transmisionEstado" class="small" role="status" aria-live="polite"></p></section><section class="card" aria-labelledby="syncTitle"><h2 id="syncTitle" class="title">📲 Teléfonos conectados</h2><p class="small">Un teléfono edita ganadores y premios. Los demás consultan y marcan pagos realizados. Marcar un pago solo registra su estado; no hace transferencias.</p><label for="syncLabel">Nombre de este teléfono</label><input id="syncLabel" maxlength="40" value="Teléfono" autocomplete="off"><button id="syncConnect" class="gen">Conectar / actualizar este teléfono</button><button id="syncClaim" class="sec" disabled>Tomar control de ganadores y premios</button><button id="syncRelease" class="sec" disabled>Liberar control</button><button id="syncDisconnect" class="sec" disabled>Desconectar este teléfono</button><p id="syncStatus" role="status" aria-live="polite">Trabajo local · Conecta los teléfonos para compartir este sorteo.</p><details><summary>Historial de cambios compartidos</summary><div id="syncEvents"></div></details></section><div id="saveStatus" class="savebar">💾 Guardado automático activado</div>
+<section class="card" aria-labelledby="transmisionTitulo"><h2 id="transmisionTitulo" class="title">📺 Transmisión para tus jugadores</h2><label for="transmisionEnlace">Enlace de la transmisión de YouTube</label><input id="transmisionEnlace" type="url" maxlength="2048" placeholder="https://www.youtube.com/live/…" autocomplete="off"><button id="transmisionEnviar" class="gen" disabled>Enviar transmisión a la página</button><button id="transmisionCopiar" class="copy">📋 Copiar anuncio de en vivo</button><textarea id="transmisionAnuncio" aria-label="Anuncio completo para copiar" readonly hidden rows="9" style="width:100%;margin-top:8px;font-size:15px;padding:10px"></textarea><button id="transmisionConsultar" class="sec">Consultar estado</button><button id="transmisionQuitar" class="clear" disabled>Quitar transmisión</button><p id="transmisionActual" class="small"></p><p class="small">Se mostrará en Jugar con tus cartones. Requiere tu acceso autorizado. El enlace vence a las 18 horas; puedes reenviarlo para renovarlo. No modifica compras, pagos ni ganadores.</p><p id="transmisionEstado" class="small" role="status" aria-live="polite"></p></section><p id="syncStatus" class="small" role="status" aria-live="polite">☁️ Cargando los datos compartidos…</p><div id="saveStatus" class="savebar">💾 Guardado automático activado</div>
 <div class="card">
   <div class="title">🏆 Publicación de ganadores</div>
   <p class="small">Publica fecha, rondas, nombres, cartones y premios. Consolación y pozo se incluyen al registrar sus cartones. Los resultados publicados se conservan al iniciar un nuevo sorteo.</p>
@@ -242,8 +242,8 @@ const supa=window.supabase.createClient(SUPA_URL,SUPA_ANON);
 let SLOT_APPROVED_SOURCE=null;
 function supaMensaje(t){document.getElementById('supaEstado').textContent=t}
 async function supaEnviar(){let email=document.getElementById('supaEmail').value.trim();if(!email){supaMensaje('Escribe el correo autorizado');return}const {error}=await supa.auth.signInWithOtp({email});supaMensaje(error?'Error: '+error.message:'Revisa tu correo e introduce el código')}
-async function supaVerificar(){const {error}=await supa.auth.verifyOtp({email:document.getElementById('supaEmail').value.trim(),token:document.getElementById('supaOtp').value.trim(),type:'email'});supaMensaje(error?'Error: '+error.message:'Acceso verificado. Pulsa Iniciar pagos del día.')}
-async function supaSalir(){await supa.auth.signOut();supaMensaje('Sesión cerrada')}
+async function supaVerificar(){const {error}=await supa.auth.verifyOtp({email:document.getElementById('supaEmail').value.trim(),token:document.getElementById('supaOtp').value.trim(),type:'email'});supaMensaje(error?'Error: '+error.message:'Acceso verificado. Cargando datos compartidos…');if(!error)document.dispatchEvent(new Event('pagos-acceso-verificado'));}
+async function supaSalir(){await supa.auth.signOut();supaMensaje('Sesión cerrada');document.dispatchEvent(new Event('pagos-sesion-cerrada'));}
 const supaDigits=x=>String(x||'').replace(/\D/g,'');
 const supaValidTel=x=>/^(?:58)?0?4(?:12|14|16|22|24|26)\d{7}$/.test(supaDigits(x));
 const supaValidCed=x=>/^\d{4,9}$/.test(supaDigits(x));
@@ -277,6 +277,7 @@ async function supaCargar(){
  mostrarEstado(0);sugerirPlantilla();programarGuardado();
  const issues=regs.filter(r=>!supaValidPago(r)||supaSwap(r));
  supaMensaje(all.length+' compras aprobadas · '+[...conflictos.keys()].length+' cartones únicos. '+issues.length+' compras con datos de pago para revisar.'+(repetidos.length?' ⚠️ CARTONES DUPLICADOS: '+repetidos.slice(0,20).join(', '):''));
+ document.dispatchEvent(new Event('pagos-aprobados-cargados'));
  }catch(e){supaMensaje('Error consultando Supabase: '+e.message+' (verifica acceso y permisos RLS). No se modificaron los datos anteriores.')}
 }
 
@@ -292,6 +293,7 @@ let PDF_FECHA_DETECTADA="";
 let RAW_SEGMENTOS_VERIFICACION=[];
 let PAGO_ESTADOS={};
 let RESTAURANDO_ESTADO=false;
+let REGENERANDO_GUARDADO=false;
 let TIMER_GUARDADO=null;
 const STORAGE_KEY="bingoandino75_supabase_auditoria_v1";
 
@@ -668,6 +670,8 @@ function habilitarBotonPagado(boton){
 }
 function regenerarBotonesTrasRestaurar(){
  if(!REGISTROS.length)return;
+ REGENERANDO_GUARDADO=true;
+ try{
  for(let i=1;i<=+cant.value;i++){
    let car=(document.getElementById(`car${i}`)||{}).value||"",pre=(document.getElementById(`pre${i}`)||{}).value||"";
    if(car&&pre){try{genR(i)}catch(e){console.warn(e)}}
@@ -675,6 +679,7 @@ function regenerarBotonesTrasRestaurar(){
  if(cartonPozo.value&&premioPozo.value){try{generarPozo()}catch(e){}}
  if(cartonesCon.value&&premioCon.value){try{generarCon()}catch(e){}}
  if(TOP_ACTIVO){try{calcularTopCompras()}catch(e){}}
+ }finally{REGENERANDO_GUARDADO=false;}
  guardarEstadoAhora();
 }
 async function nuevoSorteo(){
@@ -1975,7 +1980,7 @@ function genR(i){
    ind.forEach(g=>cont.appendChild(botonVideoGanadorFinal(g)));
  }
  guardarEstadoAhora();
- if(!window.PagosCompartidos?.aplicando)document.dispatchEvent(new Event('ronda-anuncio-generado'));
+ if(!REGENERANDO_GUARDADO&&!window.PagosCompartidos?.aplicando)document.dispatchEvent(new Event('ronda-anuncio-generado'));
  return true;
 }
 
@@ -2130,13 +2135,13 @@ document.addEventListener("visibilitychange",()=>{if(document.hidden)guardarEsta
 
 // Estado inicial y recuperación.
 actualizarEtiquetasRondas();
-setTimeout(async()=>{if(!(await restaurarEstado()))guardarEstadoAhora()},0);
+window.pagosRestauracionLista=new Promise(resolve=>setTimeout(async()=>{try{if(!(await restaurarEstado()))guardarEstadoAhora();}finally{resolve();}},0));
 </script>
 
 <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script><script src="publicacion.js?v=3"></script>
 <script src="publicar-ganadores.js?v=2"></script>
 <script src="rondas-ruleta.js?v=3"></script>
-<script src="sincronizacion.js?v=2"></script>
+<script src="sincronizacion.js?v=3"></script>
 <script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=2"></script></body>
 </html>
 

@@ -38,21 +38,16 @@ begin
  if accion='join' then insert into privado_pagos.sesiones(source) values(src) on conflict do nothing; end if;
  select * into s from privado_pagos.sesiones where source=src for update;
  if not found then raise exception 'Conecta primero este teléfono';end if;
- es_control:=s.controlador=d and s.controlador_usuario=u and s.vence>clock_timestamp();
- if accion in ('claim','save','payment','release') then
+ -- All authorized phones can edit; revisions prevent overwriting newer work.
+ es_control:=true;
+ if accion in ('join','claim','save','payment','release') then
   if op is null then raise exception 'Falta identificar la operación';end if;
   if exists(select 1 from privado_pagos.eventos where source=src and operacion=op and usuario=u) then accion:='read';end if;
  end if;
- if accion='claim' then
-  if s.controlador is not null and s.vence>clock_timestamp() and not es_control then
-   raise exception 'Otro teléfono tiene el control. Debe liberarlo o esperar 45 segundos sin conexión.' using errcode='40001';end if;
-  s.controlador:=d;s.controlador_usuario:=u;s.controlador_nombre:=nombre;s.vence:=clock_timestamp()+interval '45 seconds';es_control:=true;
-  if s.estado is null then
-   nuevo:=a->'state';
-  end if;
+ if accion in ('join','claim') then
+  if s.estado is null then nuevo:=a->'state';end if;
  elsif accion='save' then
-  if not es_control then raise exception 'Este teléfono no tiene el control' using errcode='42501';end if;
-  if (a->>'formRevision')::bigint is distinct from s.form_revision then raise exception 'Hay cambios más recientes. Reconecta antes de editar.' using errcode='40001';end if;
+  if (a->>'formRevision')::bigint is distinct from s.form_revision then raise exception 'Otro teléfono guardó cambios. Refresca para cargar la versión más reciente y repetir tu última edición.' using errcode='40001';end if;
   nuevo:=a->'state';
  elsif accion='payment' then
   if s.estado is null then raise exception 'Todavía no hay sorteo compartido';end if;
@@ -63,8 +58,7 @@ begin
   if anterior is distinct from (a->>'previous')::boolean then raise exception 'Otro teléfono ya modificó este pago. Revisa el estado actualizado.' using errcode='40001';end if;
   s.pagos:=jsonb_set(s.pagos,array[k],to_jsonb(valor),true);s.revision:=s.revision+1;s.actualizado:=clock_timestamp();
  elsif accion='release' then
-  if not es_control then raise exception 'Este teléfono no tiene el control' using errcode='42501';end if;
-  s.controlador:=null;s.controlador_usuario:=null;s.vence:=null;es_control:=false;
+  null; -- Compatibility with earlier clients; there is no exclusive control.
  elsif accion not in ('read','join') then raise exception 'Operación desconocida';
  end if;
  if nuevo is not null then
@@ -78,15 +72,15 @@ begin
   if exists(select 1 from jsonb_array_elements(nuevo->'paymentKeys') p where jsonb_typeof(p)<>'string' or length(p#>>'{}')>350) then raise exception 'Lista de pagos inválida';end if;
   if nuevo is distinct from s.estado then s.estado:=nuevo;s.form_revision:=s.form_revision+1;s.revision:=s.revision+1;s.actualizado:=clock_timestamp();end if;
  end if;
- if es_control then s.vence:=clock_timestamp()+interval '45 seconds';end if;
+ s.controlador:=null;s.controlador_usuario:=null;s.controlador_nombre:=null;s.vence:=null;
  update privado_pagos.sesiones set estado=s.estado,pagos=s.pagos,revision=s.revision,form_revision=s.form_revision,controlador=s.controlador,controlador_usuario=s.controlador_usuario,controlador_nombre=s.controlador_nombre,vence=s.vence,actualizado=s.actualizado where source=src;
  if accion in ('claim','save','payment','release') then
   insert into privado_pagos.eventos(source,operacion,usuario,dispositivo,accion,detalle)
    values(src,op,u,nombre,accion,case when accion='payment' then jsonb_build_object('pago',k,'pagado',valor) else jsonb_build_object('revision',s.form_revision) end);
  end if;
  select coalesce(jsonb_agg(x),'[]') into eventos from (select e.dispositivo,e.accion,e.detalle,e.fecha from privado_pagos.eventos e where e.source=src order by e.id desc limit 20) x;
- respuesta:=jsonb_build_object('source',src,'revision',s.revision,'formRevision',s.form_revision,'hasState',s.estado is not null,'controller',coalesce(es_control,false),'controllerLabel',s.controlador_nombre,'leaseActive',coalesce(s.vence>clock_timestamp(),false),'payments',s.pagos,'updatedAt',s.actualizado,'events',eventos);
- if (a->>'formRevision')::bigint is distinct from s.form_revision or accion='claim' then respuesta:=respuesta||jsonb_build_object('state',s.estado);end if;
+ respuesta:=jsonb_build_object('source',src,'revision',s.revision,'formRevision',s.form_revision,'hasState',s.estado is not null,'controller',coalesce(es_control,false),'controllerLabel',null,'leaseActive',false,'payments',s.pagos,'updatedAt',s.actualizado,'events',eventos);
+ if (a->>'formRevision')::bigint is distinct from s.form_revision or accion in ('claim','join') then respuesta:=respuesta||jsonb_build_object('state',s.estado);end if;
  return respuesta;
 end $$;
 revoke all on function privado_pagos.sincronizar(jsonb) from public,anon,authenticated;
