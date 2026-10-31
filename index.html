@@ -645,20 +645,9 @@ function actualizarBotonPagado(boton,clave){
  boton.className=si?"paid":"unpaid";
  boton.innerText=si?"✅ PAGADO · tocar para desmarcar":"⬜ Marcar como PAGADO";
 }
-function agregarBotonPagado(contenedor,contexto,p,bloqueado=false){
- let clave=clavePago(contexto,p);
- let b=document.createElement("button");
- actualizarBotonPagado(b,clave);
- b.dataset.clavePago=clave;
- b.disabled=!!bloqueado;if(bloqueado)b.dataset.paymentBlocked='1';
- if(bloqueado){
-   b.style.opacity=".55";
-   b.title="Primero selecciona/copia los datos correctos del pago.";
-   b.innerText="🔒 Selecciona los datos correctos antes de marcar PAGADO";
- }
- b.onclick=()=>marcarPagado(clave,b);
- contenedor.appendChild(b);
- return b;
+function agregarBotonPagado(){
+ // El pago se realiza fuera de la app; no mostrar un control manual de estado.
+ return null;
 }
 function habilitarBotonPagado(boton){
  if(!boton)return;
@@ -1840,7 +1829,7 @@ function agregarOpcionPagoRegistro(cont,x,m,ok){
   if(!supaValidTel(telefono)||!supaValidCed(cedula)){
    const incompleto=document.createElement("p");incompleto.textContent="⚠️ Datos del registro incompletos o con formato inusual. Revisa los datos antes de usarlos.";opcion.append(incompleto);
   }
-  const copiar=document.createElement("button");copiar.className="copy";copiar.textContent="📋 Copiar Pago Móvil 2";
+  const copiar=document.createElement("button");copiar.className="copy";copiar.textContent="📋 Copiar Pago Móvil 2 · "+String(x.nombre||"Sin nombre").trim();
   copiar.onclick=()=>copiarTexto([fmt(m),telefono,cedula].join("\n"),ok);opcion.append(copiar);
  }else{
   const vacio=document.createElement("p");vacio.textContent="No hay teléfono ni cédula del registro disponibles para copiar.";opcion.append(vacio);
@@ -1863,7 +1852,7 @@ function crearBotonesPago(id,pagos,ok){
    const original=document.createElement("pre");original.textContent="Teléfono original: "+x.telefono+"\nCédula original: "+x.cedula;details.append(original);cont.append(details);
   }
   if(valid){
-   const copy=document.createElement("button");copy.className="copy";copy.textContent=sw?"🔄 Copiar opción intercambiada":"📋 Copiar Pago Móvil";
+   const copy=document.createElement("button");copy.className="copy";copy.textContent=(sw?"🔄 Copiar opción intercambiada":"📋 Copiar Pago Móvil")+" · "+String(x.nombre||"Sin nombre").trim();
    copy.onclick=()=>copiarTexto([fmt(m),tel,ci,...(x.bancoCodigo?[x.bancoCodigo]:[])].join("\n"),ok);cont.append(copy);
   }else{
    const w=document.createElement("div");w.className="warnbox";w.textContent="⚠️ Datos de Pago Móvil incompletos o incompatibles. Copia bloqueada.";cont.append(w);
