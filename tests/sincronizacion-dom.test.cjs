@@ -20,7 +20,7 @@ test('phone UI automatically loads shared data, enables editing without controls
  cloud=w.capturarPagosCompartidos();assert.equal(cloud.form.textoLista,undefined);assert(!JSON.stringify(cloud).includes('04121234567'));assert(!JSON.stringify(cloud).includes('12345678'));
  el('pre1').value='999';w.pagosRestauracionLista=Promise.resolve();const sends=rondasSends;w.eval(read('sincronizacion.js'));await new Promise(r=>setImmediate(r));
  assert.equal(el('pre1').value,'100');assert.equal(el('pre1').disabled,false);assert.equal(rondasSends,sends);assert.equal(el('syncConnect'),null);assert.equal(el('syncClaim'),null);
- const paid=w.document.querySelector('[data-clave-pago]');assert(paid);assert.equal(paid.disabled,false);await paid.onclick();assert.match(paid.innerText,/PAGADO/);assert.equal(payments[paid.dataset.clavePago],true);
+ assert.equal(w.document.querySelector('[data-clave-pago]'),null);assert.deepEqual(payments,{});
  assert.equal(el('pre1').disabled,false);assert.match(el('syncStatus').textContent,/Puedes editar/);
  }finally{w.close();}
 });
