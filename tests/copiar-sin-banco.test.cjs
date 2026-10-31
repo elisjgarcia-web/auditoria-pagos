@@ -20,6 +20,8 @@ test('copiar pagos sin banco omite el banco, conserva la advertencia y protege d
    w.crearBotonesPago(id,[{carton:1,x:cliente,monto:35280}],'okCon');
    const cont=w.document.getElementById(id);
    assert.match(cont.textContent,/Banco no indicado o no reconocido/);
+   assert.match(cont.querySelector("button.copy").textContent,/Cliente de prueba/);
+   assert.equal(cont.querySelector("button.unpaid,button.paid,[data-clave-pago]"),null);
    assert.doesNotMatch(cont.textContent,/COPIA BLOQUEADA|Copia bloqueada/);
    await cont.querySelector('button.copy').onclick();
    assert.equal(copies.at(-1),expected);
@@ -58,6 +60,7 @@ test('Pago Móvil 2 queda cerrado y copia solamente los datos del registro, tamb
    w.crearBotonesPago(id,[{carton:1,x:cliente,monto:100}],'okCon');
    const opcion=w.document.querySelector('#'+id+' details.pago-registro');
    assert.equal(opcion.open,false);
+   assert.match(opcion.querySelector("button").textContent,/Cliente prueba/);
    assert.match(opcion.textContent,/no una cuenta de Pago Móvil confirmada/);
    opcion.querySelector('summary').click();assert.equal(opcion.open,true);
    await opcion.querySelector('button').onclick();assert.equal(copies.at(-1),expected);
