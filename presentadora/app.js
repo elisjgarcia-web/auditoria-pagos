@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 const C=window.EnVivoComun,$=id=>document.getElementById(id),client=window.supabase.createClient('https://dbkixcpwirjwjvjintkr.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRia2l4Y3B3aXJqd2p2amludGtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYwNjYxNDksImV4cCI6MjA2MTY0MjE0OX0.QJmWLWSe-pRYwxWeel8df7JLhNUvMKaTpL0MCDorgho'),BUCKET='ganadores-en-vivo';
-let user=null,config=null,rows=[],selected=0,draft=null,busy=false,turno=0,urls=[],worker=null,ocrScript=null,activeCard=null;
+let user=null,config=null,rows=[],selected=0,draft=null,busy=false,turno=0,urls=[],worker=null,ocrScript=null,activeCard=null,autoFecha=false;
 const notice=t=>{$('estado').textContent=t;},status=t=>{$('envioEstado').textContent=t;};
 function controls(){document.querySelectorAll('button,input').forEach(n=>n.disabled=busy);$('enviar').disabled=busy||!draft||draft.sent;$('agregar').disabled=busy||!draft||draft.sent;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else $('enviar').textContent='Enviar a pagos';}
 function key(){return [user.id,config.fecha,config.source,selected].join(':');}
@@ -35,9 +35,17 @@ async function enterRound(n){if(busy||!config)return;busy=true;controls();const 
  if(draft.uncertain&&draft.youtube)$('youtube').value=draft.youtube;paint();if(!draft.sent)status('Pega una captura por ganador. Si una imagen muestra varios cartones, puedes enviarlos separados por comas.');
  }catch(e){draft=null;paint();status(e.message);}finally{busy=false;controls();}
 }
-async function loadDate(){if(busy||!user)return;busy=true;controls();++turno;selected=0;draft=null;activeCard=null;config=null;paint();$('rondas').replaceChildren();try{const f=C.fecha($('fecha').value),data=await rpc('en_vivo_contexto',{p_fecha:f});if(!data)throw Error('Tu correo aún no está autorizado. Pide al encargado de pagos que prepare tu acceso.');if(!data.jornada)throw Error('Todavía no hay rondas para '+f+'. Verifica que la fecha sea la misma de Pagos y que hayan cargado los aprobados.');config=data.jornada;rows=data.envios||[];$('youtube').value=localStorage.getItem('envivo-youtube:'+user.id+':'+f+':'+config.source)||rows[0]?.youtube||'';config.rondas.forEach((r,i)=>{const b=node('button',r);b.type='button';b.onclick=()=>enterRound(i+1);$('rondas').append(b);});notice('Fecha preparada. Elige una ronda para pegar sus ganadores.');}catch(e){notice(e.message);}finally{busy=false;controls();}}
+async function loadDate(){if(busy||!user)return;busy=true;controls();++turno;selected=0;draft=null;activeCard=null;config=null;paint();$('rondas').replaceChildren();try{let f=C.fecha($('fecha').value),data=await rpc('en_vivo_contexto',{p_fecha:f});if(!data)throw Error('Tu correo aún no está autorizado. Pide al encargado de pagos que prepare tu acceso.');
+ if(!data.jornada&&autoFecha&&data.source){
+  // La configuración de Pagos determina la jornada; no adivinar la fecha.
+  const hoy=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const anterior=new Date(hoy+'T12:00:00Z');anterior.setUTCDate(anterior.getUTCDate()-1);
+  const {data:jornadas,error}=await client.from('en_vivo_jornadas').select('fecha').eq('source',data.source).gte('fecha',anterior.toISOString().slice(0,10)).order('fecha',{ascending:false}).limit(1);
+  if(!error&&jornadas?.length){f=jornadas[0].fecha;$('fecha').value=f;data=await rpc('en_vivo_contexto',{p_fecha:f});}
+ }
+ if(!data.jornada)throw Error('Todavía no hay rondas para '+f+'. Comprueba que la fecha coincida con Pagos y que allí se hayan cargado los aprobados.');config=data.jornada;rows=data.envios||[];$('youtube').value=localStorage.getItem('envivo-youtube:'+user.id+':'+f+':'+config.source)||rows[0]?.youtube||'';config.rondas.forEach((r,i)=>{const b=node('button',r);b.type='button';b.onclick=()=>enterRound(i+1);$('rondas').append(b);});notice('Fecha preparada. Elige una ronda para pegar sus ganadores.');}catch(e){notice(e.message);}finally{busy=false;controls();}}
 $('actualizarRondas').onclick=loadDate;setInterval(()=>{if(user&&!config&&!busy&&!document.hidden)loadDate();},12000);
-$('fecha').onchange=loadDate;$('youtube').oninput=()=>{if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);};
+$('fecha').onchange=()=>{autoFecha=false;loadDate();};$('youtube').oninput=()=>{if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);};
 $('agregar').onclick=async()=>{if(busy||draft.sent)return;if(draft.cards.length>=20){status('Máximo 20 capturas por envío.');return;}draft.cards.push({numeros:''});await save();paint();};
 $('corregir').onclick=async()=>{if(busy||!draft.sent||!confirm('¿Corregir o agregar ganadores? Pagos recibirá una nueva versión y revisará los cambios.'))return;draft.id=C.uuid();draft.sent=false;await save();paint();status('Corrige las capturas o agrega otro ganador y vuelve a enviar.');};
 $('enviar').onclick=async()=>{if(busy||!draft||draft.sent)return;busy=true;controls();try{
@@ -52,6 +60,6 @@ $('verificar').onclick=async()=>{if(busy)return;busy=true;controls();try{const{e
 $('salir').onclick=async()=>{if(busy)return;await client.auth.signOut();await session();};
 async function session(){const{data}=await client.auth.getSession();const next=data?.session?.user||null;if(next?.id===user?.id&&user)return;user=next;++turno;draft=null;config=null;rows=[];activeCard=null;release();$('trabajo').hidden=!user;$('salir').hidden=!user;$('acceso').open=!user;$('capturas').replaceChildren();if(user){$('email').value=user.email;await loadDate();}else notice('Verifica tu correo autorizado para comenzar.');}
 let fechaInicial;try{fechaInicial=C.fecha(new URL(location.href).searchParams.get('fecha'));}catch{}
-$('fecha').value=fechaInicial||new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+autoFecha=!fechaInicial;$('fecha').value=fechaInicial||new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 client.auth.onAuthStateChange(()=>setTimeout(session,0));session();if(navigator.serviceWorker?.register)navigator.serviceWorker.register('sw.js',{scope:'./'}).catch(()=>{});
 })();
