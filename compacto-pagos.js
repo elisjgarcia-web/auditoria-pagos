@@ -4,7 +4,7 @@
 if(!root.document)return;
 const d=root.document,$=id=>d.getElementById(id);
 const el=(tag,cls,text)=>{const n=d.createElement(tag);if(cls)n.className=cls;if(text)n.textContent=text;return n;};
-let abierto=1,preparacion=null,publicacion=null,herramientas=null,premios=null;
+let abierto=1,preparacion=null,publicacion=null,herramientas=null,premios=null,actualizacion=null;
 function openSection(section,target){
  if(!section)return;
  section.open=true;
@@ -17,6 +17,40 @@ function details(title,cls){
 function navButton(label,action){
  const b=el('button','cp-nav-btn',label);b.type='button';b.onclick=action;return b;
 }
+function botonesSinDuplicados(){
+ const iniciadores=[...d.querySelectorAll('button[onclick="supaCargar()"]')];
+ if(iniciadores.length>1){
+  iniciadores[0].textContent='↻ Cargar / actualizar aprobados';
+  iniciadores.slice(1).forEach(b=>{b.hidden=true;b.setAttribute('aria-hidden','true');});
+ }
+ const limpiar=d.querySelector('button[onclick="limpiarTodo()"]');
+ if(limpiar){limpiar.hidden=true;limpiar.setAttribute('aria-hidden','true');}
+ const nuevo=d.querySelector('button[onclick="nuevoSorteo()"]');
+ if(nuevo)nuevo.textContent='♻️ Nuevo sorteo (con confirmación)';
+}
+function programarResumen(){
+ if(actualizacion!==null)clearTimeout(actualizacion);
+ actualizacion=setTimeout(()=>{actualizacion=null;resumirTrabajo();},150);
+}
+function resumirTrabajo(){
+ const text=$('cp-resumen-trabajo');if(!text)return;
+ const n=Number($('cant')?.value)||6;
+ let rondas=0,ganadores=0,resultados=0,comprobantes=0;
+ for(let i=1;i<=n;i++){
+  const valor=String($('car'+i)?.value||'').trim(),lista=(valor.match(/\d+/g)||[]);
+  if(lista.length)rondas++;
+  ganadores+=lista.length;
+  const recibos=$('pagosBtns'+i);
+  if(recibos){
+   resultados+=recibos.querySelectorAll('.recibo-resultado-vista:not([hidden])').length;
+   comprobantes+=recibos.querySelectorAll('.recibo-pago-vista:not([hidden])').length;
+  }
+  etiquetaRonda(i);
+ }
+ const resumen=[rondas+'/'+n+' rondas',ganadores+' ganadores',resultados+' resultados',comprobantes+' comprobantes pegados'].join(' · ');
+ if(text.textContent!==resumen)text.textContent=resumen;
+}
+
 function obtenerNombre(i){return String($('nom'+i)?.value||('Ronda '+i)).trim()||('Ronda '+i);}
 function etiquetaRonda(i){
  const premio=String($('pre'+i)?.value||'').trim();
@@ -66,6 +100,12 @@ function reconstruirRondas(){
   body.insertBefore(fields,body.firstChild);
   const nom=campo($('nom'+i));
   if(nom){const edit=details('✎ Cambiar nombre de la ronda','cp-nombre-editar');edit.append(nom);body.insertBefore(edit,fields.nextSibling);}
+  const anuncio=$('msg'+i);
+  if(anuncio){
+   const plegable=details('📣 Ver anuncio generado','cp-anuncio');
+   anuncio.insertAdjacentElement('beforebegin',plegable);
+   plegable.append(anuncio);
+  }
   acc.append(body);card.replaceChildren(acc);
   acc.addEventListener('toggle',()=>{if(!acc.open)return;abierto=i;d.querySelectorAll('#rondas .cp-acordeon').forEach(node=>{if(node!==acc)node.open=false;});});
   etiquetaRonda(i);
@@ -74,6 +114,7 @@ function reconstruirRondas(){
  abrirRonda(abierto);
  root.EnVivoRecepcion?.actualizarRondas?.();
  actualizarNavegacion();
+ programarResumen();
 }
 function actualizarNavegacion(){
  const nav=$('cp-rondas-nav');if(!nav)return;
@@ -108,6 +149,9 @@ function ordenar(){
  title.append(el('h2',null,'🎟️ Rondas del sorteo'));
  const n=el('div','cp-rondas-nav');n.id='cp-rondas-nav';title.append(n);
  host.append(title);
+ const summary=el('div','cp-resumen-trabajo');summary.id='cp-resumen-trabajo';
+ summary.setAttribute('role','status');summary.setAttribute('aria-live','polite');
+ host.append(summary);
  const rounds=$('rondas');if(rounds)host.append(rounds);
  host.append(publicacion,premios,herramientas);
  const selection=[
@@ -123,13 +167,22 @@ function ordenar(){
  const save=$('saveStatus');if(save)host.prepend(save);
  d.addEventListener('input',e=>{
   if(e.target?.id&&/^(nom|pre|car)\d+$/.test(e.target.id)){
-   const i=Number(e.target.id.match(/\d+$/)[0]);etiquetaRonda(i);
+   const i=Number(e.target.id.match(/\d+$/)[0]);etiquetaRonda(i);programarResumen();
   }
  });
  d.addEventListener('change',e=>{
-  if(e.target?.id==='cant')actualizarNavegacion();
+  if(e.target?.id==='cant'){actualizarNavegacion();programarResumen();}
  });
- d.addEventListener('pagos-aprobados-cargados',()=>{preparacion.open=false;});
+ d.addEventListener('pagos-aprobados-cargados',()=>{preparacion.open=false;programarResumen();});
+ botonesSinDuplicados();
+ if(rounds&&root.MutationObserver){
+  const monitor=new MutationObserver(items=>{
+   // Solo reaccionar a ganadores, capturas y controles, sin escanear cada pulsación.
+   if(items.some(m=>m.type==='attributes'||([...m.addedNodes,...m.removedNodes].some(n=>n.nodeType===1&&(n.matches?.('.cp-ganador, .recibo-pago, .recibo-vista, [id^="pagosBtns"]')||n.querySelector?.('.cp-ganador, .recibo-vista'))))))programarResumen();
+  });
+  monitor.observe(rounds,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden']});
+ }
+ d.addEventListener('ronda-anuncio-generado',programarResumen);
  root.pagosRestauracionLista?.then(()=>{for(let i=1;i<=(Number($('cant')?.value)||6);i++)etiquetaRonda(i);});
  reconstruirRondas();
 }
