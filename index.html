@@ -1842,7 +1842,7 @@ function agregarOpcionPagoRegistro(cont,x,m,ok){
  cont.append(opcion);
 }
 function contextoComprobantes(id){
- const numero=String(id).match(/^pagosBtns(\\d+)$/)?.[1];
+ const numero=String(id).match(/^pagosBtns(\d+)$/)?.[1];
  const titulo=numero?(document.getElementById("nom"+numero)?.value||"Ronda "+numero):({pagosBtnsPozo:"Pozo acumulado",pagosBtnsCon:"Consolación",pagosBtnsTop:"Top de compras"}[id]||"Premio");
  return {tipo:id,titulo:String(titulo),fecha:(document.getElementById("fechaSorteo")?.value||new Date().toLocaleDateString("es-VE",{timeZone:"America/Caracas"})).trim(),source:typeof SLOT_APPROVED_SOURCE!=="undefined"?SLOT_APPROVED_SOURCE:null};
 }

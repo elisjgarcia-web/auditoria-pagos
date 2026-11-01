@@ -18,9 +18,9 @@ function pagos(){return ['Ana Ejemplo','Luis Ejemplo','Rosa Ejemplo'].map((nombr
 async function attach(w,wrap){await wrap.querySelector('.recibo-acciones button').onclick();await tick();const c=wrap.querySelector('canvas');c.onpointerdown(new w.MouseEvent('pointerdown',{clientX:8,clientY:110}));c.onpointerdown(new w.MouseEvent('pointerdown',{clientX:8,clientY:130}));await tick();}
 test('capturas por ganador, collage completo, aislamiento por ronda y datos copiados intactos',async()=>{
  const t=setup(),{w}=t;
- try{w.document.getElementById('fechaSorteo').value='31/10/2026';w.crearBotonesPago('pagosBtns1',pagos(),'ok1');const cont=w.document.getElementById('pagosBtns1'),wraps=[...cont.querySelectorAll('.recibo-pago')],group=cont.querySelector('.recibo-grupo button');assert.equal(wraps.length,3);assert.equal(group.disabled,true);
+ try{w.document.getElementById('fechaSorteo').value='31/10/2026';w.document.getElementById('nom1').value='Ronda 1';w.crearBotonesPago('pagosBtns1',pagos(),'ok1');const cont=w.document.getElementById('pagosBtns1'),wraps=[...cont.querySelectorAll('.recibo-pago')],group=cont.querySelector('.recibo-grupo button');assert.equal(wraps.length,3);assert.equal(group.disabled,true);
   for(let i=0;i<3;i++){assert.equal(wraps[i].querySelectorAll('button').length,2);await attach(w,wraps[i]);assert.equal(group.disabled,i!==2);}
-  assert.equal(t.map.size,3);assert.ok(t.calls.some(c=>c.k==='fillText'&&c.args[0]==='🎉 Ana Ejemplo'));assert.ok(t.calls.some(c=>c.k==='fillText'&&c.args[0]==='🎉 Rosa Ejemplo'));
+  assert.equal(t.map.size,3);assert.ok(t.calls.some(c=>c.k==='fillText'&&c.args[0]==='Cartón 1 · Ronda 1'));assert.ok(t.calls.some(c=>c.k==='fillText'&&c.args[0]==='🎉 Ana Ejemplo'));assert.ok(t.calls.some(c=>c.k==='fillText'&&c.args[0]==='🎉 Rosa Ejemplo'));
   await wraps[1].querySelectorAll('button')[1].onclick();assert.equal(t.shares.length,1);assert.equal(t.shares[0].files[0].name,'premio-2.png');
   const before=t.calls.length;await group.onclick();assert.equal(t.shares.length,2);assert.equal(t.shares[1].files[0].name,'comprobantes-pagosBtns1.png');assert.equal(t.calls.slice(before).filter(c=>c.k==='drawImage').length,6); // 3 originales procesados + 3 celdas completas.
   await cont.querySelector('button.copy').onclick();assert.equal(t.copies[0],[w.fmt(100),'04121234567','12345678','0102'].join('\n'));
