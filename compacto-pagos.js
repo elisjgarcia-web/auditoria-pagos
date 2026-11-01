@@ -25,7 +25,7 @@ function etiquetaRonda(i){
  const titulo=obtenerNombre(i);
  const left=$('cp-nombre-'+i),right=$('cp-datos-'+i);
  if(left)left.textContent=titulo;
- if(right)right.textContent=[premio?premio+' Bs':'Premio pendiente',cartones?'Cartón '+cartones:'Sin ganador'].join(' · ');
+ if(right){const recibidos=$('cp-acordeon-'+i)?.dataset.recibidos||'';right.textContent=[recibidos,premio?premio+' Bs':'Premio pendiente',cartones?'Cartón '+cartones:'Sin ganador'].filter(Boolean).join(' · ');}
 }
 function campo(input){
  if(!input)return null;
