@@ -50,13 +50,14 @@ async function cargar(card,file){if(busy||draft.sent)return;busy=true;controls()
 }
 async function enterRound(n){if(busy||!config)return;busy=true;controls();const token=++turno;selected=n;activeCard=null;status('Cargando ronda…');try{const k=key(),local=await C.local(k),remote=rows.find(e=>e.ronda===n);if(token!==turno)return;
  const archivado=!!remote&&capturaAnterior(remote);
- draft=archivado?{id:C.uuid(),baseRevision:remote.revision,cards:[{numeros:''}],sent:false}:local||{id:C.uuid(),baseRevision:remote?.revision||0,cards:[{numeros:''}],sent:false};
+ const borradorPosterior=archivado&&local&&!local.sent&&!local.uncertain&&local.id!==remote.id&&local.baseRevision===remote.revision;
+ draft=archivado&&!borradorPosterior?{id:C.uuid(),baseRevision:remote.revision,cards:[{numeros:''}],sent:false}:local||{id:C.uuid(),baseRevision:remote?.revision||0,cards:[{numeros:''}],sent:false};
  if(remote&&!archivado&&(!local||remote.id===local.id||remote.revision>local.baseRevision)){
   if(local&&remote.id!==local.id)await C.local(k+':borrador:'+Date.now(),local);
   const cards=[];for(const c of remote.capturas){if(!C.ruta(c.ruta,user.id,config.fecha))throw Error('La captura no pertenece a este usuario y fecha.');const{data,error}=await client.storage.from(BUCKET).download(c.ruta);if(error||!data||data.size>8388608)throw Error('No se pudo recuperar una captura enviada.');cards.push({blob:data,ruta:c.ruta,numeros:c.cartones.join(', '),msg:'Captura enviada a pagos.',uploaded:true});}
   draft={id:remote.id,baseRevision:remote.revision,cards,sent:true};if(!$('youtube').value)$('youtube').value=remote.youtube;await save();
  }
- if(archivado)await save();
+ if(archivado&&!borradorPosterior)await save();
  if(draft.uncertain&&draft.youtube)$('youtube').value=draft.youtube;paint();
  if(archivado)status('Ronda limpia. La captura anterior sigue registrada en Pagos. Si envías otra captura en esta misma fecha se creará una revisión nueva.');
  else if(!draft.sent)status('Pega una captura por ganador. Si una imagen muestra varios cartones, puedes enviarlos separados por comas.');
