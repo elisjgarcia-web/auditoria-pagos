@@ -259,13 +259,22 @@ $('nuevoSorteoPresentadora').onclick=async()=>{
 };
 $('actualizarRondas').onclick=loadDate;setInterval(()=>{if(user&&!config&&!busy&&!esperandoNuevoSorteo&&!document.hidden)loadDate();},12000);
 $('fecha').onchange=()=>{autoFecha=false;esperandoNuevoSorteo=false;if(user)localStorage.removeItem('envivo-esperando-fecha:'+user.id);loadDate();};$('youtube').oninput=()=>{if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);};
-$('agregar').onclick=async()=>{if(busy||draft.sent)return;if(draft.cards.length>=20){status('Máximo 20 capturas por envío.');return;}draft.cards.push({numeros:''});await save();paint();};
+async function agregarGanador(){
+ if(busy||!draft||draft.sent)return false;
+ if(draft.cards.length>=20){status('Máximo 20 capturas por envío.');return false;}
+ const nuevo={numeros:''};draft.cards.push(nuevo);activeCard=nuevo;await save();paint();
+ const cards=$('capturas').children;const nuevoCuadro=cards[cards.length-1];
+ nuevoCuadro?.querySelector('.capture-actions button')?.focus();
+ return true;
+}
+$('agregar').onclick=agregarGanador;
+$('proximaRonda').onclick=()=>{if(!busy&&draft?.sent&&config&&selected<config.rondas.length)enterRound(selected+1);};
 $('corregir').onclick=async()=>{if(busy||!draft.sent||!confirm('¿Corregir o agregar ganadores? Pagos recibirá una nueva versión y revisará los cambios.'))return;draft.id=C.uuid();draft.sent=false;await save();paint();status('Corrige las capturas o agrega otro ganador y vuelve a enviar.');};
 async function revisarCapturasGuardadas(){
  let revisadas=0,corregidas=0;
  for(let i=0;i<draft.cards.length;i++){
   const card=draft.cards[i];
-  if(!card.blob||!/[;,]/.test(card.numeros||''))continue;
+  if(!card.blob||card.userEdited||!/[;,]/.test(card.numeros||''))continue;
   let actuales;
   try{actuales=C.cartones(card.numeros);}catch{continue;}
   if(actuales.length<2)continue;
@@ -322,7 +331,34 @@ $('enviar').onclick=async()=>{
  for(let i=0;i<draft.cards.length;i++){const c=draft.cards[i];if(!c.ruta){c.ruta=user.id+'/'+config.fecha+'/'+C.uuid()+'.jpg';await save();}capturas[i].ruta=c.ruta;if(c.uploaded)continue;status('Subiendo captura '+(i+1)+' de '+capturas.length+'…');const{error}=await client.storage.from(BUCKET).upload(c.ruta,c.blob,{contentType:'image/jpeg',upsert:false});if(error){const r=await client.storage.from(BUCKET).download(c.ruta);if(r.error||r.data?.size!==c.blob.size)throw error;const [a,b]=await Promise.all([r.data.arrayBuffer(),c.blob.arrayBuffer()]);const aa=new Uint8Array(a),bb=new Uint8Array(b);if(!aa.every((v,j)=>v===bb[j]))throw Error('La captura existente no coincide. Revisa el envío.');}c.uploaded=true;await save();}
  status('Enviando ganadores a pagos…');draft.uncertain=true;draft.youtube=youtube;await save();const row=await rpc('en_vivo_enviar',{p_id:draft.id,p_fecha:config.fecha,p_source:config.source,p_ronda:selected,p_revision:draft.baseRevision,p_youtube:youtube,p_capturas:capturas});if(row.id!==draft.id)throw Error('No se confirmó el envío. Reintenta sin cambiar las capturas.');draft.sent=true;draft.uncertain=false;draft.baseRevision=row.revision;rows=rows.filter(e=>e.ronda!==selected).concat(row);await save();paint();status('Enviado ✓ · Los ganadores ya llegaron a pagos.');
  }catch(e){if(draft?.uncertain){try{const data=await rpc('en_vivo_contexto',{p_fecha:config.fecha}),r=data?.envios?.find(e=>e.id===draft.id);if(r){draft.sent=true;draft.uncertain=false;draft.baseRevision=r.revision;rows=rows.filter(e=>e.ronda!==selected).concat(r);await save();paint();status('Enviado ✓ · Confirmado al consultar pagos.');return;}}catch{}}status((e.message||'No se confirmó el envío.')+' Las capturas quedan guardadas; reintenta sin cambiarlas.');}finally{busy=false;controls();}};
-document.addEventListener('paste',e=>{if(!activeCard||busy||!draft||draft.sent)return;const it=[...(e.clipboardData?.items||[])].find(x=>x.type.startsWith('image/'));if(it){e.preventDefault();cargar(activeCard,it.getAsFile());}});
+document.addEventListener('paste',async e=>{
+ if(busy||!draft||draft.sent||!config)return;
+ const item=[...(e.clipboardData?.items||[])].find(x=>/^image\/(png|jpeg|webp)$/.test(x.type));
+ if(!item)return;
+ e.preventDefault();
+ let card=draft.cards.find(c=>!c.blob);
+ // Si todos están llenos, una nueva imagen es otro ganador. Para reemplazar, usa el botón de su cuadro.
+ if(!card){
+  if(draft.cards.length>=20){status('Máximo 20 capturas por envío.');return;}
+  card={numeros:''};draft.cards.push(card);await save();paint();
+ }
+ activeCard=card;
+ const foto=item.getAsFile();
+ if(foto)cargar(card,foto);
+});
+document.addEventListener('keydown',e=>{
+ if(!user||$('trabajo').hidden||busy||e.repeat||draft?.uncertain)return;
+ if(e.altKey&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey){
+  if(/^Digit[1-6]$/.test(e.code)){
+   const n=Number(e.code.slice(-1));
+   if(config?.rondas[n-1]){e.preventDefault();enterRound(n);}return;
+  }
+  if(e.code==='KeyN'&&draft&&!draft.sent){e.preventDefault();agregarGanador();return;}
+ }
+ if((e.ctrlKey||e.metaKey)&&e.code==='Enter'&&draft&&!draft.sent&&!e.altKey){
+  e.preventDefault();$('enviar').click();
+ }
+});
 $('pedir').onclick=async()=>{if(busy)return;busy=true;controls();try{const{error}=await client.auth.signInWithOtp({email:$('email').value.trim()});if(error)throw error;notice('Revisa tu correo y escribe el código recibido.');}catch(e){notice(e.message);}finally{busy=false;controls();}};
 $('verificar').onclick=async()=>{if(busy)return;busy=true;controls();try{const{error}=await client.auth.verifyOtp({email:$('email').value.trim(),token:$('codigo').value.trim(),type:'email'});if(error)throw error;notice('Acceso verificado.');}catch(e){notice(e.message);}finally{busy=false;controls();await session();}};
 $('salir').onclick=async()=>{if(busy)return;await client.auth.signOut();await session();};
