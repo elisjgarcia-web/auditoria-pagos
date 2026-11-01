@@ -68,7 +68,13 @@ async function rpc(name,args){const {data,error}=await client.rpc(name,args);if(
 function node(tag,text,cls){const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;}
 function paint(){
  release();
- $('capturas').replaceChildren();
+ const galeria=$('capturas');
+ galeria.replaceChildren();
+ // Adaptar el número de columnas al total de ganadores, no a la cantidad de capturas cargadas.
+ // Se recalcula al agregar, quitar, cambiar de ronda y restaurar un envío.
+ const cantidad=draft?.cards?.length||0;
+ galeria.dataset.densidad=cantidad<=3?'normal':cantidad===4?'cuatro':cantidad===5?'cinco':'seis';
+ galeria.dataset.ganadores=String(cantidad);
  $('tituloRonda').textContent=config?.rondas[selected-1]||'Elige una ronda';
  const editable=!!draft&&!draft.sent;
  $('agregar').hidden=$('enviar').hidden=$('revisionTexto').hidden=!editable;
