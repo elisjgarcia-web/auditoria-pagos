@@ -63,7 +63,12 @@ function mostrar(data){
  for(const e of es){if(!e.aplicado)pendientes++;const box=node('article',null,'ev-envio'),head=node('h3',(data.jornada?.rondas[e.ronda-1]||'Ronda '+e.ronda)+(e.aplicado?' · Recibido ✓':' · Nuevos ganadores')),nums=C.numeros(e),names=nums.map(n=>{const x=estadoCarton(n)==='OK'?buscar(n):null;return'Cartón '+n+(x?' · '+x.nombre:' · Falta revisar aprobados');}),p=node('p',names.join('\n'),'ev-nombres'),details=node('details'),summary=node('summary','Ver '+e.capturas.length+' captura(s) del resultado'),photos=node('div'),button=node('button',e.aplicado?'Recuperar capturas de esta ronda':'Revisar y completar ronda','gen'),hint=node('p','Revisión '+e.revision+' · '+new Date(e.creado_en).toLocaleTimeString('es-VE'),'small');details.append(summary,photos);let loaded=false;details.ontoggle=async()=>{if(!details.open||loaded)return;loaded=true;try{for(const c of e.capturas){const b=await descargar(c,e);if(!box.isConnected)return;const img=node('img');const u=URL.createObjectURL(b);urls.push(u);img.src=u;img.alt='Resultado · Cartón '+c.cartones.join(', ');photos.append(img);}}catch(err){photos.textContent=err.message;loaded=false;}};button.onclick=()=>aplicar(e);const st=estadoPara(e);if(st.tipo==='bloqueado')hint.textContent=st.motivo;else if(st.tipo==='conflicto')hint.textContent='Esta ronda ya tiene otros cartones. Se pedirá confirmación antes de reemplazarlos.';box.append(head,p,details,hint,button);$('envivoLista').append(box);
  }
  $('envivoTitulo').textContent=pendientes?'🔔 Ganadores del en vivo · '+pendientes+' por revisar':'🎙️ Ganadores del en vivo';if(!es.length)$('envivoLista').textContent='Aquí llegarán las capturas de la presentadora.';
- if(!document.hidden&&!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||'')){const auto=es.find(e=>!e.aplicado&&!intentados.has(e.id)&&estadoPara(e).tipo==='llenar'&&monto($('pre'+e.ronda)?.value));if(auto){intentados.add(auto.id);setTimeout(()=>aplicar(auto,{automatico:true}),0);}}
+ if(!document.hidden&&!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||'')){const auto=es.find(e=>{
+  if(e.aplicado||intentados.has(e.id)||!monto($('pre'+e.ronda)?.value))return false;
+  // Capturas corregidas de los mismos cartones se sustituyen sin pasos adicionales.
+  // Un cambio de ganadores requiere revisión explícita en Pagos antes de modificar pagos.
+  return ['llenar','igual'].includes(estadoPara(e).tipo);
+ });if(auto){intentados.add(auto.id);setTimeout(()=>aplicar(auto,{automatico:true}),0);}}
  if(data.jornada)status('Recepción conectada para '+data.jornada.fecha+'. Los avisos llegan con esta app abierta.');else status('Prepara las rondas para que la presentadora pueda enviar sus capturas.');
 }
 async function descargar(c,e){if(!C.ruta(c.ruta,e.creado_por,e.fecha))throw Error('La ruta de una captura no es válida.');const{data,error}=await supa.storage.from(BUCKET).download(c.ruta);if(error||!data||data.size>8388608||data.type!=='image/jpeg')throw Error('No se pudo descargar una captura. Revisa la conexión.');return data;}
@@ -92,18 +97,18 @@ async function refrescar(){
 }
 function firmaRonda(i){return JSON.stringify([$('fechaSorteo').value,SLOT_APPROVED_SOURCE,$('cant').value,$('car'+i)?.value,$('pre'+i)?.value,$('nom'+i)?.value]);}
 async function aplicar(e,{automatico=false}={}){if(ocupado||aplicando)return;ocupado=true;const dlg=$('envivoProcesando');try{
- const st=estadoPara(e);if(st.tipo==='bloqueado')throw Error(st.motivo);if(automatico&&st.tipo!=='llenar')return;const i=e.ronda;if(!monto($('pre'+i).value))throw Error('Coloca el premio de la ronda '+i+' antes de completar sus pagos.');
+ const st=estadoPara(e);if(st.tipo==='bloqueado')throw Error(st.motivo);if(automatico&&!['llenar','igual'].includes(st.tipo))return;const i=e.ronda;if(!monto($('pre'+i).value))throw Error('Coloca el premio de la ronda '+i+' antes de completar sus pagos.');
  if(!automatico&&!confirm((st.tipo==='conflicto'?'Esta ronda tiene otros cartones y será reemplazada.\n\n':'')+'¿Confirmas los cartones '+st.ns.join(', ')+' de '+$('nom'+i).value+'? Se prepararán sus pagos con el premio configurado.'))return;
  const before=firmaRonda(i),check=await rpc('en_vivo_contexto',{p_fecha:e.fecha}),latest=check?.envios?.find(x=>x.ronda===i);if(automatico&&latest?.aplicado)return;if(!latest||latest.id!==e.id||check.source!==e.source)throw Error('Llegó otra versión o cambió el sorteo. Revisa el envío más reciente.');if(before!==firmaRonda(i))throw Error('La ronda cambió mientras revisabas. Vuelve a intentarlo.');
  dlg.showModal();const blobs=[];for(const c of e.capturas)blobs.push(await descargar(c,e));if(before!==firmaRonda(i))throw Error('Los datos cambiaron durante la descarga. Revisa otra vez.');
  const editar=async()=>{const st2=estadoPara(e);if(st2.tipo==='bloqueado')throw Error(st2.motivo);if(before!==firmaRonda(i))throw Error('La ronda cambió antes de completarla.');const car=$('car'+i),oldCar=car.value,oldMsg=$('msg'+i).innerText,oldPag=$('pag'+i).innerText,cont=$('pagosBtns'+i),oldNodes=[...cont.childNodes],restaurando=RESTAURANDO_ESTADO,regen=REGENERANDO_GUARDADO;aplicando=true;RESTAURANDO_ESTADO=true;REGENERANDO_GUARDADO=true;
- try{car.value=st2.ns.join(', ');if(!genR(i))throw Error('No se pudieron preparar los pagos.');for(let j=0;j<e.capturas.length;j++)for(const n of e.capturas[j].cartones)await root.ComprobantesPagos.recibirResultado({tipo:'pagosBtns'+i,carton:n,fecha:e.fecha,source:e.source,blob:blobs[j],reemplazar:!automatico});}
+ try{car.value=st2.ns.join(', ');if(!genR(i))throw Error('No se pudieron preparar los pagos.');for(let j=0;j<e.capturas.length;j++)for(const n of e.capturas[j].cartones)await root.ComprobantesPagos.recibirResultado({tipo:'pagosBtns'+i,carton:n,fecha:e.fecha,source:e.source,blob:blobs[j],reemplazar:true});}
  catch(err){car.value=oldCar;$('msg'+i).innerText=oldMsg;$('pag'+i).innerText=oldPag;cont.replaceChildren(...oldNodes);throw err;}
  finally{RESTAURANDO_ESTADO=restaurando;REGENERANDO_GUARDADO=regen;aplicando=false;}
  guardarEstadoAhora();};
  if(root.PagosCompartidos?.editar)await root.PagosCompartidos.editar(editar);else await editar();
  await rpc('en_vivo_aplicar',{p_id:e.id});if(!$('transmisionEnlace').value){$('transmisionEnlace').value=e.youtube;$('transmisionEnlace').dispatchEvent(new Event('input',{bubbles:true}));}
- status('Ronda completada: nombres, cartones y capturas recibidos. Revisa los pagos antes de transferir.');document.dispatchEvent(new Event('ronda-anuncio-generado'));
+ status('✓ Última versión de la ronda cargada. Capturas anteriores reemplazadas; revisa los pagos antes de transferir.');document.dispatchEvent(new Event('ronda-anuncio-generado'));
  }catch(err){status(err.message);}finally{if(dlg.open)dlg.close();ocupado=false;await refrescar();}
 }
 $('envivoProcesando').addEventListener('cancel',e=>e.preventDefault());
