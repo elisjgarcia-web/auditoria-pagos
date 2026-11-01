@@ -28,7 +28,7 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 .warnbox{background:#2a1800;border:1px solid #ffb000;border-radius:12px;padding:10px;margin-top:8px}.goodbox{background:#00271d;border:1px solid #00d084;border-radius:12px;padding:10px;margin-top:8px}.savebar{position:sticky;top:6px;z-index:20;background:#0b0013;border:1px solid #00d084;border-radius:12px;padding:8px 10px;margin:8px 0;font-size:13px;text-align:center}.paid{background:#00d084;color:#001b10}.unpaid{background:#444;color:#fff}
 @media(max-width:520px){.row2,.row3{grid-template-columns:1fr}}
 </style>
-<link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon-192.png" type="image/png"><link rel="stylesheet" href="publicacion.css?v=1"><link rel="stylesheet" href="comprobantes-pagos.css?v=1">
+<link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon-192.png" type="image/png"><link rel="stylesheet" href="publicacion.css?v=1"><link rel="stylesheet" href="comprobantes-pagos.css?v=2">
 </head>
 <body>
 <h1>🎰 Bingo Andino 75</h1>
@@ -43,6 +43,8 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
   <label>Buscar cualquier fecha publicada</label><input id="buscarFechaPublicada" type="date"><button class="sec" onclick="verFechaPublicada()">Ver fecha</button>
   <div id="historialPublicaciones"></div><div id="resultadoHistorico"></div>
 </div>
+<section class="card" aria-labelledby="publicarComprobantesTitulo"><h2 id="publicarComprobantesTitulo" class="title">🏆 Premios pagados</h2><p class="small">Reúne los resultados del bingo y los comprobantes de cada ganador para publicarlos por fecha. El público verá solamente las imágenes de la vista previa, con sus datos parcialmente cubiertos.</p><button class="gen" onclick="vistaPreviaComprobantes()">Publicar comprobantes del día</button><p id="publicarComprobantesEstado" class="small" role="status" aria-live="polite"></p><a id="enlaceComprobantes" hidden target="_blank" rel="noopener"></a><details><summary>Consultar o retirar publicación de esta fecha</summary><button class="sec" onclick="consultarComprobantes()">Consultar fecha del sorteo</button><div id="estadoPublicacionComprobantes"></div></details></section>
+<dialog id="dialogoComprobantes" aria-labelledby="dialogoComprobantesTitulo" style="width:min(95vw,760px);max-height:90dvh;overflow:auto;background:#130020;color:white;border:2px solid #c49b4b;border-radius:16px"><h2 id="dialogoComprobantesTitulo">Revisa los comprobantes públicos</h2><div id="vistaComprobantes"></div><label style="display:flex;gap:10px;align-items:flex-start;margin:16px 0"><input type="checkbox" id="confirmoComprobantes" style="width:22px;flex:none">Revisé los resultados del bingo, sus pagos y la cobertura de los datos. Autorizo publicar estas imágenes.</label><button id="confirmarComprobantes" class="gen" onclick="confirmarComprobantes()" disabled>Confirmar y publicar comprobantes</button><button id="cancelarComprobantes" class="sec" onclick="cancelarComprobantes()">Cancelar</button></dialog>
 <dialog id="dialogoPublicacion" aria-labelledby="tituloPublicacion" style="width:min(95vw,650px);max-height:90vh;overflow:auto;background:#130020;color:white;border:2px solid #00d084;border-radius:16px">
   <h2 id="tituloPublicacion">Confirmar publicación</h2>
   <p>Esta es la información que verá el público. Incluye los nombres de los ganadores. No incluye cédulas, teléfonos ni datos bancarios.</p>
@@ -234,7 +236,7 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
   <div id="res" class="msg"></div><div id="okRes" class="ok">Copiado ✅</div>
 </div>
 
-<script src="comprobantes-pagos.js?v=1"></script>
+<script src="comprobantes-pagos.js?v=3"></script>
 <script>
 
 
@@ -2143,8 +2145,9 @@ window.pagosRestauracionLista=new Promise(resolve=>setTimeout(async()=>{try{if(!
 <script src="publicar-ganadores.js?v=2"></script>
 <script src="rondas-ruleta.js?v=3"></script>
 <script src="sincronizacion.js?v=3"></script>
-<script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=2"></script></body>
+<script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=2"></script><script src="publicar-comprobantes.js?v=2"></script></body>
 </html>
+
 
 
 
