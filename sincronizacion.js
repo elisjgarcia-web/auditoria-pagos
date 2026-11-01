@@ -127,7 +127,8 @@ document.addEventListener('pagos-aprobados-cargados',async()=>{
 window.addEventListener('online',iniciar);
 window.addEventListener('offline',()=>{if(!edicionLocal)client.leer();});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)iniciar();});
-setInterval(()=>{if(!document.hidden)iniciar();},3000);
+// Menos consultas cuando la app está abierta; los cambios propios se guardan por evento.
+setInterval(()=>{if(!document.hidden)iniciar();},10000);
 bloquear(client.estado());
 Promise.resolve().then(iniciar);
 })(typeof window!=='undefined'?window:globalThis);
