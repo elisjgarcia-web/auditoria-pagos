@@ -186,3 +186,30 @@ body.cp-modo{background:linear-gradient(160deg,#290b3c,#1d0829 58%,#110719);colo
 .cp-modo .cp-ruleta-superior strong{color:#f2d38b;font-size:13px}
 .cp-modo .cp-ruleta-superior button{min-height:30px;padding:4px 8px;margin:0;background:#fff1d5;color:#351542;font-size:11px}
 .cp-modo #ruletaPagosEstado{font-size:11px;line-height:1.3;color:#fff9ec;margin:5px 0 0;overflow-wrap:anywhere}
+
+
+/* Navegación v9: Pozo y Consolación visibles debajo de las rondas. */
+.cp-modo .cp-rondas-nav{
+ display:grid;
+ grid-template-columns:repeat(6,minmax(0,1fr));
+ gap:4px;
+ width:100%;
+}
+.cp-modo .cp-rondas-nav .cp-nav-btn{min-width:0;width:100%;padding:5px 2px;line-height:1.15;white-space:normal;text-align:center}
+.cp-modo .cp-rondas-nav .cp-nav-btn.cp-nav-final{background:#e4b54d;color:#35163f;border-color:#e4b54d}
+.cp-modo .cp-rondas-nav .cp-nav-btn.cp-nav-pozo{
+ grid-column:span 3;background:#fff2d6;color:#47254d;border:1px solid #e4b54d;
+ min-height:34px;font-weight:700;font-size:12px;
+}
+.cp-modo .cp-rondas-nav .cp-nav-btn.cp-nav-consolacion{
+ grid-column:span 3;background:#e5a8cb;color:#381847;border:1px solid #e5a8cb;
+ min-height:34px;font-weight:700;font-size:12px;
+}
+.cp-modo .cp-premios .card.cp-premio-enfocado{
+ border:2px solid #e4b54d;box-shadow:inset 4px 0 #e4b54d;
+ border-radius:10px;scroll-margin-top:70px;
+}
+@media(max-width:380px){
+ .cp-modo .cp-rondas-nav{gap:3px}
+ .cp-modo .cp-rondas-nav .cp-nav-btn{font-size:11px;padding:5px 0}
+}
