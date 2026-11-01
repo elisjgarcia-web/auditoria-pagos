@@ -46,7 +46,7 @@
  }
  function punto(e,canvas){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};}
  function ajustarCobertura(s,canvas){let drag=null;
-  canvas.onpointerdown=e=>{if(!s.image||s.busy)return;activo=s;const p=punto(e,canvas);for(let i=s.masks.length-1;i>=0;i--){const m=s.masks[i];if(p.x>=m.x&&p.x<=m.x+m.w&&p.y>=m.y&&p.y<=m.y+m.h){drag={i,dx:p.x-m.x,dy:p.y-m.y};s.file=null;canvas.setPointerCapture?.(e.pointerId);e.preventDefault();actualizar(s);return;}}if(s.masks.length<2){s.masks.push({x:Math.max(0,Math.min(.86,p.x)),y:Math.max(0,Math.min(.975,p.y-.01)),w:.14,h:.025});actualizar(s);if(s.masks.length===2)guardar(s);else aviso(s,'Ahora toca sobre los primeros dígitos de la cédula.');}};
+  canvas.onpointerdown=e=>{if(!s.image||s.busy||!canvas.classList.contains('cp-editando'))return;activo=s;const p=punto(e,canvas);for(let i=s.masks.length-1;i>=0;i--){const m=s.masks[i];if(p.x>=m.x&&p.x<=m.x+m.w&&p.y>=m.y&&p.y<=m.y+m.h){drag={i,dx:p.x-m.x,dy:p.y-m.y};s.file=null;canvas.setPointerCapture?.(e.pointerId);e.preventDefault();actualizar(s);return;}}if(s.masks.length<2){s.masks.push({x:Math.max(0,Math.min(.86,p.x)),y:Math.max(0,Math.min(.975,p.y-.01)),w:.14,h:.025});actualizar(s);if(s.masks.length===2)guardar(s);else aviso(s,'Ahora toca sobre los primeros dígitos de la cédula.');}};
   canvas.onpointermove=e=>{if(!drag)return;const p=punto(e,canvas),m=s.masks[drag.i];m.x=Math.max(0,Math.min(1-m.w,p.x-drag.dx));m.y=Math.max(0,Math.min(1-m.h,p.y-drag.dy));for(const v of s.views)if(v.wrap.isConnected&&v.wrap.closest('.cp-ganador')?.open!==false)pintar(s,v.canvas,true);};
   canvas.onpointerup=canvas.onpointercancel=()=>{if(drag){drag=null;guardar(s);}};
  }
@@ -109,7 +109,21 @@
   wrap.append(owner,buttons,resultInput,input,miniaturas,zoomPago,resultStatus,status,share);
   cont.append(wrap);
   s.views.add({wrap,paste,share,canvas,status,resultPaste,resultCanvas,resultStatus,zoomPago,vacioResultado,vacioPago});
-  resultPaste.onclick=()=>pegar(s,resultInput,'resultado');paste.onclick=()=>pegar(s,input,'pago');zoomPago.onclick=()=>{const grande=canvas.classList.toggle('cp-imagen-grande');zoomPago.textContent=grande?'🔎 Reducir comprobante':'🔎 Ampliar comprobante';};resultCanvas.onclick=()=>{resultCanvas.classList.toggle('cp-imagen-grande');};resultCanvas.title='Tocar para ampliar o reducir';const ficha=wrap.closest('.cp-ganador');if(ficha)ficha.addEventListener('toggle',()=>{if(ficha.open)actualizar(s);});resultInput.onchange=()=>{const file=resultInput.files[0];resultInput.value='';cargarResultado(s,file);};input.onchange=()=>{const file=input.files[0];input.value='';cargar(s,file);};wrap.addEventListener('focusin',e=>{activo=s;const tipo=e.target?.dataset?.reciboTipo;if(tipo)activoTipo=tipo;});share.onclick=async()=>{if(!listo(s))return;if(!confirm('¿Revisaste que este comprobante corresponde a '+s.nombre+' y cubre la primera mitad del teléfono y la cédula?'))return;await compartir(s.file,t=>aviso(s,t));};ajustarCobertura(s,canvas);actualizar(s);return s;
+  resultPaste.onclick=()=>pegar(s,resultInput,'resultado');paste.onclick=()=>pegar(s,input,'pago');zoomPago.onclick=()=>{
+   const editando=canvas.classList.toggle('cp-editando');
+   canvas.classList.toggle('cp-imagen-grande',editando);
+   miniaturas.classList.toggle('recibo-edicion-activa',editando);
+   zoomPago.textContent=editando?'✓ Terminar ajuste de cobertura':'✏️ Ajustar cobertura del comprobante';
+  };
+  resultCanvas.onclick=()=>ampliarImagen(s,'resultado');
+  canvas.onclick=()=>{if(!canvas.classList.contains('cp-editando'))ampliarImagen(s,'pago');};
+  for(const [vista,tipo] of [[resultCanvas,'resultado'],[canvas,'pago']]){
+   vista.title='Toca para ampliar '+(tipo==='resultado'?'el resultado':'el comprobante');
+   vista.tabIndex=0;vista.setAttribute('role','button');
+   vista.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&!vista.classList.contains('cp-editando')){
+    e.preventDefault();ampliarImagen(s,tipo);
+   }};
+  }const ficha=wrap.closest('.cp-ganador');if(ficha)ficha.addEventListener('toggle',()=>{if(ficha.open)actualizar(s);});resultInput.onchange=()=>{const file=resultInput.files[0];resultInput.value='';cargarResultado(s,file);};input.onchange=()=>{const file=input.files[0];input.value='';cargar(s,file);};wrap.addEventListener('focusin',e=>{activo=s;const tipo=e.target?.dataset?.reciboTipo;if(tipo)activoTipo=tipo;});share.onclick=async()=>{if(!listo(s))return;if(!confirm('¿Revisaste que este comprobante corresponde a '+s.nombre+' y cubre la primera mitad del teléfono y la cédula?'))return;await compartir(s.file,t=>aviso(s,t));};ajustarCobertura(s,canvas);actualizar(s);return s;
  }
  function lienzoPago(s){const c=document.createElement('canvas');pintar(s,c);return c;}
  function pareja(s){const pago=lienzoPago(s);if(!s.resultado)return pago;const r=s.resultado,W=Math.min(1200,Math.max(r.width,pago.width)),header=Math.round(W*.1),rh=Math.round(W*r.height/r.width),ph=Math.round(W*pago.height/pago.width),height=header+rh+ph+8,scale=Math.min(1,12000/height,Math.sqrt(16000000/(W*height))),c=document.createElement('canvas');c.width=Math.floor(W*scale);c.height=Math.floor(height*scale);const ctx=c.getContext('2d');ctx.scale(scale,scale);ctx.fillStyle='#43194e';ctx.fillRect(0,0,W,height);ctx.textAlign='center';ctx.fillStyle='#fffaf0';ctx.font='700 '+Math.round(W*.035)+'px system-ui';ctx.fillText(s.nombre+' · Cartón '+s.carton,W/2,header*.44,W*.94);ctx.font='600 '+Math.round(W*.022)+'px system-ui';ctx.fillStyle='#e4c585';ctx.fillText(s.context.titulo+' · Resultado y pago',W/2,header*.8,W*.94);ctx.drawImage(r,0,header,W,rh);ctx.drawImage(pago,0,header+rh+8,W,ph);return c;}
