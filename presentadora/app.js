@@ -44,6 +44,24 @@ async function loadDate(){if(busy||!user||esperandoNuevoSorteo||!$('fecha').valu
   if(!error&&jornadas?.length){f=jornadas[0].fecha;$('fecha').value=f;data=await rpc('en_vivo_contexto',{p_fecha:f});}
  }
  if(!data.jornada)throw Error('Todavía no hay rondas para '+f+'. Comprueba que la fecha coincida con Pagos y que allí se hayan cargado los aprobados.');config=data.jornada;rows=data.envios||[];$('youtube').value=localStorage.getItem('envivo-youtube:'+user.id+':'+f+':'+config.source)||rows[0]?.youtube||'';config.rondas.forEach((r,i)=>{const b=node('button',r);b.type='button';b.onclick=()=>enterRound(i+1);$('rondas').append(b);});notice('Fecha preparada. Elige una ronda para pegar sus ganadores.');}catch(e){notice(e.message);}finally{busy=false;controls();}}
+$('nuevoSorteoPresentadora').onclick=async()=>{
+ if(!user||busy)return;
+ if(draft?.uncertain){status('Confirma el envio pendiente antes de comenzar otro sorteo.');return;}
+ let fecha;try{fecha=config?.fecha||C.fecha($('fecha').value);}catch{status('Selecciona la fecha que deseas cerrar.');return;}
+ if(!confirm('Nuevo sorteo: se limpiaran los borradores y capturas locales de esta fecha. Los envios anteriores ya recibidos en Pagos y el historial se mantienen. ¿Continuar?'))return;
+ busy=true;controls();
+ try{
+  await C.borrarBorradores(user.id+':'+fecha+':');
+  localStorage.removeItem('envivo-youtube:'+user.id+':'+fecha+':'+(config?.source||''));
+  localStorage.setItem('envivo-esperando-fecha:'+user.id,'1');
+  esperandoNuevoSorteo=true;autoFecha=false;++turno;
+  selected=0;draft=null;config=null;rows=[];activeCard=null;release();
+  $('rondas').replaceChildren();$('capturas').replaceChildren();$('fecha').value='';$('youtube').value='';
+  paint();notice('Selecciona la fecha del nuevo sorteo. Los envios anteriores siguen registrados en Pagos.');
+  status('Borradores locales reiniciados.');
+ }catch(e){status('No se pudo completar el reinicio: '+e.message);}
+ finally{busy=false;controls();}
+};
 $('actualizarRondas').onclick=loadDate;setInterval(()=>{if(user&&!config&&!busy&&!esperandoNuevoSorteo&&!document.hidden)loadDate();},12000);
 $('fecha').onchange=()=>{autoFecha=false;esperandoNuevoSorteo=false;if(user)localStorage.removeItem('envivo-esperando-fecha:'+user.id);loadDate();};$('youtube').oninput=()=>{if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);};
 $('agregar').onclick=async()=>{if(busy||draft.sent)return;if(draft.cards.length>=20){status('Máximo 20 capturas por envío.');return;}draft.cards.push({numeros:''});await save();paint();};
