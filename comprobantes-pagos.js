@@ -14,6 +14,8 @@
  function persistir(s,tipo='pago'){return almacenar(tipo==='resultado'?'mergeResultado':'mergePago',{key:s.key,blob:s.blob,masks:s.masks.map(m=>({...m})),resultado:s.resultBlob});}
  function listo(s){return !!(s.image&&s.masks.length===2&&!s.busy&&s.file);}
  function actualizar(s){for(const v of [...s.views]){if(!v.wrap.isConnected){s.views.delete(v);continue;}v.share.disabled=!listo(s);v.paste.disabled=!!s.busy;v.resultPaste.disabled=!!s.resultBusy;v.resultCanvas.hidden=!s.resultado;
+  if(v.vacioResultado)v.vacioResultado.hidden=!!s.resultado;
+  if(v.vacioPago)v.vacioPago.hidden=!!s.image;
   const desplegado=v.wrap.closest('.cp-ganador')?.open!==false;
   if(s.resultado&&desplegado){
    const w=s.resultado.width,h=s.resultado.height,scale=Math.min(1,640/w,960/h);
