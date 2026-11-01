@@ -1874,14 +1874,22 @@ function contextoComprobantes(id){
  return {tipo:id,titulo:String(titulo),fecha:(document.getElementById("fechaSorteo")?.value||new Date().toLocaleDateString("es-VE",{timeZone:"America/Caracas"})).trim(),source:typeof SLOT_APPROVED_SOURCE!=="undefined"?SLOT_APPROVED_SOURCE:null};
 }
 function crearBotonesPago(id,pagos,ok){
- const cont=document.getElementById(id);if(!cont)return;
- cont.replaceChildren();
+ const raiz=document.getElementById(id);if(!raiz)return;
+ raiz.replaceChildren();
  pagos.forEach((p,idx)=>{
   const x=p.x,m=p.monto,c=p.carton||"";
-  if(!x){const d=document.createElement("div");d.className="warnbox";d.textContent="Cartón no encontrado";cont.append(d);return}
+  if(!x){const d=document.createElement("div");d.className="warnbox";d.textContent="Cartón no encontrado";raiz.append(d);return}
+  const ficha=document.createElement("details");ficha.className="cp-ganador";ficha.open=idx===0;
+  const resumen=document.createElement("summary");resumen.className="cp-ganador-resumen";
+  resumen.textContent=String(c)+" · "+String(x.nombre||"Ganador").trim()+" · "+fmt(m)+" Bs";
+  const cont=document.createElement("div");cont.className="cp-ganador-contenido";
+  ficha.append(resumen,cont);raiz.append(ficha);
+  ficha.addEventListener("toggle",()=>{if(ficha.open)raiz.querySelectorAll(":scope > .cp-ganador").forEach(o=>{if(o!==ficha)o.open=false;});});
   const sw=supaSwap(x),tel=sw?x.cedula:x.telefono,ci=sw?x.telefono:x.cedula;
   const valid=!!(supaValidTel(tel)&&supaValidCed(ci));
-  const d=document.createElement("div");d.className="msg";d.textContent=detallePago(c,x,m);cont.append(d);
+  const datosPago=document.createElement("details");datosPago.className="cp-datos-pago";
+  const vistaPago=document.createElement("summary");vistaPago.textContent="🏦 "+(x.bancoCodigo||"Banco por revisar")+" · "+(tel||"Teléfono por revisar")+" · CI "+(ci||"Revisar");
+  const d=document.createElement("div");d.className="msg";d.textContent=detallePago(c,x,m);datosPago.append(vistaPago,d);cont.append(datosPago);
   if(sw){
    const warning=document.createElement("div");warning.className="warnbox";warning.textContent="⚠️ Posible teléfono y cédula intercambiados. Confirma con el beneficiario antes de pagar.";cont.append(warning);
    const details=document.createElement("details");
@@ -1889,7 +1897,7 @@ function crearBotonesPago(id,pagos,ok){
    const original=document.createElement("pre");original.textContent="Teléfono original: "+x.telefono+"\nCédula original: "+x.cedula;details.append(original);cont.append(details);
   }
   if(valid){
-   const copy=document.createElement("button");copy.className="copy";copy.textContent=(sw?"🔄 Copiar opción intercambiada":"📋 Copiar Pago Móvil")+" · "+String(x.nombre||"Sin nombre").trim();
+   const copy=document.createElement("button");copy.className="copy";copy.textContent=sw?"🔄 Copiar pago (verificar)":"📋 Copiar Pago Móvil";
    copy.onclick=()=>copiarTexto([fmt(m),tel,ci,...(x.bancoCodigo?[x.bancoCodigo]:[])].join("\n"),ok);cont.append(copy);
   }else{
    const w=document.createElement("div");w.className="warnbox";w.textContent="⚠️ Datos de Pago Móvil incompletos o incompatibles. Copia bloqueada.";cont.append(w);
@@ -1913,7 +1921,7 @@ function crearBotonesPago(id,pagos,ok){
   }
   cont.append(more);
  });
- window.ComprobantesPagos?.finalizarRonda(cont,pagos,contextoComprobantes(id));
+ window.ComprobantesPagos?.finalizarRonda(raiz,pagos,contextoComprobantes(id));
 }
 async function copiarTexto(t,ok){
  try{await navigator.clipboard.writeText(t)}catch(e){let a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove()}
