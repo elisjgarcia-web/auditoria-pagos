@@ -2,7 +2,12 @@
 'use strict';
 const C=window.EnVivoComun,$=id=>document.getElementById(id),client=window.supabase.createClient('https://dbkixcpwirjwjvjintkr.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRia2l4Y3B3aXJqd2p2amludGtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYwNjYxNDksImV4cCI6MjA2MTY0MjE0OX0.QJmWLWSe-pRYwxWeel8df7JLhNUvMKaTpL0MCDorgho'),BUCKET='ganadores-en-vivo';
 let user=null,config=null,rows=[],selected=0,draft=null,busy=false,turno=0,urls=[],worker=null,ocrScript=null,activeCard=null,autoFecha=false,esperandoNuevoSorteo=false;
-const notice=t=>{$('estado').textContent=t;},status=t=>{$('envioEstado').textContent=t;};
+const notice=t=>{$('estado').textContent=t;},status=t=>{
+ $('envioEstado').textContent=t;
+ let bottom=$('resultadoEnvio');
+ if(!bottom){bottom=document.createElement('p');bottom.id='resultadoEnvio';bottom.setAttribute('role','status');bottom.setAttribute('aria-live','polite');bottom.style.cssText='font-size:14px;font-weight:650;line-height:1.5;color:#43194e;white-space:pre-wrap';$('enviar').insertAdjacentElement('afterend',bottom);}
+ bottom.textContent=t;
+};
 function controls(){document.querySelectorAll('button,input').forEach(n=>n.disabled=busy);$('enviar').disabled=busy||!draft||draft.sent;$('agregar').disabled=busy||!draft||draft.sent;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else $('enviar').textContent='Enviar a pagos';}
 function key(){return [user.id,config.fecha,config.source,selected].join(':');}
 async function save(){if(draft)await C.local(key(),draft);}
@@ -104,12 +109,31 @@ $('actualizarRondas').onclick=loadDate;setInterval(()=>{if(user&&!config&&!busy&
 $('fecha').onchange=()=>{autoFecha=false;esperandoNuevoSorteo=false;if(user)localStorage.removeItem('envivo-esperando-fecha:'+user.id);loadDate();};$('youtube').oninput=()=>{if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);};
 $('agregar').onclick=async()=>{if(busy||draft.sent)return;if(draft.cards.length>=20){status('Máximo 20 capturas por envío.');return;}draft.cards.push({numeros:''});await save();paint();};
 $('corregir').onclick=async()=>{if(busy||!draft.sent||!confirm('¿Corregir o agregar ganadores? Pagos recibirá una nueva versión y revisará los cambios.'))return;draft.id=C.uuid();draft.sent=false;await save();paint();status('Corrige las capturas o agrega otro ganador y vuelve a enviar.');};
+function capturasValidadas(){
+ const usados=new Map();
+ const capturas=draft.cards.map((card,i)=>{
+  if(!card.blob)throw Error('Ganador '+(i+1)+': falta adjuntar la captura.');
+  let cartones;try{cartones=C.cartones(card.numeros);}catch(e){throw Error('Ganador '+(i+1)+': '+e.message);}
+  for(const numero of cartones){
+   if(usados.has(numero)){
+    const otro=usados.get(numero);
+    const field=$('cartones-'+i);
+    if(field){field.style.border='3px solid #c24942';field.scrollIntoView({behavior:'smooth',block:'center'});}
+    throw Error('El cartón '+numero+' se repite entre Ganador '+otro+' y Ganador '+(i+1)+'. Corrige el número individual de cada captura; no se ha enviado nada.');
+   }
+   usados.set(numero,i+1);
+  }
+  return{ruta:card.ruta,cartones};
+ });
+ C.numeros({capturas});
+ return capturas;
+}
 $('enviar').onclick=async()=>{
  if(busy||!draft||draft.sent)return;
  const anterior=rows.find(e=>e.ronda===selected);
  if(anterior&&capturaAnterior(anterior)&&!confirm('Esta misma fecha tiene una captura anterior enviada a Pagos. Al enviar una nueva se creará una revisión para esta ronda. ¿Continuar?'))return;
  busy=true;controls();try{
- const youtube=TransmisionYouTube.parse($('youtube').value).url,capturas=draft.cards.map(c=>{if(!c.blob)throw Error('Falta pegar una captura.');return{ruta:c.ruta,cartones:C.cartones(c.numeros)};});C.numeros({capturas});
+ const capturas=capturasValidadas(),youtube=TransmisionYouTube.parse($('youtube').value).url;
  const {data:a,error:ae}=await client.auth.getSession();if(ae||a?.session?.user?.id!==user.id)throw Error('Verifica tu acceso de nuevo.');
  for(let i=0;i<draft.cards.length;i++){const c=draft.cards[i];if(!c.ruta){c.ruta=user.id+'/'+config.fecha+'/'+C.uuid()+'.jpg';await save();}capturas[i].ruta=c.ruta;if(c.uploaded)continue;status('Subiendo captura '+(i+1)+' de '+capturas.length+'…');const{error}=await client.storage.from(BUCKET).upload(c.ruta,c.blob,{contentType:'image/jpeg',upsert:false});if(error){const r=await client.storage.from(BUCKET).download(c.ruta);if(r.error||r.data?.size!==c.blob.size)throw error;const [a,b]=await Promise.all([r.data.arrayBuffer(),c.blob.arrayBuffer()]);const aa=new Uint8Array(a),bb=new Uint8Array(b);if(!aa.every((v,j)=>v===bb[j]))throw Error('La captura existente no coincide. Revisa el envío.');}c.uploaded=true;await save();}
  status('Enviando ganadores a pagos…');draft.uncertain=true;draft.youtube=youtube;await save();const row=await rpc('en_vivo_enviar',{p_id:draft.id,p_fecha:config.fecha,p_source:config.source,p_ronda:selected,p_revision:draft.baseRevision,p_youtube:youtube,p_capturas:capturas});if(row.id!==draft.id)throw Error('No se confirmó el envío. Reintenta sin cambiar las capturas.');draft.sent=true;draft.uncertain=false;draft.baseRevision=row.revision;rows=rows.filter(e=>e.ronda!==selected).concat(row);await save();paint();status('Enviado ✓ · Los ganadores ya llegaron a pagos.');
