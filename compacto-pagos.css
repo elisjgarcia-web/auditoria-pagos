@@ -61,3 +61,62 @@ body.cp-modo{background:linear-gradient(160deg,#290b3c,#1d0829 58%,#110719);colo
 .cp-modo .cp-contenedor #envivoLista{max-height:360px;overflow:auto}
 .cp-modo .cp-contenedor .cp-herramientas .card,.cp-modo .cp-contenedor .cp-publicacion .card{margin:8px 0}
 @media(max-width:360px){.cp-modo .cp-nav .cp-nav-btn{font-size:10px}.cp-modo .cp-cuerpo > .cp-entradas{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)}}
+
+
+/* Compactación v3: uso diario en teléfono, una ronda y un ganador abiertos. */
+.cp-modo h1{font-size:18px;line-height:1.15;margin:2px 0 5px}
+.cp-modo .sub{display:none}
+.cp-modo .cp-contenedor{margin-bottom:18px}
+.cp-modo .cp-nav{gap:3px;padding:3px 0}
+.cp-modo .cp-nav .cp-nav-btn{font-size:12px;line-height:1.12;min-height:34px;padding:6px 2px;border-radius:9px}
+.cp-modo .cp-contenedor #saveStatus{padding:4px 7px;font-size:11px;margin:2px 0;min-height:0}
+.cp-modo .cp-contenedor #syncStatus{font-size:11px;line-height:1.2;margin:2px 0 3px}
+.cp-modo .cp-bloque{margin:4px 0;padding:0 6px 5px}
+.cp-modo .cp-bloque > summary{font-size:13px;line-height:1.2;padding:10px 4px}
+.cp-modo .cp-rondas-titulo{margin:8px 1px 3px;gap:4px}
+.cp-modo .cp-rondas-titulo h2{font-size:15px}
+.cp-modo .cp-rondas-nav{gap:3px}
+.cp-modo .cp-rondas-nav .cp-nav-btn{min-height:29px;padding:4px 7px;font-size:12px}
+.cp-modo .cp-contenedor #rondas>.cp-ronda{margin:3px 0}
+.cp-modo .cp-acordeon>summary{padding:7px 9px;min-height:42px;scroll-margin-top:42px}
+.cp-modo .cp-ronda-nombre{font-size:13px}
+.cp-modo .cp-ronda-meta{font-size:11px;margin-top:0}
+.cp-modo .cp-ronda-chevron{font-size:19px}
+.cp-modo .cp-cuerpo{padding:5px 7px 7px;gap:3px 5px}
+.cp-modo .cp-cuerpo > .cp-entradas{gap:5px}
+.cp-modo .cp-contenedor .card{padding:7px;margin:4px 0}
+.cp-modo .cp-contenedor label{margin-top:3px;font-size:12px}
+.cp-modo .cp-contenedor input,.cp-modo .cp-contenedor select{min-height:34px;padding:5px 7px;margin-top:2px;font-size:14px;border-radius:7px}
+.cp-modo .cp-contenedor button{min-height:34px;padding:6px 8px;font-size:12px;margin:3px 0;border-radius:8px}
+.cp-modo .cp-contenedor .msg{font-size:12px;line-height:1.24;padding:6px;margin:3px 0;border-radius:8px}
+.cp-modo .cp-cuerpo>.cp-recepcion{padding:4px 6px;gap:3px}
+.cp-modo .cp-cuerpo>.cp-recepcion button{min-height:33px}
+.cp-modo .cp-cuerpo>.cp-recepcion .cp-recibo-estado{font-size:11px;line-height:1.2}
+.cp-modo .cp-contenedor #rondas .cp-ganador{border:1px solid #86688d;border-radius:9px;margin:4px 0;background:#2a103a;overflow:visible}
+.cp-modo .cp-ganador>summary{cursor:pointer;display:block;padding:9px 10px;color:#f1d58e;font-weight:700;font-size:13px;line-height:1.25;overflow-wrap:anywhere;min-height:37px}
+.cp-modo .cp-ganador[open]>summary{border-bottom:1px solid #71577b}
+.cp-modo .cp-ganador-contenido{padding:5px 7px 7px;min-width:0}
+.cp-modo .cp-datos-pago{border:1px solid #80628e;border-radius:8px;padding:0 6px;background:#321544;margin:2px 0 4px}
+.cp-modo .cp-datos-pago>summary{font-size:11px;line-height:1.35;cursor:pointer;padding:7px 0;overflow-wrap:anywhere;color:#f7e4b7}
+.cp-modo .cp-datos-pago>.msg{margin:0 0 5px}
+.cp-modo .cp-ganador-contenido>.copy{display:block;width:100%;min-height:34px;text-align:center}
+.cp-modo .cp-ganador-contenido>.pago-registro{margin-top:4px!important}
+.cp-modo .cp-ganador-contenido>.pago-registro>summary,.cp-modo .cp-ganador-contenido>details:not(.cp-datos-pago):not(.pago-registro)>summary{font-size:12px;line-height:1.2;padding:5px 0}
+.cp-modo .cp-ganador-contenido>.recibo-pago{margin:4px 0 5px;padding:4px 0 3px;border:0;border-top:1px solid #71577b;border-radius:0;background:transparent}
+.cp-modo .recibo-titular{display:none}
+.cp-modo .recibo-acciones{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.cp-modo .recibo-acciones>button{min-width:0;width:100%;min-height:35px;padding:6px 4px;font-size:12px;line-height:1.2;white-space:normal;margin:0}
+.cp-modo .recibo-pago .recibo-vista{max-height:130px;max-width:100%;width:auto;height:auto;margin:5px auto 2px;border:1px solid #a58aae;border-radius:7px;object-fit:contain;cursor:zoom-in}
+.cp-modo .recibo-pago .recibo-resultado-vista{max-height:130px;touch-action:pan-y pinch-zoom}
+.cp-modo .recibo-pago .recibo-pago-vista:not(.cp-imagen-grande){touch-action:pan-y pinch-zoom}
+.cp-modo .recibo-pago .recibo-vista.cp-imagen-grande{max-height:78vh;max-width:100%;cursor:zoom-out}
+.cp-modo .recibo-pago .recibo-pago-vista.cp-imagen-grande{touch-action:none}
+.cp-modo .recibo-pago .cp-zoom-pago{display:block;width:100%;min-height:30px;margin:3px 0;font-size:11px}
+.cp-modo .recibo-pago .cp-zoom-pago[hidden]{display:none!important}
+.cp-modo .recibo-pago .recibo-estado,.cp-modo .recibo-pago .recibo-resultado-estado{font-size:11px;line-height:1.3;margin:3px 0}
+.cp-modo .recibo-pago>.recibo-compartir{width:100%;min-height:34px;font-size:12px;padding:6px;margin:4px 0}
+.cp-modo .recibo-grupo{margin:6px 0;padding-top:5px}
+.cp-modo .recibo-grupo>button{font-size:12px;min-height:35px}
+.cp-modo .cp-ganador-contenido>.warnbox{padding:6px;font-size:11px}
+.cp-modo .cp-cuerpo>.msg{line-height:1.3}
+@media(min-width:520px){.cp-modo .cp-ganador-contenido>.copy{max-width:320px}}
