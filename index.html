@@ -1889,7 +1889,7 @@ function crearBotonesPago(id,pagos,ok){
   const sw=supaSwap(x),tel=sw?x.cedula:x.telefono,ci=sw?x.telefono:x.cedula;
   const valid=!!(supaValidTel(tel)&&supaValidCed(ci));
   const datosPago=document.createElement("details");datosPago.className="cp-datos-pago";
-  const vistaPago=document.createElement("summary");vistaPago.textContent="🏦 "+(x.bancoCodigo||"Banco por revisar")+" · "+(tel||"Teléfono por revisar")+" · CI "+(ci||"Revisar");
+  const vistaPago=document.createElement("summary");vistaPago.textContent="🏦 "+(x.bancoCodigo||"Banco por revisar")+" · Ver datos del pago";
   const d=document.createElement("div");d.className="msg";d.textContent=detallePago(c,x,m);datosPago.append(vistaPago,d);
   if(sw){
    const warning=document.createElement("div");warning.className="warnbox";warning.textContent="⚠️ Posible teléfono y cédula intercambiados. Confirma con el beneficiario antes de pagar.";cont.append(warning);
