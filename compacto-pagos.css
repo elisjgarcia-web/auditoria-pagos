@@ -120,3 +120,28 @@ body.cp-modo{background:linear-gradient(160deg,#290b3c,#1d0829 58%,#110719);colo
 .cp-modo .cp-ganador-contenido>.warnbox{padding:6px;font-size:11px}
 .cp-modo .cp-cuerpo>.msg{line-height:1.3}
 @media(min-width:520px){.cp-modo .cp-ganador-contenido>.copy{max-width:320px}}
+
+
+/* Color por ronda v4: seis identidades dentro del morado/marfil/dorado de Bingo Andino 75. */
+.cp-modo #rondas > .cp-ronda:nth-child(1){--cp-ronda-fondo:#32214e;--cp-ronda-cabecera:#523483;--cp-ronda-borde:#a786c8;--cp-ronda-letra:#fff8e8}
+.cp-modo #rondas > .cp-ronda:nth-child(2){--cp-ronda-fondo:#402152;--cp-ronda-cabecera:#713890;--cp-ronda-borde:#b786cb;--cp-ronda-letra:#fff8e8}
+.cp-modo #rondas > .cp-ronda:nth-child(3){--cp-ronda-fondo:#4d2f62;--cp-ronda-cabecera:#8352a2;--cp-ronda-borde:#c8a1d6;--cp-ronda-letra:#fff8e8}
+.cp-modo #rondas > .cp-ronda:nth-child(4){--cp-ronda-fondo:#372c53;--cp-ronda-cabecera:#594879;--cp-ronda-borde:#a79bc2;--cp-ronda-letra:#fff8e8}
+.cp-modo #rondas > .cp-ronda:nth-child(5){--cp-ronda-fondo:#513959;--cp-ronda-cabecera:#845d91;--cp-ronda-borde:#c7a6c9;--cp-ronda-letra:#fff8e8}
+.cp-modo #rondas > .cp-ronda:last-child{--cp-ronda-fondo:#5b483e;--cp-ronda-cabecera:#f0d394;--cp-ronda-borde:#f0d394;--cp-ronda-letra:#381c48}
+.cp-modo .cp-contenedor #rondas > .cp-ronda{background:var(--cp-ronda-fondo,#341442);border-color:var(--cp-ronda-borde,#aa86a6);transition:border-color .15s ease}
+.cp-modo #rondas > .cp-ronda > .cp-acordeon > .cp-ronda-resumen{background:var(--cp-ronda-cabecera,#59376f);color:var(--cp-ronda-letra,#fff8e8);border-radius:10px}
+.cp-modo #rondas > .cp-ronda > .cp-acordeon[open] > .cp-ronda-resumen{border-radius:10px 10px 0 0}
+.cp-modo #rondas > .cp-ronda > .cp-acordeon > .cp-ronda-resumen .cp-ronda-nombre,
+.cp-modo #rondas > .cp-ronda > .cp-acordeon > .cp-ronda-resumen .cp-ronda-meta,
+.cp-modo #rondas > .cp-ronda > .cp-acordeon > .cp-ronda-resumen .cp-ronda-chevron{color:var(--cp-ronda-letra,#fff8e8)}
+.cp-modo #rondas > .cp-ronda .cp-cuerpo{background:var(--cp-ronda-fondo,#341442);border-radius:0 0 10px 10px}
+.cp-modo #rondas > .cp-ronda .cp-ganador{background:#261232}
+.cp-modo .cp-rondas-nav .cp-nav-btn:nth-child(1){background:#523483;color:#fff8e8;border-color:#a786c8}
+.cp-modo .cp-rondas-nav .cp-nav-btn:nth-child(2){background:#713890;color:#fff8e8;border-color:#b786cb}
+.cp-modo .cp-rondas-nav .cp-nav-btn:nth-child(3){background:#8352a2;color:#fff8e8;border-color:#c8a1d6}
+.cp-modo .cp-rondas-nav .cp-nav-btn:nth-child(4){background:#594879;color:#fff8e8;border-color:#a79bc2}
+.cp-modo .cp-rondas-nav .cp-nav-btn:nth-child(5){background:#845d91;color:#fff8e8;border-color:#c7a6c9}
+.cp-modo .cp-rondas-nav .cp-nav-btn:last-child{background:#f0d394;color:#381c48;border-color:#f0d394}
+.cp-modo .cp-rondas-nav .cp-nav-btn:focus-visible,
+.cp-modo #rondas > .cp-ronda > .cp-acordeon > .cp-ronda-resumen:focus-visible{outline:2px solid #fffaf0;outline-offset:2px}
