@@ -298,6 +298,7 @@ let PDF_FECHA_DETECTADA="";
 let RAW_SEGMENTOS_VERIFICACION=[];
 let PAGO_ESTADOS={};
 let RESTAURANDO_ESTADO=false;
+let REINICIANDO_SORTEO=false;
 let REGENERANDO_GUARDADO=false;
 let TIMER_GUARDADO=null;
 const STORAGE_KEY="bingoandino75_supabase_auditoria_v1";
@@ -525,7 +526,7 @@ async function importarRespaldo(input){
  }catch(e){alert("⚠️ No se pudo importar: "+e.message)}finally{input.value=""}
 }
 function guardarEstadoAhora(){
- if(RESTAURANDO_ESTADO)return;
+ if(RESTAURANDO_ESTADO||REINICIANDO_SORTEO)return;
  try{
    let estadoGuardado={
      version:4,
@@ -554,7 +555,7 @@ function guardarEstadoAhora(){
  }
 }
 function programarGuardado(){
- if(RESTAURANDO_ESTADO)return;
+ if(RESTAURANDO_ESTADO||REINICIANDO_SORTEO)return;
  clearTimeout(TIMER_GUARDADO);
  TIMER_GUARDADO=setTimeout(guardarEstadoAhora,250);
 }
@@ -676,12 +677,34 @@ function regenerarBotonesTrasRestaurar(){
  }finally{REGENERANDO_GUARDADO=false;}
  guardarEstadoAhora();
 }
+function estadoVacioNuevoSorteo(){
+ // La lista completa coincide con los campos compartidos permitidos en Pagos.
+ const f={...capturarPagosCompartidos().form};
+ for(const k of Object.keys(f))if(k!=='rondas')f[k]='';
+ const hoy=new Intl.DateTimeFormat('es-VE',{timeZone:'America/Caracas',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date());
+ Object.assign(f,{fechaSorteo:hoy,cant:'6',plantillaPremios:'auto',escaleraModo:'manual',
+  usdGrupo1:'30',usdGrupo2:'50',usdFinal:'190',usdConsol:'10',
+  escaleraInicio:'40',escaleraPaso:'10',topUsd1:'25',topUsd2:'15',topUsd3:'10'});
+ f.rondas=Array.from({length:6},(_,n)=>({i:n+1,nom:R[n],pre:'',car:''}));
+ return{form:f,top:false,paymentKeys:[]};
+}
 async function nuevoSorteo(){
- if(!confirm("¿Borrar el trabajo local y comenzar un sorteo nuevo? Los resultados publicados en Supabase se conservan."))return;
- try{localStorage.removeItem(STORAGE_KEY)}catch(e){}
- await window.ComprobantesPagos?.limpiar();
+ if(REINICIANDO_SORTEO)return false;
+ if(!confirm('¿INICIAR UN NUEVO SORTEO? Se borrarán las rondas, ganadores, premios y capturas en preparación de Pagos, incluso los datos compartidos con otros teléfonos. Las compras, transferencias reales y publicaciones anteriores NO se eliminan. Esta acción no se puede deshacer.'))return false;
+ try{
+  if(window.pagosRestauracionLista)await window.pagosRestauracionLista;
+  if(!window.PagosCompartidos?.reiniciar)throw Error('La sincronización todavía no está lista. Actualiza la aplicación.');
+  const empty=estadoVacioNuevoSorteo();
+  const ok=await window.PagosCompartidos.reiniciar(empty);
+  if(!ok)throw Error('No se pudo confirmar el reinicio compartido.');
+ }catch(e){alert('⚠️ No se reinició el sorteo. '+e.message);return false;}
+ // Solo limpiar el teléfono después de confirmar que la nube quedó reiniciada.
+ REINICIANDO_SORTEO=true;clearTimeout(TIMER_GUARDADO);
+ try{await window.ComprobantesPagos?.limpiar();}catch(e){console.warn('No se pudieron limpiar las capturas locales',e);}
+ try{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem('andino_pagos_borrador_v1');}catch(e){console.warn('Almacenamiento local no disponible',e);}
  await borrarIDB();
  location.reload();
+ return true;
 }
 
 function auditarPDF(){
