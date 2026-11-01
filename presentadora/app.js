@@ -23,7 +23,7 @@ function abrirVisor(blob,titulo){
   dialog.addEventListener('close',()=>{if(dialog.dataset.url){URL.revokeObjectURL(dialog.dataset.url);delete dialog.dataset.url;}imagen.removeAttribute('src');});
   document.body.append(dialog);visorCaptura={dialog,heading,imagen};
  }
- if(visorCaptura.dialog.open)visorCaptura.dialog.close();
+ if(visorCaptura.dialog.dataset.url){URL.revokeObjectURL(visorCaptura.dialog.dataset.url);delete visorCaptura.dialog.dataset.url;}
  const url=URL.createObjectURL(blob);
  visorCaptura.dialog.dataset.url=url;
  visorCaptura.heading.textContent=titulo;
@@ -136,7 +136,14 @@ function paint(){
   box.append(title,acciones,file,img,placeholder,label,input,msg);
   $('capturas').append(box);
  });
- document.querySelectorAll('#rondas button').forEach((b,i)=>b.setAttribute('aria-pressed',String(selected===i+1)));
+ document.querySelectorAll('#rondas button').forEach((b,i)=>{
+  b.setAttribute('aria-pressed',String(selected===i+1));
+  const enviada=rows.some(row=>row.ronda===i+1&&!capturaAnterior(row));
+  b.dataset.estado=enviada?'enviada':'pendiente';
+  const nombre=config?.rondas[i]||('Ronda '+(i+1));
+  b.textContent=(enviada?'✓ ':'')+nombre;
+  b.title=enviada?'Ganadores enviados a Pagos':'Pendiente de enviar';
+ });
  resumen();controls();
  if(draft.sent)status('✓ Enviado a Pagos. Puedes continuar a la siguiente ronda.');
 }
