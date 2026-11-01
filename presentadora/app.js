@@ -215,7 +215,7 @@ async function enterRound(n){if(busy||!config)return;busy=true;controls();const 
  else if(!draft.sent)status('Pega una captura por ganador. Si una imagen muestra varios cartones, puedes enviarlos separados por comas.');
  }catch(e){draft=null;paint();status(e.message);}finally{busy=false;controls();}
 }
-async function loadDate(){if(busy||!user||esperandoNuevoSorteo||!$('fecha').value)return;busy=true;controls();++turno;selected=0;draft=null;activeCard=null;config=null;paint();$('rondas').replaceChildren();try{let f=C.fecha($('fecha').value),data=await rpc('en_vivo_contexto',{p_fecha:f});if(!data)throw Error('Tu correo aún no está autorizado. Pide al encargado de pagos que prepare tu acceso.');
+async function loadDate(){if(busy||!user||esperandoNuevoSorteo||!$('fecha').value)return;busy=true;controls();++turno;selected=0;draft=null;activeCard=null;config=null;paint();$('rondas').replaceChildren();let abrirAuto=0;try{let f=C.fecha($('fecha').value),data=await rpc('en_vivo_contexto',{p_fecha:f});if(!data)throw Error('Tu correo aún no está autorizado. Pide al encargado de pagos que prepare tu acceso.');
  if(!data.jornada&&autoFecha&&data.source){
   // La configuración de Pagos determina la jornada; no adivinar la fecha.
   const hoy=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -225,7 +225,12 @@ async function loadDate(){if(busy||!user||esperandoNuevoSorteo||!$('fecha').valu
  }
  if(!data.jornada)throw Error('Todavía no hay rondas para '+f+'. Comprueba que la fecha coincida con Pagos y que allí se hayan cargado los aprobados.');config=data.jornada;rows=data.envios||[];
  const envioVigente=rows.find(e=>!capturaAnterior(e));
- $('youtube').value=localStorage.getItem('envivo-youtube:'+user.id+':'+f+':'+config.source)||envioVigente?.youtube||'';config.rondas.forEach((r,i)=>{const b=node('button',r);b.type='button';b.onclick=()=>enterRound(i+1);$('rondas').append(b);});notice('Fecha preparada. Elige una ronda para pegar sus ganadores.');}catch(e){notice(e.message);}finally{busy=false;controls();}}
+ $('youtube').value=localStorage.getItem('envivo-youtube:'+user.id+':'+f+':'+config.source)||envioVigente?.youtube||'';config.rondas.forEach((r,i)=>{const b=node('button',r);b.type='button';b.onclick=()=>enterRound(i+1);$('rondas').append(b);});
+ // Ir a la primera ronda sin envío de esta jornada.
+ abrirAuto=config.rondas.findIndex((_,i)=>!rows.some(e=>e.ronda===i+1&&!capturaAnterior(e)))+1;
+ if(abrirAuto<1)abrirAuto=config.rondas.length;
+ notice('✓ Jornada lista. Selecciona la ronda o pega la primera captura.');}
+ catch(e){notice(e.message);}finally{busy=false;controls();if(abrirAuto&&config&&!esperandoNuevoSorteo&&!selected)enterRound(abrirAuto);}}
 $('nuevoSorteoPresentadora').onclick=async()=>{
  if(!user||busy)return;
  if(draft?.uncertain){status('Confirma el envio pendiente antes de comenzar otro sorteo.');return;}
