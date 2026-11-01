@@ -49,7 +49,7 @@ function crear(ad){
 }
 root.PagosSync={crear};if(typeof module!=='undefined')module.exports=root.PagosSync;
 if(typeof document==='undefined')return;
-const el=id=>document.getElementById(id);let client,starting=false;
+const el=id=>document.getElementById(id);let client,starting=false,edicionLocal=false;
 const deviceKey='andino_pagos_device_v1';let device;
 try{device=sessionStorage.getItem(deviceKey);if(!device){device=crypto.randomUUID();sessionStorage.setItem(deviceKey,device);}}catch{device=crypto.randomUUID();}
 const readonlyActions=/^(aplicarPlantilla|convertirPremios|cambiarRondas|toggleTop|limpiarTodo|nuevoSorteo|procesarManual|importarRespaldo|recuperarGuardadoLocal)/;
@@ -82,13 +82,13 @@ client=crear({device,label:()=>('Teléfono '+device.slice(0,4).toUpperCase()),uu
  payments:p=>{PAGO_ESTADOS=p;document.querySelectorAll('[data-clave-pago]').forEach(b=>actualizarBotonPagado(b,b.dataset.clavePago));},
  notice:text=>{el('syncStatus').textContent=text;},roles:bloquear,events:()=>{}
 });
-root.PagosCompartidos={get aplicando(){return client.estado().applying;},get conectado(){return client.estado().connected;},get puedeEditar(){const s=client.estado();return !s.connected||s.online;},guardar:()=>client.programar(),marcar:key=>client.marcar(key)};
+root.PagosCompartidos={async editar(fn){if(edicionLocal||starting||client.estado().busy||client.estado().applying||!root.PagosCompartidos.puedeEditar)throw Error('Espera a que termine la sincronización e intenta de nuevo.');edicionLocal=true;try{return await fn();}finally{edicionLocal=false;client.programar();}},get aplicando(){return client.estado().applying;},get conectado(){return client.estado().connected;},get puedeEditar(){const s=client.estado();return !s.connected||s.online;},guardar:()=>client.programar(),marcar:key=>client.marcar(key)};
 for(const name of ['aplicarPlantilla','convertirPremios','cambiarRondas','toggleTop','limpiarTodo','nuevoSorteo','procesarManual','importarRespaldo','recuperarGuardadoLocal']){
  const original=root[name];if(typeof original!=='function')continue;
  root[name]=function(...args){if(!root.PagosCompartidos.puedeEditar&&!client.estado().applying){alert('No hay conexión para guardar. Refresca cuando vuelva el internet.');return false;}return original.apply(this,args);};
 }
 async function iniciar(){
- if(starting||client.estado().busy)return;starting=true;
+ if(starting||edicionLocal||client.estado().busy)return;starting=true;
  try{
   if(root.pagosRestauracionLista)await root.pagosRestauracionLista;
   const {data,error}=await supa.auth.getSession();if(error||!data?.session){await client.salir();return;}
@@ -108,9 +108,10 @@ document.addEventListener('pagos-aprobados-cargados',async()=>{
  iniciar();
 });
 window.addEventListener('online',iniciar);
-window.addEventListener('offline',()=>client.leer());
+window.addEventListener('offline',()=>{if(!edicionLocal)client.leer();});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)iniciar();});
 setInterval(()=>{if(!document.hidden)iniciar();},3000);
 bloquear(client.estado());
 Promise.resolve().then(iniciar);
 })(typeof window!=='undefined'?window:globalThis);
+
