@@ -81,3 +81,12 @@ button:focus-visible,input:focus-visible{outline:3px solid #dcae54;outline-offse
  .atajos{display:none}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+
+/* Señalización en vivo: rondas entregadas, capturas por revisar y arrastrar imágenes. */
+#rondas button[data-estado="enviada"]:not([aria-pressed="true"]){background:#2c5c40;border-color:#82ba8a;color:#fff8ec}
+#rondas button[data-estado="enviada"][aria-pressed="true"]{box-shadow:0 0 0 2px #6ea37c inset}
+.resumen-trabajo[data-estado="listo"],.resumen-trabajo[data-estado="enviado"]{background:#e7f3df;border-color:#8ebf8d;color:#215333}
+.resumen-trabajo[data-estado="incompleto"]{background:#fff1d6;border-color:#e0be79;color:#68471f}
+#capturas .capture.captura-arrastrando{outline:3px dashed #bd893a;background:#fff4da}
+#proximaRonda{background:#e7f3df;color:#225437;border-color:#5e9969}
