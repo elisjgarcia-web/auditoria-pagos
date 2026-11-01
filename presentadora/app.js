@@ -220,7 +220,7 @@ async function enterRound(n){if(busy||!config)return;busy=true;controls();const 
  }
  if(archivado&&!borradorPosterior)await save();
  if(draft.uncertain&&draft.youtube)$('youtube').value=draft.youtube;paint();
- if(archivado)status('Ronda limpia. La captura anterior sigue registrada en Pagos. Si envías otra captura en esta misma fecha se creará una revisión nueva.');
+ if(archivado)status('Ronda lista para nuevas capturas. Al enviarlas, reemplazarán las anteriores de esta ronda en Pagos.');
  else if(!draft.sent)status('Pega una captura por ganador. Si una imagen muestra varios cartones, puedes enviarlos separados por comas.');
  }catch(e){draft=null;paint();status(e.message);}finally{busy=false;controls();}
 }
@@ -278,7 +278,11 @@ async function agregarGanador(){
 }
 $('agregar').onclick=agregarGanador;
 $('proximaRonda').onclick=()=>{if(!busy&&draft?.sent&&config&&selected<config.rondas.length)enterRound(selected+1);};
-$('corregir').onclick=async()=>{if(busy||!draft.sent||!confirm('¿Corregir o agregar ganadores? Pagos recibirá una nueva versión y revisará los cambios.'))return;draft.id=C.uuid();draft.sent=false;await save();paint();status('Corrige las capturas o agrega otro ganador y vuelve a enviar.');};
+$('corregir').onclick=async()=>{
+ if(busy||!draft?.sent)return;
+ draft.id=C.uuid();draft.sent=false;await save();paint();
+ status('Corrige las capturas y pulsa Enviar. La nueva versión reemplazará las anteriores en Pagos.');
+};
 async function revisarCapturasGuardadas(){
  let revisadas=0,corregidas=0;
  for(let i=0;i<draft.cards.length;i++){
@@ -331,14 +335,14 @@ function capturasValidadas(){
 }
 $('enviar').onclick=async()=>{
  if(busy||!draft||draft.sent)return;
- const anterior=rows.find(e=>e.ronda===selected);
- if(anterior&&capturaAnterior(anterior)&&!confirm('Esta misma fecha tiene una captura anterior enviada a Pagos. Al enviar una nueva se creará una revisión para esta ronda. ¿Continuar?'))return;
+ // Enviar una corrección reemplaza la versión vigente de esta ronda en Pagos.
+ // La revisión anterior permanece en el historial de auditoría, pero no se mezcla con la nueva.
  busy=true;controls();try{
  if(draft.cards.some(c=>/[;,]/.test(c.numeros||'')))await revisarCapturasGuardadas();
  const capturas=capturasValidadas(),youtube=TransmisionYouTube.parse($('youtube').value).url;
  const {data:a,error:ae}=await client.auth.getSession();if(ae||a?.session?.user?.id!==user.id)throw Error('Verifica tu acceso de nuevo.');
  for(let i=0;i<draft.cards.length;i++){const c=draft.cards[i];if(!c.ruta){c.ruta=user.id+'/'+config.fecha+'/'+C.uuid()+'.jpg';await save();}capturas[i].ruta=c.ruta;if(c.uploaded)continue;status('Subiendo captura '+(i+1)+' de '+capturas.length+'…');const{error}=await client.storage.from(BUCKET).upload(c.ruta,c.blob,{contentType:'image/jpeg',upsert:false});if(error){const r=await client.storage.from(BUCKET).download(c.ruta);if(r.error||r.data?.size!==c.blob.size)throw error;const [a,b]=await Promise.all([r.data.arrayBuffer(),c.blob.arrayBuffer()]);const aa=new Uint8Array(a),bb=new Uint8Array(b);if(!aa.every((v,j)=>v===bb[j]))throw Error('La captura existente no coincide. Revisa el envío.');}c.uploaded=true;await save();}
- status('Enviando ganadores a pagos…');draft.uncertain=true;draft.youtube=youtube;await save();const row=await rpc('en_vivo_enviar',{p_id:draft.id,p_fecha:config.fecha,p_source:config.source,p_ronda:selected,p_revision:draft.baseRevision,p_youtube:youtube,p_capturas:capturas});if(row.id!==draft.id)throw Error('No se confirmó el envío. Reintenta sin cambiar las capturas.');draft.sent=true;draft.uncertain=false;draft.baseRevision=row.revision;rows=rows.filter(e=>e.ronda!==selected).concat(row);await save();paint();status('Enviado ✓ · Los ganadores ya llegaron a pagos.');
+ status('Enviando ganadores a pagos…');draft.uncertain=true;draft.youtube=youtube;await save();const row=await rpc('en_vivo_enviar',{p_id:draft.id,p_fecha:config.fecha,p_source:config.source,p_ronda:selected,p_revision:draft.baseRevision,p_youtube:youtube,p_capturas:capturas});if(row.id!==draft.id)throw Error('No se confirmó el envío. Reintenta sin cambiar las capturas.');draft.sent=true;draft.uncertain=false;draft.baseRevision=row.revision;rows=rows.filter(e=>e.ronda!==selected).concat(row);await save();paint();status(row.revision>1?'✓ Capturas nuevas enviadas. Reemplazan la versión anterior de esta ronda en Pagos.':'✓ Capturas enviadas a Pagos.');
  }catch(e){if(draft?.uncertain){try{const data=await rpc('en_vivo_contexto',{p_fecha:config.fecha}),r=data?.envios?.find(e=>e.id===draft.id);if(r){draft.sent=true;draft.uncertain=false;draft.baseRevision=r.revision;rows=rows.filter(e=>e.ronda!==selected).concat(r);await save();paint();status('Enviado ✓ · Confirmado al consultar pagos.');return;}}catch{}}status((e.message||'No se confirmó el envío.')+' Las capturas quedan guardadas; reintenta sin cambiarlas.');}finally{busy=false;controls();}};
 document.addEventListener('paste',async e=>{
  if(busy||!draft||draft.sent||!config)return;
