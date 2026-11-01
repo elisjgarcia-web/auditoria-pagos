@@ -150,9 +150,55 @@ async function ocr(canvas){
  const bottom=await scan(.015,.875,.73,.075),side=await scan(.755,.49,.23,.065),r=C.leerOCR(bottom.text,side.text);if(r.cartones.length===1&&!r.conflicto&&Math.max(bottom.confidence||0,side.confidence||0)>=40)return r;
  await worker.setParameters({tessedit_pageseg_mode:'11'});const full=(await worker.recognize(canvas)).data;return C.leerOCR(full.text,full.text);
 }
-async function cargar(card,file){if(busy||draft.sent)return;busy=true;controls();status('Preparando captura y leyendo cartón…');const localDraft=draft;
- try{const v=await C.preparar(file);if(draft!==localDraft)return;card.blob=v.blob;card.ruta=null;card.uploaded=false;card.numeros='';card.msg='Revisa el cartón contra la captura.';await save();let timer;try{const r=await Promise.race([ocr(v.canvas),new Promise((_,no)=>{timer=setTimeout(()=>no(Error('La lectura tardó demasiado.')),90000);})]);card.numeros=r.cartones.length===1?String(r.cartones[0]):'';card.msg=r.cartones.length>1?'La captura anuncia varios ganadores. Escribe SOLO el cartón comprobado en la ventana derecha.':r.cartones.length?'Cartón individual detectado. Confirma el número.':r.conflicto?'La captura tiene números que no coinciden. Escríbelos y revísalos.':'No se leyó con seguridad. Escribe el cartón de esta captura.';}catch{if(worker){worker.terminate().catch(()=>{});worker=null;}card.msg='No se pudo leer automáticamente. Escribe el cartón de la captura.';}finally{clearTimeout(timer);}await save();status('Captura lista. Revisa los cartones y envía.');
- }catch(e){status(e.message);}finally{busy=false;paint();controls();}
+const preparando=new WeakSet();
+async function cargar(card,file){
+ if(busy||!draft||draft.sent||preparando.has(card))return;
+ const original=draft;
+ preparando.add(card);
+ const indice=original.cards.indexOf(card);
+ status('Guardando captura '+(indice+1)+'…');
+ try{
+  const v=await C.preparar(file);
+  if(draft!==original||original.sent||!original.cards.includes(card))return;
+  card.blob=v.blob;card.ruta=null;card.uploaded=false;card.numeros='';card.userEdited=false;
+  card.msg='Imagen lista. Escribe el cartón o confirma el que se detecte.';
+  await save();
+  paint();
+  // La presentadora puede continuar de inmediato, incluso si el OCR tarda o no hay internet.
+  const input=$('cartones-'+indice);if(input&&!input.disabled)input.focus();
+  activeCard=original.cards.find(c=>c!==card&&!c.blob)||card;
+  status('✓ Captura '+(indice+1)+' guardada. Puedes escribir el cartón y continuar.');
+  ocrQueue=ocrQueue.catch(()=>{}).then(async()=>{
+   if(draft!==original||original.sent||busy||card.blob!==v.blob||card.userEdited)return;
+   let timer;
+   try{
+    const detected=await Promise.race([
+     ocr(v.canvas),
+     new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Lectura automática agotada')),20000);})
+    ]);
+    if(draft!==original||original.sent||busy||card.blob!==v.blob||card.userEdited||card.numeros)return;
+    const n=detected.cartones.length===1&&!detected.conflicto?String(detected.cartones[0]):'';
+    if(n)card.numeros=n;
+    card.msg=n?'Número detectado: '+n+'. Compruébalo con la imagen.':
+     'No se pudo identificar un cartón individual. Escríbelo desde la ventana derecha.';
+   }catch{
+    if(worker){try{await worker.terminate();}catch{}worker=null;}
+    if(draft!==original||original.sent||busy||card.blob!==v.blob||card.userEdited)return;
+    card.msg='Lectura no disponible. Escribe el cartón comprobado.';
+   }finally{clearTimeout(timer);}
+   if(draft!==original||original.sent||busy||card.userEdited)return;
+   await save();
+   const index=original.cards.indexOf(card);
+   if(index<0)return;
+   const field=$('cartones-'+index);
+   if(field&&document.activeElement!==field&&!field.value)field.value=card.numeros||'';
+   if(field&&document.activeElement===field&&!field.value)field.value=card.numeros||'';
+   const box=$('capturas').children[index];
+   if(box){const note=box.querySelector('.hint');if(note)note.textContent=card.msg;box.dataset.estado=card.numeros?'listo':'incompleto';}
+   resumen();
+  });
+ }catch(e){status('No se guardó la captura '+(indice+1)+': '+(e?.message||'Error desconocido'));}
+ finally{preparando.delete(card);}
 }
 async function enterRound(n){if(busy||!config)return;busy=true;controls();const token=++turno;selected=n;activeCard=null;status('Cargando ronda…');try{const k=key(),local=await C.local(k),remote=rows.find(e=>e.ronda===n);if(token!==turno)return;
  const archivado=!!remote&&capturaAnterior(remote);
