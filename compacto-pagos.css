@@ -1,0 +1,63 @@
+/* Bingo Andino 75: modo compacto para trabajo desde telefono. */
+body.cp-modo{background:linear-gradient(160deg,#290b3c,#1d0829 58%,#110719);color:#fff9ed;padding:8px;line-height:1.35}
+.cp-modo h1{font-size:22px;margin:5px 0 0;color:#e9c878}
+.cp-modo .sub{font-size:11px;margin:2px 0 7px;color:#e4d3dd}
+.cp-modo .cp-contenedor{max-width:820px;margin:0 auto 36px}
+.cp-modo .cp-contenedor .card{margin:7px 0;padding:10px;border:1px solid #9b7aab;border-radius:12px;box-shadow:none;background:#341442}
+.cp-modo .cp-contenedor .title,.cp-modo .cp-contenedor h2{color:#f0d182;font-size:16px;margin:0 0 6px}
+.cp-modo .cp-contenedor .small{font-size:11px;line-height:1.32;margin:3px 0;color:#e0cfdd}
+.cp-modo .cp-contenedor label{margin-top:5px;color:#ebd28b;font-size:12px}
+.cp-modo .cp-contenedor input,.cp-modo .cp-contenedor select,.cp-modo .cp-contenedor textarea{min-height:37px;padding:7px 9px;margin-top:3px;font-size:15px;border:1px solid #9a7caa;border-radius:9px;background:#260e33;color:#fff9ed}
+.cp-modo .cp-contenedor button{width:auto;min-height:36px;padding:7px 10px;margin:4px 0;border-radius:9px;font-size:13px;line-height:1.15}
+.cp-modo .cp-contenedor .gen{background:#e7c66f;color:#32153b}
+.cp-modo .cp-contenedor .copy{background:#fff5da;color:#3e1c4b}
+.cp-modo .cp-contenedor .sec{background:#58316e;color:#fff9ed;border:1px solid #80628e}
+.cp-modo .cp-contenedor .msg{font-size:12px;line-height:1.35;padding:8px;margin:5px 0;background:#240f32;border-color:#80628e}
+.cp-modo .cp-contenedor .msg:empty,.cp-modo .cp-contenedor .ok:empty{display:none}
+.cp-modo .cp-contenedor .savebar{position:static;background:#291037;border-color:#80628e;color:#f0e3c5;padding:5px;margin:3px 0;font-size:11px;border-radius:9px;text-align:left}
+.cp-modo .cp-nav{position:sticky;top:0;z-index:21;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:5px 0;background:#210b31;border-bottom:1px solid #947596}
+.cp-modo .cp-nav .cp-nav-btn{width:100%;font-size:12px;font-weight:700;padding:7px 3px;margin:0;min-height:36px;background:#fff2d3;color:#381342}
+.cp-modo .cp-bloque{background:#2a1039;border:1px solid #947596;border-radius:12px;margin:7px 0;padding:0 8px 8px;scroll-margin-top:55px}
+.cp-modo .cp-bloque > summary{font-size:14px;font-weight:750;color:#f1d58e;padding:12px 4px;cursor:pointer;list-style-position:inside;touch-action:manipulation}
+.cp-modo .cp-bloque:not([open]){padding-bottom:0}
+.cp-modo .cp-rondas-titulo{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:12px 2px 5px}
+.cp-modo .cp-rondas-titulo h2{font-size:17px;color:#f0d182;margin:0}
+.cp-modo .cp-rondas-nav{display:flex;flex-wrap:wrap;gap:4px}
+.cp-modo .cp-rondas-nav .cp-nav-btn{min-height:30px;margin:0;padding:5px 9px;background:#58316e;color:#fff9ed;border:1px solid #a284af}
+.cp-modo .cp-contenedor #rondas>.cp-ronda{margin:5px 0;padding:0;border:1px solid #aa86a6;border-radius:12px;overflow:visible;background:#341442}
+.cp-modo .cp-acordeon{min-width:0}
+.cp-modo .cp-acordeon > summary{list-style:none;display:flex;align-items:center;gap:6px;justify-content:space-between;padding:11px 12px;cursor:pointer;touch-action:manipulation;min-height:52px;scroll-margin-top:55px}
+.cp-modo .cp-acordeon > summary::-webkit-details-marker{display:none}
+.cp-modo .cp-ronda-texto{display:flex;flex-direction:column;min-width:0;flex:1}
+.cp-modo .cp-ronda-nombre{font-size:14px;font-weight:750;color:#f5d88a;overflow-wrap:anywhere}
+.cp-modo .cp-ronda-meta{font-size:11px;color:#f1e8ed;margin-top:2px;overflow-wrap:anywhere}
+.cp-modo .cp-ronda-chevron{color:#f3cf83;font-size:24px;line-height:1}
+.cp-modo .cp-acordeon[open] .cp-ronda-chevron{transform:rotate(180deg)}
+.cp-modo .cp-cuerpo{border-top:1px solid #795383;padding:8px 9px 11px;display:flex;gap:5px 7px;flex-wrap:wrap}
+.cp-modo .cp-cuerpo > .title{display:none}
+.cp-modo .cp-cuerpo > .cp-entradas{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:8px;width:100%}
+.cp-modo .cp-cuerpo > .cp-entradas .cp-campo{min-width:0}
+.cp-modo .cp-cuerpo > .cp-entradas input{width:100%;min-width:0}
+.cp-modo .cp-cuerpo > .cp-nombre-editar{order:5;width:100%;border-top:1px dashed #7f6987;margin-top:3px;padding-top:5px}
+.cp-modo .cp-nombre-editar > summary{font-size:11px;color:#dfd0df;cursor:pointer;padding:2px}
+.cp-modo .cp-nombre-editar .cp-campo{margin:5px 0 3px}
+.cp-modo .cp-cuerpo > button{flex:1 1 140px;margin:0}
+.cp-modo .cp-cuerpo > .msg,
+.cp-modo .cp-cuerpo > [id^="pagosBtns"],
+.cp-modo .cp-cuerpo > .small,
+.cp-modo .cp-cuerpo > .ok,
+.cp-modo .cp-cuerpo > .cp-recepcion{flex:1 1 100%;min-width:0}
+.cp-modo .cp-cuerpo .cp-recepcion{order:0;display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:6px 8px;background:#241030;border:1px solid #a886a4;border-radius:10px}
+.cp-modo .cp-cuerpo .cp-recepcion button{margin:0;flex:1 1 160px;background:#ead18c;color:#2d153a;font-weight:750}
+.cp-modo .cp-cuerpo .cp-recepcion .cp-recibo-estado{font-size:11px;line-height:1.35;color:#f5e6d5;flex:1 1 100%}
+.cp-modo .cp-cuerpo > .msg:not(:empty){width:100%;flex-basis:100%}
+.cp-modo .cp-contenedor .row2{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.cp-modo .cp-contenedor .row3{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.cp-modo .cp-contenedor .row2>*,.cp-modo .cp-contenedor .row3>*{min-width:0}
+.cp-modo .cp-contenedor .row2 input,.cp-modo .cp-contenedor .row3 input{min-width:0}
+.cp-modo .cp-contenedor [hidden],.cp-modo .cp-contenedor .hidden{display:none!important}
+.cp-modo .cp-contenedor #supaAuth:not([hidden]){margin-bottom:5px}
+.cp-modo .cp-contenedor #supaEstado,.cp-modo .cp-contenedor #estado,.cp-modo .cp-contenedor #auditoria{max-height:180px;overflow:auto}
+.cp-modo .cp-contenedor #envivoLista{max-height:360px;overflow:auto}
+.cp-modo .cp-contenedor .cp-herramientas .card,.cp-modo .cp-contenedor .cp-publicacion .card{margin:8px 0}
+@media(max-width:360px){.cp-modo .cp-nav .cp-nav-btn{font-size:10px}.cp-modo .cp-cuerpo > .cp-entradas{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)}}
