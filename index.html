@@ -557,7 +557,8 @@ function guardarEstadoAhora(){
 function programarGuardado(){
  if(RESTAURANDO_ESTADO||REINICIANDO_SORTEO)return;
  clearTimeout(TIMER_GUARDADO);
- TIMER_GUARDADO=setTimeout(guardarEstadoAhora,250);
+ // Guardar después de una pausa al escribir; al cerrar se guarda de inmediato.
+ TIMER_GUARDADO=setTimeout(guardarEstadoAhora,800);
 }
 function restaurarTexto(id,valor){
  let el=document.getElementById(id);if(el&&valor!==undefined&&valor!==null)el.innerText=valor;
