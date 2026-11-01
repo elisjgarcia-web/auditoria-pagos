@@ -78,6 +78,19 @@ function abrirRonda(i,scroll=false){
  abierto=i;
  if(scroll)target.scrollIntoView({behavior:'smooth',block:'start'});
 }
+function abrirPremio(tipo){
+ const campoId=tipo==='pozo'?'premioPozo':'premioCon';
+ const tarjeta=$(campoId)?.closest('.card');
+ if(!tarjeta||!premios)return;
+ premios.open=true;
+ d.querySelectorAll('#rondas .cp-acordeon').forEach(node=>{node.open=false;});
+ d.querySelectorAll('.cp-premio-enfocado').forEach(node=>node.classList.remove('cp-premio-enfocado'));
+ tarjeta.classList.add('cp-premio-enfocado');
+ // Desplazar directamente al contenido solicitado, no al inicio de todas las herramientas.
+ root.requestAnimationFrame?.(()=>tarjeta.scrollIntoView({behavior:'smooth',block:'start'}));
+ if(!root.requestAnimationFrame)tarjeta.scrollIntoView({behavior:'smooth',block:'start'});
+ if(tipo==='consolacion')root.RuletaConsolacionPagos?.revisar?.(true);
+}
 function reconstruirRondas(){
  const presentes=Array.from(d.querySelectorAll('#rondas > .card'));
  if(!presentes.length)return;
@@ -120,7 +133,18 @@ function actualizarNavegacion(){
  const nav=$('cp-rondas-nav');if(!nav)return;
  nav.replaceChildren();
  const n=Number($('cant')?.value)||6;
- for(let i=1;i<=n;i++)nav.append(navButton(i===n?'Final':'R'+i,()=>abrirRonda(i,true)));
+ for(let i=1;i<=n;i++){
+  const btn=navButton(i===n?'Final':'R'+i,()=>abrirRonda(i,true));
+  if(i===n)btn.classList.add('cp-nav-final');
+  nav.append(btn);
+ }
+ const pozo=navButton('💰 Pozo',()=>abrirPremio('pozo'));
+ pozo.classList.add('cp-nav-pozo');
+ pozo.setAttribute('aria-label','Abrir pozo acumulado');
+ const con=navButton('🎁 Consolación',()=>abrirPremio('consolacion'));
+ con.classList.add('cp-nav-consolacion');
+ con.setAttribute('aria-label','Abrir premios de consolación de la ruleta');
+ nav.append(pozo,con);
 }
 function ordenar(){
  if($('cp-contenedor'))return;
