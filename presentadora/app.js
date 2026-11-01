@@ -45,8 +45,11 @@ function paint(){
 function loadScript(){return ocrScript||(ocrScript=new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.min.js';s.onload=ok;s.onerror=()=>{ocrScript=null;no(Error('No se pudo cargar la lectura automática.'));};document.head.append(s);}));}
 async function ocr(canvas){
  await loadScript();if(!worker)worker=await Tesseract.createWorker('eng',1,{workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/worker.min.js',corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@6.0.0',langPath:'https://tessdata.projectnaptha.com/4.0.0'});
- async function scan(x,y,w,h){const c=document.createElement('canvas'),scale=2;c.width=Math.round(canvas.width*w*scale);c.height=Math.round(canvas.height*h*scale);const ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(canvas,canvas.width*x,canvas.height*y,canvas.width*w,canvas.height*h,0,0,c.width,c.height);await worker.setParameters({tessedit_pageseg_mode:'7'});return(await worker.recognize(c)).data;}
- const bottom=await scan(.015,.875,.73,.075),side=await scan(.755,.49,.23,.065),r=C.leerOCR(bottom.text,side.text);if(r.cartones.length&&!r.conflicto&&Math.max(bottom.confidence||0,side.confidence||0)>=55)return r;
+ async function scan(x,y,w,h){const c=document.createElement('canvas'),scale=2;c.width=Math.round(canvas.width*w*scale);c.height=Math.round(canvas.height*h*scale);const ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(canvas,canvas.width*x,canvas.height*y,canvas.width*w,canvas.height*h,0,0,c.width,c.height);await worker.setParameters({tessedit_pageseg_mode:h>.1?'6':'7'});return(await worker.recognize(c)).data;}
+ // Leer primero la ventana derecha, que identifica UN cartón comprobado.
+ const derecha=await scan(.74,.47,.255,.135),cartonComprobado=C.leerOCR('',derecha.text);
+ if(cartonComprobado.cartones.length===1&&!cartonComprobado.conflicto)return cartonComprobado;
+ const bottom=await scan(.015,.875,.73,.075),side=await scan(.755,.49,.23,.065),r=C.leerOCR(bottom.text,side.text);if(r.cartones.length===1&&!r.conflicto&&Math.max(bottom.confidence||0,side.confidence||0)>=40)return r;
  await worker.setParameters({tessedit_pageseg_mode:'11'});const full=(await worker.recognize(canvas)).data;return C.leerOCR(full.text,full.text);
 }
 async function cargar(card,file){if(busy||draft.sent)return;busy=true;controls();status('Preparando captura y leyendo cartón…');const localDraft=draft;
