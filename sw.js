@@ -1,5 +1,5 @@
-const CACHE='auditoria-supabase-pwa-v26-premios-pagados-publicos';
-const CORE=['./publicar-comprobantes.js?v=2','./comprobantes-pagos.js?v=3','./comprobantes-pagos.css?v=2','./sincronizacion.js?v=3','./rondas-ruleta.js?v=3','./shared/youtube.js?v=1','./transmision.js?v=2','./','./index.html','./publicacion.js?v=3','./publicacion.css?v=1','./publicar-ganadores.js?v=2','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
+const CACHE='auditoria-supabase-pwa-v27-ganadores-en-vivo';
+const CORE=['./rondas-en-vivo-comun.js?v=1','./recibir-en-vivo.js?v=1','./recibir-en-vivo.css?v=1','./publicar-comprobantes.js?v=2','./comprobantes-pagos.js?v=4','./comprobantes-pagos.css?v=2','./sincronizacion.js?v=4','./rondas-ruleta.js?v=3','./shared/youtube.js?v=1','./transmision.js?v=2','./','./index.html','./publicacion.js?v=3','./publicacion.css?v=1','./publicar-ganadores.js?v=2','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 const PDFJS=[];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(async c=>{await c.addAll(CORE);await Promise.all(PDFJS.map(u=>c.add(u).catch(()=>{})));}));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
