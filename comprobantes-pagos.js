@@ -54,9 +54,11 @@
  }
  function descargar(file){const a=el('a'),url=URL.createObjectURL(file);a.href=url;a.download=file.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
  async function compartir(file,status){try{if(navigator.canShare?.({files:[file]})){try{await navigator.share({files:[file],title:'Bingo Andino 75 · Comprobantes'});status('Imagen preparada para compartir.');return;}catch(e){if(e.name==='AbortError'){status('Compartir cancelado.');return;}if(e.name!=='NotAllowedError')throw e;}}descargar(file);status('Imagen descargada. Adjunta ese archivo en WhatsApp.');}catch{status('No se pudo compartir la imagen. Intenta de nuevo.');}}
- async function cargarResultado(s,file){
+ async function cargarResultado(s,file,{desdePresentadora=false}={}){
   if(!file)return false;await s.restauracion;if(s.resultBusy||s.cancelled)return false;if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>20*1024*1024){avisoResultado(s,'Usa una captura JPG, PNG o WebP de menos de 20 MB.');return false;}
-  if(s.resultado&&!confirm('¿Reemplazar el resultado de '+s.nombre+'?'))return false;
+  // El envío del en vivo ya se validó como una nueva revisión; no pedir otra confirmación.
+  // Los cambios manuales en Pagos mantienen la confirmación habitual.
+  if(s.resultado&&!desdePresentadora&&!confirm('¿Reemplazar el resultado de '+s.nombre+'?'))return false;
   const revision=++s.resultRevision;s.resultBusy=true;actualizar(s);avisoResultado(s,'Preparando resultado de '+s.nombre+'…');
   try{const img=await imagenBlob(file);if(s.cancelled||revision!==s.resultRevision)return false;if(img.width*img.height>40000000)throw Error('La imagen es demasiado grande.');const c=document.createElement('canvas'),scale=Math.min(1,1600/img.width,2600/img.height);c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);const blob=await blobCanvas(c);if(s.cancelled||revision!==s.resultRevision)return false;s.resultado=c;s.resultBlob=blob;try{await persistir(s,'resultado');avisoResultado(s,'Resultado guardado para '+s.nombre+' · Cartón '+s.carton+'. Revisa que sea la imagen correcta del bingo.');}catch{avisoResultado(s,'Resultado listo, pero no se pudo guardar en este dispositivo. Mantenlo abierto.');}return true;}
   catch(e){avisoResultado(s,e.message||'No se pudo abrir el resultado.');return false;}finally{s.resultBusy=false;actualizar(s);}
@@ -157,7 +159,7 @@
  async function recibirResultado({tipo,carton,fecha,source,blob,reemplazar=true}){
  const lista=[...estados.values()].filter(s=>s.context.tipo===tipo&&s.carton===String(carton)&&fechaRecibos(s.context.fecha)===fecha&&String(s.context.source||'')===String(source||'')&&[...s.views].some(v=>v.wrap.isConnected));
  if(lista.length!==1)throw Error('No hay un único ganador listo para adjuntar el resultado del cartón '+carton+'.');
- const s=lista[0];await s.restauracion;if(s.resultBusy||s.cancelled)throw Error('Espera a que termine de cargar el resultado.');if(!reemplazar&&s.resultado)throw Error('Ya hay una captura guardada para este ganador. Revisa el envío.');const ok=await cargarResultado(s,blob);if(!ok)throw Error('No se adjuntó el resultado del cartón '+carton+'.');
+ const s=lista[0];await s.restauracion;if(s.resultBusy||s.cancelled)throw Error('Espera a que termine de cargar el resultado.');if(!reemplazar&&s.resultado)throw Error('Ya hay una captura guardada para este ganador. Revisa el envío.');const ok=await cargarResultado(s,blob,{desdePresentadora:true});if(!ok)throw Error('No se adjuntó el resultado del cartón '+carton+'.');
  }
  window.ComprobantesPagos=Object.freeze({agregarGanador,finalizarRonda,limpiar,prepararDia,firmaDia,recibirResultado});
 function localizarDatos(imagen){
