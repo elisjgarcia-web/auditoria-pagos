@@ -344,6 +344,9 @@ document.addEventListener('paste',async e=>{
  if(busy||!draft||draft.sent||!config)return;
  const item=[...(e.clipboardData?.items||[])].find(x=>/^image\/(png|jpeg|webp)$/.test(x.type));
  if(!item)return;
+ // Capturar el archivo antes de cualquier await: algunos navegadores vacían el portapapeles al acabar el evento.
+ const foto=item.getAsFile();
+ if(!foto)return;
  e.preventDefault();
  let card=draft.cards.find(c=>!c.blob);
  // Si todos están llenos, una nueva imagen es otro ganador. Para reemplazar, usa el botón de su cuadro.
@@ -352,8 +355,7 @@ document.addEventListener('paste',async e=>{
   card={numeros:''};draft.cards.push(card);await save();paint();
  }
  activeCard=card;
- const foto=item.getAsFile();
- if(foto)cargar(card,foto);
+ cargar(card,foto);
 });
 document.addEventListener('keydown',e=>{
  if(!user||$('trabajo').hidden||busy||e.repeat||draft?.uncertain)return;
