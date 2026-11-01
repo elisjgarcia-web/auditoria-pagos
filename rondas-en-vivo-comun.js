@@ -16,8 +16,18 @@ function ruta(path,uid,f){return typeof path==='string'&&new RegExp('^'+uid+'/'+
 let dbp;
 function db(){return dbp||(dbp=new Promise((ok,no)=>{const r=indexedDB.open('andino-presentadora',1);r.onupgradeneeded=()=>r.result.createObjectStore('borradores');r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error);}));}
 async function local(key,value){const d=await db();return new Promise((ok,no)=>{const tx=d.transaction('borradores',value===undefined?'readonly':'readwrite'),r=value===undefined?tx.objectStore('borradores').get(key):tx.objectStore('borradores').put(value,key);let out;r.onsuccess=()=>out=r.result;tx.oncomplete=()=>ok(out);tx.onerror=tx.onabort=()=>no(tx.error||Error('No se pudo guardar en este equipo'));});}
+async function borrarBorradores(prefijo){
+ if(typeof prefijo!=='string'||!/^[0-9a-f-]{36}:20\d{2}-\d{2}-\d{2}:/.test(prefijo))throw Error('Fecha o usuario inválidos para limpiar borradores.');
+ const d=await db();
+ return new Promise((ok,no)=>{
+  let cantidad=0;const tx=d.transaction('borradores','readwrite'),store=tx.objectStore('borradores'),req=store.openCursor();
+  req.onsuccess=()=>{const cursor=req.result;if(!cursor)return;if(String(cursor.key).startsWith(prefijo)){cursor.delete();cantidad++;}cursor.continue();};
+  tx.oncomplete=()=>ok(cantidad);
+  tx.onerror=tx.onabort=()=>no(tx.error||Error('No se pudieron borrar los borradores locales'));
+ });
+}
 async function imagen(blob){const u=URL.createObjectURL(blob);try{return await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(Error('No se pudo abrir la captura'));i.src=u;});}finally{URL.revokeObjectURL(u);}}
 function jpeg(c){return new Promise((ok,no)=>c.toBlob(b=>b?ok(b):no(Error('No se pudo preparar la captura')),'image/jpeg',.94));}
 async function preparar(blob){if(!['image/png','image/jpeg','image/webp'].includes(blob.type)||blob.size>20*1024*1024)throw Error('Usa una captura JPG, PNG o WebP de menos de 20 MB.');const im=await imagen(blob);if(im.width*im.height>40000000)throw Error('La captura es demasiado grande.');const s=Math.min(1,1800/im.width,2600/im.height),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*s));c.height=Math.max(1,Math.round(im.height*s));c.getContext('2d').drawImage(im,0,0,c.width,c.height);return{canvas:c,blob:await jpeg(c)};}
-root.EnVivoComun={uuid,fecha,cartones,leerOCR,ultimos,numeros,ruta,local,imagen,preparar};if(typeof module==='object')module.exports=root.EnVivoComun;
+root.EnVivoComun={uuid,fecha,cartones,leerOCR,ultimos,numeros,ruta,local,borrarBorradores,imagen,preparar};if(typeof module==='object')module.exports=root.EnVivoComun;
 })(typeof window==='object'?window:globalThis);
