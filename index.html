@@ -28,7 +28,8 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 .warnbox{background:#2a1800;border:1px solid #ffb000;border-radius:12px;padding:10px;margin-top:8px}.goodbox{background:#00271d;border:1px solid #00d084;border-radius:12px;padding:10px;margin-top:8px}.savebar{position:sticky;top:6px;z-index:20;background:#0b0013;border:1px solid #00d084;border-radius:12px;padding:8px 10px;margin:8px 0;font-size:13px;text-align:center}.paid{background:#00d084;color:#001b10}.unpaid{background:#444;color:#fff}
 @media(max-width:520px){.row2,.row3{grid-template-columns:1fr}}
 </style>
-<link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon-192.png" type="image/png"><link rel="stylesheet" href="publicacion.css?v=1"></head>
+<link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon-192.png" type="image/png"><link rel="stylesheet" href="publicacion.css?v=1"><link rel="stylesheet" href="comprobantes-pagos.css?v=1">
+</head>
 <body>
 <h1>🎰 Bingo Andino 75</h1>
 <div class="sub">PDF + pagos + conversión $/Bs + Top + doble verificación</div>
@@ -233,6 +234,7 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
   <div id="res" class="msg"></div><div id="okRes" class="ok">Copiado ✅</div>
 </div>
 
+<script src="comprobantes-pagos.js?v=1"></script>
 <script>
 
 
@@ -674,6 +676,7 @@ function regenerarBotonesTrasRestaurar(){
 async function nuevoSorteo(){
  if(!confirm("¿Borrar el trabajo local y comenzar un sorteo nuevo? Los resultados publicados en Supabase se conservan."))return;
  try{localStorage.removeItem(STORAGE_KEY)}catch(e){}
+ await window.ComprobantesPagos?.limpiar();
  await borrarIDB();
  location.reload();
 }
@@ -1088,8 +1091,10 @@ function renderPagosTop(pagos){
 
    if(opciones.length<=1)agregarOpcionPagoRegistro(caja,opciones[0]||p.x,p.monto,"okTop");
    pagosBtnsTop.appendChild(caja);
+   window.ComprobantesPagos?.agregarGanador(caja,p,contextoComprobantes("pagosBtnsTop"));
  });
 
+ window.ComprobantesPagos?.finalizarRonda(pagosBtnsTop,pagos,contextoComprobantes("pagosBtnsTop"));
  pagTop.innerText="📲 DATOS PARA PAGO MÓVIL DEL TOP\n"+resumen.join("\n\n");
 }
 
@@ -1836,6 +1841,11 @@ function agregarOpcionPagoRegistro(cont,x,m,ok){
  }
  cont.append(opcion);
 }
+function contextoComprobantes(id){
+ const numero=String(id).match(/^pagosBtns(\d+)$/)?.[1];
+ const titulo=numero?(document.getElementById("nom"+numero)?.value||"Ronda "+numero):({pagosBtnsPozo:"Pozo acumulado",pagosBtnsCon:"Consolación",pagosBtnsTop:"Top de compras"}[id]||"Premio");
+ return {tipo:id,titulo:String(titulo),fecha:(document.getElementById("fechaSorteo")?.value||new Date().toLocaleDateString("es-VE",{timeZone:"America/Caracas"})).trim(),source:typeof SLOT_APPROVED_SOURCE!=="undefined"?SLOT_APPROVED_SOURCE:null};
+}
 function crearBotonesPago(id,pagos,ok){
  const cont=document.getElementById(id);if(!cont)return;
  cont.replaceChildren();
@@ -1858,6 +1868,7 @@ function crearBotonesPago(id,pagos,ok){
    const w=document.createElement("div");w.className="warnbox";w.textContent="⚠️ Datos de Pago Móvil incompletos o incompatibles. Copia bloqueada.";cont.append(w);
   }
   agregarOpcionPagoRegistro(cont,x,m,ok);
+  window.ComprobantesPagos?.agregarGanador(cont,p,contextoComprobantes(id));
   agregarBotonPagado(cont,id,p,false);
   const more=document.createElement("details");more.style.marginTop="8px";
   const label=document.createElement("summary");label.textContent="🧾 Captura y contacto";more.append(label);
@@ -1875,6 +1886,7 @@ function crearBotonesPago(id,pagos,ok){
   }
   cont.append(more);
  });
+ window.ComprobantesPagos?.finalizarRonda(cont,pagos,contextoComprobantes(id));
 }
 async function copiarTexto(t,ok){
  try{await navigator.clipboard.writeText(t)}catch(e){let a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove()}
@@ -2133,5 +2145,6 @@ window.pagosRestauracionLista=new Promise(resolve=>setTimeout(async()=>{try{if(!
 <script src="sincronizacion.js?v=3"></script>
 <script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=2"></script></body>
 </html>
+
 
 
