@@ -78,24 +78,36 @@ $('nuevoSorteoPresentadora').onclick=async()=>{
  if(draft?.uncertain){status('Confirma el envio pendiente antes de comenzar otro sorteo.');return;}
  let fecha;try{fecha=config?.fecha||C.fecha($('fecha').value);}catch{status('Selecciona la fecha que deseas cerrar.');return;}
  if(!confirm('Nuevo sorteo: se limpiaran los borradores y capturas locales de esta fecha. Los envios anteriores ya recibidos en Pagos y el historial se mantienen. ¿Continuar?'))return;
- busy=true;controls();
+ busy=true;controls();let registro=null;
  try{
+  // Consultar la última revisión antes de ocultarla; no borrar archivos ni filas remotas.
+  const consulta=await rpc('en_vivo_contexto',{p_fecha:fecha});
+  if(!consulta)throw Error('No se pudo consultar la jornada. Revisa tu conexión.');
+  const source=config?.source||consulta.jornada?.source||consulta.source||'';
+  const recientes=source&&consulta.source===source?(consulta.envios||[]):rows;
+  registro=registrarCierre(fecha,source,recientes);
   await C.borrarBorradores(user.id+':'+fecha+':');
-  localStorage.removeItem('envivo-youtube:'+user.id+':'+fecha+':'+(config?.source||''));
+  localStorage.removeItem('envivo-youtube:'+user.id+':'+fecha+':'+source);
   localStorage.setItem('envivo-esperando-fecha:'+user.id,'1');
   esperandoNuevoSorteo=true;autoFecha=false;++turno;
   selected=0;draft=null;config=null;rows=[];activeCard=null;release();
   $('rondas').replaceChildren();$('capturas').replaceChildren();$('fecha').value='';$('youtube').value='';
-  paint();notice('Selecciona la fecha del nuevo sorteo. Los envios anteriores siguen registrados en Pagos.');
-  status('Borradores locales reiniciados.');
- }catch(e){status('No se pudo completar el reinicio: '+e.message);}
- finally{busy=false;controls();}
+  paint();notice('La presentadora quedó limpia. Selecciona la fecha del siguiente sorteo.');
+  status('Capturas anteriores ocultas aquí. Los resultados ya recibidos siguen guardados en Pagos.');
+ }catch(e){
+  if(registro){try{if(registro.previous===null)localStorage.removeItem(registro.key);else localStorage.setItem(registro.key,registro.previous);}catch{}}
+  status('No se pudo completar el reinicio: '+e.message);
+ }finally{busy=false;controls();}
 };
 $('actualizarRondas').onclick=loadDate;setInterval(()=>{if(user&&!config&&!busy&&!esperandoNuevoSorteo&&!document.hidden)loadDate();},12000);
 $('fecha').onchange=()=>{autoFecha=false;esperandoNuevoSorteo=false;if(user)localStorage.removeItem('envivo-esperando-fecha:'+user.id);loadDate();};$('youtube').oninput=()=>{if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);};
 $('agregar').onclick=async()=>{if(busy||draft.sent)return;if(draft.cards.length>=20){status('Máximo 20 capturas por envío.');return;}draft.cards.push({numeros:''});await save();paint();};
 $('corregir').onclick=async()=>{if(busy||!draft.sent||!confirm('¿Corregir o agregar ganadores? Pagos recibirá una nueva versión y revisará los cambios.'))return;draft.id=C.uuid();draft.sent=false;await save();paint();status('Corrige las capturas o agrega otro ganador y vuelve a enviar.');};
-$('enviar').onclick=async()=>{if(busy||!draft||draft.sent)return;busy=true;controls();try{
+$('enviar').onclick=async()=>{
+ if(busy||!draft||draft.sent)return;
+ const anterior=rows.find(e=>e.ronda===selected);
+ if(anterior&&capturaAnterior(anterior)&&!confirm('Esta misma fecha tiene una captura anterior enviada a Pagos. Al enviar una nueva se creará una revisión para esta ronda. ¿Continuar?'))return;
+ busy=true;controls();try{
  const youtube=TransmisionYouTube.parse($('youtube').value).url,capturas=draft.cards.map(c=>{if(!c.blob)throw Error('Falta pegar una captura.');return{ruta:c.ruta,cartones:C.cartones(c.numeros)};});C.numeros({capturas});
  const {data:a,error:ae}=await client.auth.getSession();if(ae||a?.session?.user?.id!==user.id)throw Error('Verifica tu acceso de nuevo.');
  for(let i=0;i<draft.cards.length;i++){const c=draft.cards[i];if(!c.ruta){c.ruta=user.id+'/'+config.fecha+'/'+C.uuid()+'.jpg';await save();}capturas[i].ruta=c.ruta;if(c.uploaded)continue;status('Subiendo captura '+(i+1)+' de '+capturas.length+'…');const{error}=await client.storage.from(BUCKET).upload(c.ruta,c.blob,{contentType:'image/jpeg',upsert:false});if(error){const r=await client.storage.from(BUCKET).download(c.ruta);if(r.error||r.data?.size!==c.blob.size)throw error;const [a,b]=await Promise.all([r.data.arrayBuffer(),c.blob.arrayBuffer()]);const aa=new Uint8Array(a),bb=new Uint8Array(b);if(!aa.every((v,j)=>v===bb[j]))throw Error('La captura existente no coincide. Revisa el envío.');}c.uploaded=true;await save();}
