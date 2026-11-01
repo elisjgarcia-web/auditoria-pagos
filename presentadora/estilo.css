@@ -1,1 +1,83 @@
 :root{color-scheme:light;--morado:#43194e;--marfil:#fffaf0;--oro:#c49b4b}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#6d3a78,#230632);color:var(--marfil);font:16px/1.45 system-ui,sans-serif;min-height:100vh}main{max-width:660px;padding:24px 16px 36px;margin:auto}.brand{font-size:11px;letter-spacing:3px;color:#ead5a6}h1{font-size:27px;margin:9px 0}header p{color:#e2cfe7;margin:0 0 22px}details,.card{border:1px solid #ac83b9;border-radius:18px;padding:18px;background:#fffaf0;color:var(--morado);margin:16px 0}summary{cursor:pointer;font-weight:700}label{display:block;margin:15px 0 7px;font-weight:650}input{font:inherit;min-width:0;width:100%;padding:13px;border:1px solid #bba6c2;border-radius:11px;color:var(--morado);background:white}button{font:700 16px system-ui;cursor:pointer;width:100%;padding:14px 12px;border:1px solid var(--oro);border-radius:12px;color:var(--marfil);background:var(--morado);margin:10px 0 0}button:disabled{opacity:.5;cursor:wait}button.secondary{background:transparent;color:inherit;border-color:#b49dba}nav{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0}nav button{font-size:14px;padding:13px 5px}nav button[aria-pressed=true]{background:var(--oro);color:#260931}.capture{border:1px solid #d9c9df;padding:12px;border-radius:12px;margin:16px 0}.capture img{width:100%;max-height:320px;object-fit:contain;display:block;margin-top:10px;border-radius:7px}.capture h3{font-size:16px;margin:0}.capture .hint{color:#78637f}.hint,footer{font-size:12px;line-height:1.5}footer{color:#cdbad3;text-align:center;margin-top:28px}#estado:empty{display:none}#estado{padding:12px;border:1px solid #c49b4b;border-radius:12px}#envioEstado{font-weight:600}.capture .remove{padding:7px;font-size:12px;margin-top:10px}h2{font-size:20px;margin:0 0 12px}[hidden]{display:none!important}
+
+
+/* Presentadora escritorio v8: un vistazo a todas las rondas, sin desplazamiento innecesario. */
+:root{--morado:#43194e;--morado-oscuro:#230b31;--marfil:#fffaf0;--oro:#e4bc65}
+body{background:radial-gradient(ellipse at 35% -10%,#63376c 0,#2a103c 65%,#1e092c 100%)}
+main{max-width:1440px;width:100%;padding:10px 22px 30px}
+header{text-align:left;display:flex;align-items:baseline;flex-wrap:wrap;column-gap:18px;row-gap:1px;margin-bottom:7px}
+header .brand{color:#f1d28e;font-weight:800;letter-spacing:2px}
+header h1{font-size:22px;line-height:1.2;margin:0}
+header p{margin:0;font-size:12px;line-height:1.4}
+#acceso{max-width:650px;margin:12px 0}
+#estado{font-size:13px;margin:8px 0;padding:6px 10px}
+#trabajo .config-rapida{display:grid;grid-template-columns:180px minmax(280px,1fr) auto;gap:10px;align-items:end;padding:10px 12px;border:1px solid #9c80a2;border-radius:12px;background:rgba(255,250,240,.08)}
+#trabajo .config-rapida label{margin:0 0 4px;font-size:12px;color:#f4dcab}
+#trabajo .config-rapida input{padding:8px 10px;min-height:39px;border-radius:8px;font-size:14px}
+#trabajo .acciones-config{display:flex;gap:7px;align-items:end}
+#trabajo .acciones-config button{width:auto;white-space:nowrap;margin:0;min-height:39px;padding:7px 11px;font-size:12px;color:#fff9ed;border:1px solid #c3a9cc}
+#trabajo .acciones-config button:hover{background:#714c7a}
+.guia-trabajo{font-size:12px;color:#f4dfbf;margin:7px 4px 5px}
+#rondas{position:sticky;top:0;z-index:14;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;margin:0 0 10px;padding:7px 0;background:#2a103be8;backdrop-filter:blur(8px)}
+#rondas button{margin:0;padding:9px 6px;min-height:45px;font-size:13px;line-height:1.2;background:#411d50;border:1px solid #d1b072;color:#fff7e7;border-radius:9px}
+#rondas button:hover{background:#644077}
+#rondas button[aria-pressed="true"]{background:#f2d18c;color:#371646;border-color:#f2d18c;box-shadow:0 0 0 2px #fff4da88 inset}
+#trabajo .trabajo-ronda{margin:0;padding:12px 14px;background:#fffaf0;border:1px solid #c49b4b;border-radius:14px;color:#43194e;min-height:280px}
+.cabecera-ronda{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding-bottom:7px;border-bottom:1px solid #e7daea;margin-bottom:10px}
+.cabecera-ronda h2{font-size:19px;margin:0}
+#envioEstado{font-size:12px;font-weight:650;line-height:1.3;margin:4px 0;color:#59406b}
+.resumen-trabajo{font-size:12px;font-weight:750;background:#f0e4cf;color:#4c225a;border:1px solid #dfc892;border-radius:100px;padding:6px 11px}
+#capturas.capturas-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:start}
+#capturas .capture{min-width:0;margin:0;border:1px solid #d6c3da;background:#fffdf8;padding:10px;border-radius:10px;position:relative}
+#capturas .capture:focus-within{outline:2px solid #e8bf6a;outline-offset:1px}
+#capturas .capture h3{font-size:14px;margin:0 0 6px}
+#capturas .capture button{font-size:12px;padding:7px 9px;min-height:33px;border-radius:7px;margin:0}
+#capturas .capture .capture-actions{display:flex;gap:6px}
+#capturas .capture .capture-actions button{flex:1}
+#capturas .capture .capture-actions button.remove{max-width:85px;background:#fff4f0;color:#853d48;border-color:#e6c0be}
+#capturas .capture img{width:100%;height:168px;max-height:168px;object-fit:contain;background:#291537;border-radius:6px;margin:7px 0 0;cursor:zoom-in}
+#capturas .capture .capture-placeholder{border:1px dashed #a891af;border-radius:6px;min-height:168px;height:168px;margin-top:7px;background:#f3ebf5;color:#80688c;display:grid;place-items:center;text-align:center;font-size:12px;padding:10px;cursor:pointer}
+#capturas .capture label{font-size:11px;margin:8px 0 3px}
+#capturas .capture input[id^="cartones-"]{padding:8px 10px;min-height:39px;font-size:19px;font-weight:700;border-radius:7px}
+#capturas .capture .hint{margin:5px 0 0;font-size:11px;line-height:1.3;color:#675476}
+#capturas .capture[data-estado="listo"]{border-color:#67a06b;background:#f5fcf2}
+#capturas .capture[data-estado="incompleto"]{border-color:#d6a556}
+#capturas .capture[data-estado="enviado"]{border-color:#66a86e}
+#capturas .capture button.remove{margin-top:7px}
+.barra-acciones{position:sticky;bottom:0;z-index:12;background:#fffaf0ee;backdrop-filter:blur(9px);border-top:1px solid #d8bed5;padding:9px 0 2px;margin-top:10px}
+.acciones-principales{display:flex;justify-content:space-between;gap:9px;align-items:center}
+.acciones-principales button{margin:0;width:auto;min-height:43px;padding:8px 20px;font-size:13px}
+#agregar{background:#fffaf0;color:#491c56;flex:0 0 auto}
+#enviar{background:#381444;color:#fffaf0;border-color:#e3bc71;min-width:240px;flex:1;font-size:15px}
+#corregir{flex:0 0 auto}
+#revisionTexto{margin:5px 0}
+#resultadoEnvio:empty{display:none}
+#resultadoEnvio{margin:5px 0 0;padding:6px 9px;border-radius:7px;background:#f1e8f3;color:#43194e;font-size:12px;font-weight:650;line-height:1.35}
+.atajos{font-size:12px;color:#e7d2e8;margin:9px 2px 0}
+kbd{display:inline-block;background:#4c2d5c;border:1px solid #8b6498;padding:1px 5px;border-radius:4px;font-size:11px}
+footer{margin:12px 0 0;font-size:11px}
+dialog.visor-captura{width:min(1150px,96vw);max-width:96vw;max-height:94dvh;overflow:auto;padding:12px;border:2px solid #dcba76;background:#291139;color:#fff7e9;border-radius:12px;box-shadow:0 12px 55px #000a}
+dialog.visor-captura::backdrop{background:rgba(14,6,20,.9)}
+.visor-captura .visor-barra{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.visor-captura button{width:auto;padding:8px 14px;font-size:13px;margin:0;background:#fff1cd;color:#3b1849}
+.visor-captura img{display:block;width:auto;height:auto;max-width:100%;max-height:80dvh;object-fit:contain;margin:auto}
+button:focus-visible,input:focus-visible{outline:3px solid #dcae54;outline-offset:2px}
+@media(max-width:1180px){#capturas.capturas-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#trabajo .config-rapida{grid-template-columns:150px 1fr}#trabajo .acciones-config{grid-column:1/-1}}
+@media(max-width:720px){
+ main{padding:12px 12px 24px}header h1{font-size:19px}
+ #trabajo .config-rapida{grid-template-columns:1fr 1fr;gap:7px}
+ #trabajo .campo-youtube{grid-column:1/-1;grid-row:2}
+ #trabajo .acciones-config{grid-column:1/-1;grid-row:3;display:grid;grid-template-columns:1fr 1fr}
+ #trabajo .acciones-config button{width:100%;font-size:11px}
+ #rondas{grid-template-columns:repeat(3,minmax(0,1fr))}
+ #rondas button{min-height:39px;font-size:12px}
+ #capturas.capturas-grid{grid-template-columns:1fr}
+ #trabajo .trabajo-ronda{padding:10px}
+ .resumen-trabajo{border-radius:8px}
+ .acciones-principales{display:grid;grid-template-columns:1fr 1fr}
+ .acciones-principales button{width:100%;font-size:12px}
+ #enviar{grid-column:1/-1;grid-row:1;min-width:0;font-size:14px}
+ #capturas .capture img,#capturas .capture .capture-placeholder{height:200px;max-height:200px}
+ .atajos{display:none}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
