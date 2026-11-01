@@ -13,7 +13,7 @@ window.vistaPreviaComprobantes=async function(){if(ocupado)return;ocupado=true;p
  await sesion();const dia=await ComprobantesPagos.prepararDia(fecha()),previa=await publicacion(dia.fecha);pendiente={...dia,revision:previa?.revision||0};
  const box=$('vistaComprobantes');box.replaceChildren();const intro=document.createElement('p');intro.textContent=dia.imagenes.length+' rondas · '+dia.fecha+(previa?.publicado?' · Reemplazará la publicación de esta fecha.':'');box.append(intro);
  for(const i of dia.imagenes){const card=document.createElement('div'),title=document.createElement('h3'),img=document.createElement('img');title.textContent=i.titulo+' · '+i.ganadores.length+' ganador(es)';const url=URL.createObjectURL(i.blob);urls.push(url);img.src=url;img.alt='Imagen pública de '+i.titulo;img.style.cssText='display:block;max-width:100%;height:auto;margin:auto';card.append(title,img);box.append(card);}
- $('confirmoComprobantes').checked=false;$('dialogoComprobantes').showModal();estado('Revisa cada imagen, la fecha y la cobertura. Solo estas imágenes preparadas se subirán.');
+ $('confirmoComprobantes').checked=false;$('dialogoComprobantes').showModal();estado('Revisa el resultado del bingo, sus pagos, la fecha y la cobertura de cada imagen. Solo estas imágenes preparadas se subirán.');
  }catch(e){pendiente=null;liberar();estado(e.message||'No se pudo preparar la vista previa.');}finally{ocupado=false;botones();}};
 window.cancelarComprobantes=()=>{if(ocupado)return;pendiente=null;liberar();$('dialogoComprobantes').close();botones();};
 $('confirmoComprobantes').addEventListener('change',botones);$('dialogoComprobantes').addEventListener('cancel',e=>{if(ocupado)e.preventDefault();else{pendiente=null;liberar();botones();}});
