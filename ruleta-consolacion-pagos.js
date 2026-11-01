@@ -69,7 +69,7 @@ async function revisar(forzado=false){
  montar();
  if(cargando){pendiente=true;return;}
  if(!forzado&&d.hidden)return;
- if(!root.supa||!root.ResultadosPublicos||!$('fechaSorteo'))return;
+ if(typeof supa==='undefined'||!root.ResultadosPublicos||!$('fechaSorteo'))return;
  cargando=true;
  try{
   if(root.pagosRestauracionLista)await root.pagosRestauracionLista;
