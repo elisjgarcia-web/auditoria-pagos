@@ -44,12 +44,23 @@ function crear(ad){
   const previous=!!(latest?.payments||{})[key];
   return ejecutar('payment',{key,previous,value:!previous});
  }
+ async function reiniciar(state){
+  if(!connected||!online||busy||applying)throw Error('Conecta primero Pagos y espera a que termine de sincronizar.');
+  // Primero se verifica la revisión actual, luego se guarda el estado vacío.
+  clearTimeout(timer);dirty=false;
+  if(!await ejecutar('read'))throw Error('No se pudo consultar el sorteo compartido. No se borró nada.');
+  if(!online)throw Error('Sin conexión para reiniciar el sorteo compartido.');
+  if(!await ejecutar('save',{state},true))throw Error('No se pudo reiniciar el sorteo compartido. No se borró el trabajo local.');
+  lastShared=JSON.stringify(state);
+  paymentKeys=[];
+  return true;
+ }
  async function salir(){connected=false;online=false;controller=false;dirty=false;clearTimeout(timer);notice('Verifica tu acceso para cargar los datos compartidos.');render();return true;}
- return {conectar,leer,tomar,liberar,programar,guardar,marcar,salir,estado};
+ return {conectar,leer,tomar,liberar,programar,guardar,marcar,reiniciar,salir,estado};
 }
 root.PagosSync={crear};if(typeof module!=='undefined')module.exports=root.PagosSync;
 if(typeof document==='undefined')return;
-const el=id=>document.getElementById(id);let client,starting=false,edicionLocal=false;
+const el=id=>document.getElementById(id);let client,starting=false,edicionLocal=false,reiniciando=false;
 const deviceKey='andino_pagos_device_v1';let device;
 try{device=sessionStorage.getItem(deviceKey);if(!device){device=crypto.randomUUID();sessionStorage.setItem(deviceKey,device);}}catch{device=crypto.randomUUID();}
 const readonlyActions=/^(aplicarPlantilla|convertirPremios|cambiarRondas|toggleTop|limpiarTodo|nuevoSorteo|procesarManual|importarRespaldo|recuperarGuardadoLocal)/;
@@ -82,13 +93,19 @@ client=crear({device,label:()=>('Teléfono '+device.slice(0,4).toUpperCase()),uu
  payments:p=>{PAGO_ESTADOS=p;document.querySelectorAll('[data-clave-pago]').forEach(b=>actualizarBotonPagado(b,b.dataset.clavePago));},
  notice:text=>{el('syncStatus').textContent=text;},roles:bloquear,events:()=>{}
 });
-root.PagosCompartidos={async editar(fn){if(edicionLocal||starting||client.estado().busy||client.estado().applying||!root.PagosCompartidos.puedeEditar)throw Error('Espera a que termine la sincronización e intenta de nuevo.');edicionLocal=true;try{return await fn();}finally{edicionLocal=false;client.programar();}},get aplicando(){return client.estado().applying;},get conectado(){return client.estado().connected;},get puedeEditar(){const s=client.estado();return !s.connected||s.online;},guardar:()=>client.programar(),marcar:key=>client.marcar(key)};
+root.PagosCompartidos={async editar(fn){if(edicionLocal||starting||client.estado().busy||client.estado().applying||!root.PagosCompartidos.puedeEditar)throw Error('Espera a que termine la sincronización e intenta de nuevo.');edicionLocal=true;try{return await fn();}finally{edicionLocal=false;client.programar();}},get aplicando(){return client.estado().applying;},get conectado(){return client.estado().connected;},get puedeEditar(){const s=client.estado();return !s.connected||s.online;},guardar:()=>client.programar(),marcar:key=>client.marcar(key),
+ async reiniciar(state){
+  if(reiniciando||edicionLocal||starting||client.estado().busy||client.estado().applying)throw Error('Espera a que termine la sincronización.');
+  if(!client.estado().connected||!client.estado().online)throw Error('Inicia sesión y carga los aprobados para reiniciar también el sorteo compartido.');
+  reiniciando=true;
+  try{return await client.reiniciar(state);}finally{reiniciando=false;}
+ }};
 for(const name of ['aplicarPlantilla','convertirPremios','cambiarRondas','toggleTop','limpiarTodo','nuevoSorteo','procesarManual','importarRespaldo','recuperarGuardadoLocal']){
  const original=root[name];if(typeof original!=='function')continue;
  root[name]=function(...args){if(!root.PagosCompartidos.puedeEditar&&!client.estado().applying){alert('No hay conexión para guardar. Refresca cuando vuelva el internet.');return false;}return original.apply(this,args);};
 }
 async function iniciar(){
- if(starting||edicionLocal||client.estado().busy)return;starting=true;
+ if(reiniciando||starting||edicionLocal||client.estado().busy)return;starting=true;
  try{
   if(root.pagosRestauracionLista)await root.pagosRestauracionLista;
   const {data,error}=await supa.auth.getSession();if(error||!data?.session){await client.salir();return;}
@@ -98,7 +115,7 @@ async function iniciar(){
   await client.conectar(SLOT_APPROVED_SOURCE);
  }catch(e){el('syncStatus').textContent='⚠️ '+e.message;}finally{starting=false;bloquear(client.estado());}
 }
-document.addEventListener('pagos-local-guardado',()=>client.programar());
+document.addEventListener('pagos-local-guardado',()=>{if(!reiniciando)client.programar();});
 document.addEventListener('ronda-anuncio-generado',()=>{client.programar();bloquear(client.estado());});
 document.addEventListener('pagos-acceso-verificado',iniciar);
 document.addEventListener('pagos-sesion-cerrada',()=>client.salir());
