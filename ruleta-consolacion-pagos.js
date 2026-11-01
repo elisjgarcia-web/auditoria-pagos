@@ -50,6 +50,10 @@ function montar(){
  const state=d.createElement('p');state.id='ruletaPagosEstado';state.setAttribute('role','status');state.setAttribute('aria-live','polite');state.textContent='Los ganadores de dinero se cargarán automáticamente cuando salgan en la ruleta.';
  box.append(top,state);base.insertBefore(box,$('premioCon').previousElementSibling||$('premioCon'));mounted=true;
 }
+function actualizarBadge(cantidad){
+ const resumen=$('premioCon')?.closest('.cp-premios')?.querySelector(':scope > summary');
+ if(resumen)resumen.textContent='🎁 Pozo, consolación y Top'+(cantidad?' · 🎰 '+cantidad+' de ruleta':'');
+}
 function listaCash(rows,fecha,tasa){
  const cash=[],pendientes=[],regalos=[],seen=new Set();
  for(const row of Array.isArray(rows)?rows:[]){
@@ -84,6 +88,7 @@ async function revisar(forzado=false){
   let fecha;
   try{fecha=ResultadosPublicos.fechaISO($('fechaSorteo').value);}catch{texto('Configura la fecha del sorteo para recibir premios de la ruleta.');return;}
   const tasa=monto($('tasaCambio')?.value||''),{cash,pendientes,regalos}=listaCash(data.winners,fecha,tasa);
+  actualizarBadge(cash.length);
   const invalid=pendientes.filter(w=>w.prizeType==='consolation');
   if(invalid.length){
    texto('⚠️ '+invalid.length+' premio(s) de dinero necesitan revisión: '+invalid[0].motivo+'. No se modificó Consolación.');return;
