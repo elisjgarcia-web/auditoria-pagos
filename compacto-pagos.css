@@ -178,3 +178,11 @@ body.cp-modo{background:linear-gradient(160deg,#290b3c,#1d0829 58%,#110719);colo
 .cp-visor-cerrar{background:#fff2d6;color:#32123a;border:0;border-radius:9px;min-height:38px;padding:8px 13px;font-size:13px;font-weight:700;flex-shrink:0}
 .cp-visor-lienzo{display:block;width:auto;height:auto;max-width:100%;max-height:80dvh;margin:0 auto;background:#fff;border-radius:6px;object-fit:contain;touch-action:pan-y pinch-zoom}
 @media(max-width:380px){.cp-modo .recibo-pago .recibo-miniaturas{gap:5px}.cp-modo .recibo-miniaturas .recibo-celda{padding:5px 3px}.cp-modo .recibo-pago .recibo-miniaturas .recibo-vista:not(.cp-editando){height:116px}}
+
+
+/* Ganadores de consola recibidos desde la ruleta, sin alterar el diseño compacto. */
+.cp-modo .cp-ruleta-directa{padding:7px 8px;margin:5px 0 8px;background:#2a1738;border:1px solid #d4b46f;border-radius:10px;max-width:100%;min-width:0}
+.cp-modo .cp-ruleta-superior{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.cp-modo .cp-ruleta-superior strong{color:#f2d38b;font-size:13px}
+.cp-modo .cp-ruleta-superior button{min-height:30px;padding:4px 8px;margin:0;background:#fff1d5;color:#351542;font-size:11px}
+.cp-modo #ruletaPagosEstado{font-size:11px;line-height:1.3;color:#fff9ec;margin:5px 0 0;overflow-wrap:anywhere}
