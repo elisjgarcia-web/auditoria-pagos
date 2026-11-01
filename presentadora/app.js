@@ -1,14 +1,43 @@
 (function(){
 'use strict';
 const C=window.EnVivoComun,$=id=>document.getElementById(id),client=window.supabase.createClient('https://dbkixcpwirjwjvjintkr.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRia2l4Y3B3aXJqd2p2amludGtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYwNjYxNDksImV4cCI6MjA2MTY0MjE0OX0.QJmWLWSe-pRYwxWeel8df7JLhNUvMKaTpL0MCDorgho'),BUCKET='ganadores-en-vivo';
-let user=null,config=null,rows=[],selected=0,draft=null,busy=false,turno=0,urls=[],worker=null,ocrScript=null,activeCard=null,autoFecha=false,esperandoNuevoSorteo=false;
+let user=null,config=null,rows=[],selected=0,draft=null,busy=false,turno=0,urls=[],worker=null,ocrScript=null,activeCard=null,autoFecha=false,esperandoNuevoSorteo=false,ocrQueue=Promise.resolve(),visorCaptura=null;
+function resumen(){
+ const estado=$('resumenTrabajo');if(!estado)return;
+ if(!draft){estado.textContent='Selecciona una ronda';return;}
+ const total=draft.cards.length,capturas=draft.cards.filter(c=>!!c.blob).length;
+ let numeros=0,errores=0;const vistos=new Set();
+ for(const card of draft.cards){
+  try{const ns=C.cartones(card.numeros);if(!card.blob||!ns.length)errores++;else for(const n of ns){if(vistos.has(n))errores++;vistos.add(n);numeros++;}}
+  catch{errores++;}
+ }
+ estado.textContent=draft.sent?'✓ Enviado a Pagos · '+numeros+' cartón(es)':capturas+'/'+total+' captura(s) · '+numeros+' cartón(es)'+(errores?' · '+errores+' por revisar':' · listo para enviar');
+ estado.dataset.estado=draft.sent?'enviado':errores?'incompleto':'listo';
+}
+function abrirVisor(blob,titulo){
+ if(!blob)return;
+ if(!visorCaptura){
+  const dialog=node('dialog',null,'visor-captura'),barra=node('div',null,'visor-barra'),heading=node('strong'),cerrar=node('button','✕ Cerrar'),imagen=node('img');
+  cerrar.type='button';cerrar.onclick=()=>dialog.close();barra.append(heading,cerrar);dialog.append(barra,imagen);
+  dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});
+  dialog.addEventListener('close',()=>{if(dialog.dataset.url){URL.revokeObjectURL(dialog.dataset.url);delete dialog.dataset.url;}imagen.removeAttribute('src');});
+  document.body.append(dialog);visorCaptura={dialog,heading,imagen};
+ }
+ if(visorCaptura.dialog.open)visorCaptura.dialog.close();
+ const url=URL.createObjectURL(blob);
+ visorCaptura.dialog.dataset.url=url;
+ visorCaptura.heading.textContent=titulo;
+ visorCaptura.imagen.src=url;
+ visorCaptura.imagen.alt=titulo;
+ visorCaptura.dialog.showModal();
+}
 const notice=t=>{$('estado').textContent=t;},status=t=>{
  $('envioEstado').textContent=t;
  let bottom=$('resultadoEnvio');
  if(!bottom){bottom=document.createElement('p');bottom.id='resultadoEnvio';bottom.setAttribute('role','status');bottom.setAttribute('aria-live','polite');bottom.style.cssText='font-size:14px;font-weight:650;line-height:1.5;color:#43194e;white-space:pre-wrap';$('enviar').insertAdjacentElement('afterend',bottom);}
  bottom.textContent=t;
 };
-function controls(){document.querySelectorAll('button,input').forEach(n=>n.disabled=busy);$('enviar').disabled=busy||!draft||draft.sent;$('agregar').disabled=busy||!draft||draft.sent;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else $('enviar').textContent='Enviar a pagos';}
+function controls(){document.querySelectorAll('button,input').forEach(n=>n.disabled=busy);$('enviar').disabled=busy||!draft||draft.sent;$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else $('enviar').textContent='Enviar a pagos';}
 function key(){return [user.id,config.fecha,config.source,selected].join(':');}
 async function save(){if(draft)await C.local(key(),draft);}
 function release(){urls.forEach(u=>URL.revokeObjectURL(u));urls=[];}
