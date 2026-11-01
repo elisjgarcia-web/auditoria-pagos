@@ -19,13 +19,16 @@ function navButton(label,action){
 }
 function obtenerNombre(i){return String($('nom'+i)?.value||('Ronda '+i)).trim()||('Ronda '+i);}
 function etiquetaRonda(i){
- const n=$('cp-etiqueta-'+i);if(!n)return;
  const premio=String($('pre'+i)?.value||'').trim();
  const cartones=String($('car'+i)?.value||'').trim();
  const titulo=obtenerNombre(i);
  const left=$('cp-nombre-'+i),right=$('cp-datos-'+i);
  if(left)left.textContent=titulo;
- if(right){const recibidos=$('cp-acordeon-'+i)?.dataset.recibidos||'';right.textContent=[recibidos,premio?premio+' Bs':'Premio pendiente',cartones?'Cartón '+cartones:'Sin ganador'].filter(Boolean).join(' · ');}
+ if(right){
+  const recibidos=$('cp-acordeon-'+i)?.dataset.recibidos||'';
+  const total=(cartones.match(/\d+/g)||[]).length;
+  right.textContent=[recibidos,premio?premio+' Bs':'Premio pendiente',total?total+' ganador'+(total===1?'':'es'):'Sin ganador'].filter(Boolean).join(' · ');
+ }
 }
 function campo(input){
  if(!input)return null;
