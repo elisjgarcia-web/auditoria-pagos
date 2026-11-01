@@ -1,0 +1,4 @@
+.recibo-pago{margin:12px 0 20px;padding:12px;border:1px solid #79508c;border-radius:14px;background:rgba(255,250,240,.035)}
+.recibo-acciones{display:grid;grid-template-columns:1fr 1fr;gap:8px}.recibo-acciones>button{width:100%;min-width:0;margin:0;padding:13px 8px;font-size:15px;line-height:1.35;white-space:normal}
+.recibo-pago .recibo-vista{display:block;width:auto;height:auto;max-width:100%;max-height:460px;margin:12px auto 0;border-radius:8px;touch-action:none;background:#fff}
+.recibo-pago .recibo-vista[hidden],.recibo-pago input[hidden]{display:none!important}.recibo-estado{margin:8px 0 0;overflow-wrap:anywhere}.recibo-grupo{margin:18px 0;padding-top:14px;border-top:1px solid #79508c}.recibo-grupo>button{font-size:17px;line-height:1.35;white-space:normal}.recibo-acciones>button:disabled,.recibo-grupo>button:disabled{opacity:.5;cursor:not-allowed}
