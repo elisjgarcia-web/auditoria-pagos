@@ -44,7 +44,9 @@ function actualizarRondas(data=context){
     }catch(err){info.textContent='No se pudo cargar esta ronda: '+(err.message||'error de conexión.');}
    });
   }
-  const actual=ultimos.find(x=>x.ronda===i),btn=$('cp-recibir-'+i),info=$('cp-recibo-estado-'+i);
+  const actual=ultimos.find(x=>x.ronda===i),btn=$('cp-recibir-'+i),info=$('cp-recibo-estado-'+i),acc=$('cp-acordeon-'+i);
+  if(acc)acc.dataset.recibidos=!actual?'':actual.aplicado?'✓ Cargada':'📥 Recibidos';
+  root.PagosCompacto?.etiquetaRonda?.(i);
   if(!actual){
    btn.textContent='📥 Cargar ganadores enviados';
    if(!info.textContent||info.textContent.startsWith('✓'))info.textContent='Sin capturas recibidas para esta ronda.';
