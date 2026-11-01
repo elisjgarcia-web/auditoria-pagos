@@ -7,6 +7,29 @@ function controls(){document.querySelectorAll('button,input').forEach(n=>n.disab
 function key(){return [user.id,config.fecha,config.source,selected].join(':');}
 async function save(){if(draft)await C.local(key(),draft);}
 function release(){urls.forEach(u=>URL.revokeObjectURL(u));urls=[];}
+// Los envíos entregados son registros de Pagos: archivarlos SOLO en la vista local.
+function claveCierre(fecha,source){return 'envivo-reinicio-v1:'+user.id+':'+fecha+':'+source;}
+function versionesCerradas(fecha,source){
+ try{const m=JSON.parse(localStorage.getItem(claveCierre(fecha,source))||'{}');
+  return m&&typeof m==='object'&&!Array.isArray(m)?m:{};}catch{return {};}
+}
+function capturaAnterior(row){
+ if(!row||!config||!user)return false;
+ const n=Number(versionesCerradas(config.fecha,config.source)[row.ronda]);
+ return Number.isInteger(n)&&n>=Number(row.revision)&&n>0;
+}
+function registrarCierre(fecha,source,envios){
+ if(!source)return null;
+ const k=claveCierre(fecha,source),anterior=localStorage.getItem(k);
+ const m=versionesCerradas(fecha,source);
+ for(const e of envios||[]){
+  const n=Number(e?.revision),r=Number(e?.ronda);
+  if(Number.isInteger(r)&&r>=1&&r<=6&&Number.isInteger(n)&&n>0)m[r]=Math.max(Number(m[r])||0,n);
+ }
+ localStorage.setItem(k,JSON.stringify(m));
+ if(localStorage.getItem(k)!==JSON.stringify(m))throw Error('No se pudo registrar el reinicio.');
+ return {key:k,previous:anterior};
+}
 async function rpc(name,args){const {data,error}=await client.rpc(name,args);if(error)throw Error(error.message);return data;}
 function node(tag,text,cls){const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;}
 function paint(){
@@ -26,13 +49,17 @@ async function cargar(card,file){if(busy||draft.sent)return;busy=true;controls()
  }catch(e){status(e.message);}finally{busy=false;paint();controls();}
 }
 async function enterRound(n){if(busy||!config)return;busy=true;controls();const token=++turno;selected=n;activeCard=null;status('Cargando ronda…');try{const k=key(),local=await C.local(k),remote=rows.find(e=>e.ronda===n);if(token!==turno)return;
- draft=local||{id:C.uuid(),baseRevision:remote?.revision||0,cards:[{numeros:''}],sent:false};
- if(remote&&(!local||remote.id===local.id||remote.revision>local.baseRevision)){
+ const archivado=!!remote&&capturaAnterior(remote);
+ draft=archivado?{id:C.uuid(),baseRevision:remote.revision,cards:[{numeros:''}],sent:false}:local||{id:C.uuid(),baseRevision:remote?.revision||0,cards:[{numeros:''}],sent:false};
+ if(remote&&!archivado&&(!local||remote.id===local.id||remote.revision>local.baseRevision)){
   if(local&&remote.id!==local.id)await C.local(k+':borrador:'+Date.now(),local);
   const cards=[];for(const c of remote.capturas){if(!C.ruta(c.ruta,user.id,config.fecha))throw Error('La captura no pertenece a este usuario y fecha.');const{data,error}=await client.storage.from(BUCKET).download(c.ruta);if(error||!data||data.size>8388608)throw Error('No se pudo recuperar una captura enviada.');cards.push({blob:data,ruta:c.ruta,numeros:c.cartones.join(', '),msg:'Captura enviada a pagos.',uploaded:true});}
   draft={id:remote.id,baseRevision:remote.revision,cards,sent:true};if(!$('youtube').value)$('youtube').value=remote.youtube;await save();
  }
- if(draft.uncertain&&draft.youtube)$('youtube').value=draft.youtube;paint();if(!draft.sent)status('Pega una captura por ganador. Si una imagen muestra varios cartones, puedes enviarlos separados por comas.');
+ if(archivado)await save();
+ if(draft.uncertain&&draft.youtube)$('youtube').value=draft.youtube;paint();
+ if(archivado)status('Ronda limpia. La captura anterior sigue registrada en Pagos. Si envías otra captura en esta misma fecha se creará una revisión nueva.');
+ else if(!draft.sent)status('Pega una captura por ganador. Si una imagen muestra varios cartones, puedes enviarlos separados por comas.');
  }catch(e){draft=null;paint();status(e.message);}finally{busy=false;controls();}
 }
 async function loadDate(){if(busy||!user||esperandoNuevoSorteo||!$('fecha').value)return;busy=true;controls();++turno;selected=0;draft=null;activeCard=null;config=null;paint();$('rondas').replaceChildren();try{let f=C.fecha($('fecha').value),data=await rpc('en_vivo_contexto',{p_fecha:f});if(!data)throw Error('Tu correo aún no está autorizado. Pide al encargado de pagos que prepare tu acceso.');
@@ -43,7 +70,9 @@ async function loadDate(){if(busy||!user||esperandoNuevoSorteo||!$('fecha').valu
   const {data:jornadas,error}=await client.from('en_vivo_jornadas').select('fecha').eq('source',data.source).gte('fecha',anterior.toISOString().slice(0,10)).order('fecha',{ascending:false}).limit(1);
   if(!error&&jornadas?.length){f=jornadas[0].fecha;$('fecha').value=f;data=await rpc('en_vivo_contexto',{p_fecha:f});}
  }
- if(!data.jornada)throw Error('Todavía no hay rondas para '+f+'. Comprueba que la fecha coincida con Pagos y que allí se hayan cargado los aprobados.');config=data.jornada;rows=data.envios||[];$('youtube').value=localStorage.getItem('envivo-youtube:'+user.id+':'+f+':'+config.source)||rows[0]?.youtube||'';config.rondas.forEach((r,i)=>{const b=node('button',r);b.type='button';b.onclick=()=>enterRound(i+1);$('rondas').append(b);});notice('Fecha preparada. Elige una ronda para pegar sus ganadores.');}catch(e){notice(e.message);}finally{busy=false;controls();}}
+ if(!data.jornada)throw Error('Todavía no hay rondas para '+f+'. Comprueba que la fecha coincida con Pagos y que allí se hayan cargado los aprobados.');config=data.jornada;rows=data.envios||[];
+ const envioVigente=rows.find(e=>!capturaAnterior(e));
+ $('youtube').value=localStorage.getItem('envivo-youtube:'+user.id+':'+f+':'+config.source)||envioVigente?.youtube||'';config.rondas.forEach((r,i)=>{const b=node('button',r);b.type='button';b.onclick=()=>enterRound(i+1);$('rondas').append(b);});notice('Fecha preparada. Elige una ronda para pegar sus ganadores.');}catch(e){notice(e.message);}finally{busy=false;controls();}}
 $('nuevoSorteoPresentadora').onclick=async()=>{
  if(!user||busy)return;
  if(draft?.uncertain){status('Confirma el envio pendiente antes de comenzar otro sorteo.');return;}
