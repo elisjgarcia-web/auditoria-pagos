@@ -69,6 +69,30 @@
    if(resultado){s.resultado=resultado;s.resultBlob=r.resultado;avisoResultado(s,'Resultado recuperado para '+s.nombre+' · Cartón '+s.carton+'.');}actualizar(s);
   }catch{/* No hay copia local disponible. */}})();return s;
  }
+ // Visor de solo lectura: al ampliar una captura no se modifican los bloques de protección.
+ let visor=null,visorLienzo=null;
+ function ampliarImagen(s,tipo){
+  const imagen=tipo==='resultado'?s.resultado:s.image;
+  if(!imagen)return;
+  if(!visor){
+   visor=el('dialog','cp-visor-imagen');
+   const panel=el('div','cp-visor-panel'),barra=el('div','cp-visor-barra'),
+    titulo=el('strong','cp-visor-titulo'),cerrar=el('button','cp-visor-cerrar','✕ Cerrar');
+   cerrar.type='button';cerrar.onclick=()=>visor.close();
+   visorLienzo=el('canvas','cp-visor-lienzo');
+   barra.append(titulo,cerrar);panel.append(barra,visorLienzo);visor.append(panel);
+   visor.addEventListener('click',e=>{if(e.target===visor)visor.close();});
+   visor.addEventListener('close',()=>{visorLienzo.width=1;visorLienzo.height=1;});
+   document.body.append(visor);
+  }
+  visor.querySelector('.cp-visor-titulo').textContent=(tipo==='resultado'?'Resultado del bingo':'Comprobante de pago')+' · Cartón '+s.carton;
+  // La vista del comprobante ya incluye las máscaras; nunca mostrar la foto original sin protección.
+  if(tipo==='resultado'){
+   visorLienzo.width=imagen.width;visorLienzo.height=imagen.height;
+   visorLienzo.getContext('2d').drawImage(imagen,0,0);
+  }else pintar(s,visorLienzo);
+  if(!visor.open)visor.showModal();
+ }
  function agregarGanador(cont,p,context){if(!p.x)return;const s=obtenerEstado(p,context),wrap=el('div','recibo-pago');wrap.dataset.reciboKey=s.key;
   const owner=el('p','small recibo-titular',s.nombre+' · '+(s.carton?'Cartón '+s.carton:context.titulo)),buttons=el('div','recibo-acciones'),resultPaste=el('button','copy recibo-pegar-resultado','📋 Pegar resultado'),paste=el('button','copy recibo-pegar-pago','📋 Pegar comprobante'),zoomPago=el('button','sec cp-zoom-pago','🔎 Ampliar comprobante'),share=el('button','sec recibo-compartir','Compartir comprobante ↗'),input=el('input','recibo-pago-input'),resultInput=el('input','recibo-resultado-input'),canvas=el('canvas','recibo-vista recibo-pago-vista'),resultCanvas=el('canvas','recibo-vista recibo-resultado-vista'),status=el('p','small recibo-estado',s.message),resultStatus=el('p','small recibo-resultado-estado',s.resultMsg);
   for(const b of [resultPaste,paste,share])b.type='button';resultPaste.dataset.reciboTipo='resultado';paste.dataset.reciboTipo='pago';resultCanvas.dataset.reciboTipo='resultado';canvas.dataset.reciboTipo='pago';resultPaste.setAttribute('aria-label','Pegar resultado del bingo de '+s.nombre);paste.setAttribute('aria-label','Pegar comprobante de pago de '+s.nombre);share.setAttribute('aria-label','Compartir comprobante de '+s.nombre);
