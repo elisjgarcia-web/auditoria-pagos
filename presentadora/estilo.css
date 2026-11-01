@@ -90,3 +90,47 @@ button:focus-visible,input:focus-visible{outline:3px solid #dcae54;outline-offse
 .resumen-trabajo[data-estado="incompleto"]{background:#fff1d6;border-color:#e0be79;color:#68471f}
 #capturas .capture.captura-arrastrando{outline:3px dashed #bd893a;background:#fff4da}
 #proximaRonda{background:#e7f3df;color:#225437;border-color:#5e9969}
+
+
+/* Escalado automático para laptop: 1-3 ganadores normal; 4, 5 y 6+ caben por fila. */
+@media(min-width:1181px){
+ #capturas.capturas-grid[data-densidad="cuatro"]{grid-template-columns:repeat(4,minmax(0,1fr))}
+ #capturas.capturas-grid[data-densidad="cinco"]{grid-template-columns:repeat(5,minmax(0,1fr))}
+ #capturas.capturas-grid[data-densidad="seis"]{grid-template-columns:repeat(6,minmax(0,1fr))}
+}
+#capturas.capturas-grid:not([data-densidad="normal"]){gap:6px}
+#capturas.capturas-grid:not([data-densidad="normal"]) .capture{padding:7px;border-radius:8px}
+#capturas.capturas-grid:not([data-densidad="normal"]) .capture h3{font-size:12px;margin:0 0 4px}
+#capturas.capturas-grid:not([data-densidad="normal"]) .capture .capture-actions{gap:3px}
+#capturas.capturas-grid:not([data-densidad="normal"]) .capture button{min-height:31px;padding:5px 5px;font-size:11px;line-height:1.2}
+#capturas.capturas-grid:not([data-densidad="normal"]) .capture .capture-actions button.remove{max-width:56px}
+#capturas.capturas-grid:not([data-densidad="normal"]) .capture label{margin:5px 0 2px;font-size:10px}
+#capturas.capturas-grid:not([data-densidad="normal"]) .capture input[id^="cartones-"]{min-height:34px;padding:5px 7px;font-size:17px}
+#capturas.capturas-grid:not([data-densidad="normal"]) .capture .hint{font-size:10px;line-height:1.2;margin:4px 0 0;overflow-wrap:anywhere}
+#capturas.capturas-grid[data-densidad="cuatro"] .capture img,
+#capturas.capturas-grid[data-densidad="cuatro"] .capture .capture-placeholder{height:134px;max-height:134px;min-height:134px}
+#capturas.capturas-grid[data-densidad="cinco"] .capture img,
+#capturas.capturas-grid[data-densidad="cinco"] .capture .capture-placeholder{height:112px;max-height:112px;min-height:112px}
+#capturas.capturas-grid[data-densidad="seis"] .capture img,
+#capturas.capturas-grid[data-densidad="seis"] .capture .capture-placeholder{height:94px;max-height:94px;min-height:94px}
+#capturas.capturas-grid[data-densidad="seis"] .capture input[id^="cartones-"]{font-size:16px}
+#capturas.capturas-grid[data-densidad="seis"] .capture button{font-size:10px}
+/* Las laptops estrechas mantienen un ancho de tarjeta legible. */
+@media(min-width:921px) and (max-width:1180px){
+ #capturas.capturas-grid[data-densidad="cuatro"],
+ #capturas.capturas-grid[data-densidad="cinco"],
+ #capturas.capturas-grid[data-densidad="seis"]{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media(min-width:721px) and (max-width:920px){
+ #capturas.capturas-grid[data-densidad="cuatro"],
+ #capturas.capturas-grid[data-densidad="cinco"],
+ #capturas.capturas-grid[data-densidad="seis"]{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:720px){
+ #capturas.capturas-grid[data-densidad="cuatro"],
+ #capturas.capturas-grid[data-densidad="cinco"],
+ #capturas.capturas-grid[data-densidad="seis"]{grid-template-columns:repeat(1,minmax(0,1fr))}
+ #capturas.capturas-grid:not([data-densidad="normal"]) .capture img,
+ #capturas.capturas-grid:not([data-densidad="normal"]) .capture .capture-placeholder{height:185px;max-height:185px;min-height:185px}
+ #capturas.capturas-grid:not([data-densidad="normal"]) .capture input[id^="cartones-"]{font-size:18px}
+}
