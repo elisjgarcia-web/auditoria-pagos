@@ -112,6 +112,37 @@ $('actualizarRondas').onclick=loadDate;setInterval(()=>{if(user&&!config&&!busy&
 $('fecha').onchange=()=>{autoFecha=false;esperandoNuevoSorteo=false;if(user)localStorage.removeItem('envivo-esperando-fecha:'+user.id);loadDate();};$('youtube').oninput=()=>{if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);};
 $('agregar').onclick=async()=>{if(busy||draft.sent)return;if(draft.cards.length>=20){status('Máximo 20 capturas por envío.');return;}draft.cards.push({numeros:''});await save();paint();};
 $('corregir').onclick=async()=>{if(busy||!draft.sent||!confirm('¿Corregir o agregar ganadores? Pagos recibirá una nueva versión y revisará los cambios.'))return;draft.id=C.uuid();draft.sent=false;await save();paint();status('Corrige las capturas o agrega otro ganador y vuelve a enviar.');};
+async function revisarCapturasGuardadas(){
+ let revisadas=0,corregidas=0;
+ for(let i=0;i<draft.cards.length;i++){
+  const card=draft.cards[i];
+  if(!card.blob||!/[;,]/.test(card.numeros||''))continue;
+  let actuales;
+  try{actuales=C.cartones(card.numeros);}catch{continue;}
+  if(actuales.length<2)continue;
+  revisadas++;
+  status('Revisando cartón individual de la captura '+(i+1)+'…');
+  try{
+   const im=await C.imagen(card.blob),canvas=document.createElement('canvas');
+   canvas.width=im.naturalWidth||im.width;canvas.height=im.naturalHeight||im.height;
+   canvas.getContext('2d').drawImage(im,0,0);
+   let timeout;
+   const resultado=await Promise.race([
+    ocr(canvas),
+    new Promise((_,no)=>{timeout=setTimeout(()=>no(Error('Lectura tardó demasiado')),25000);})
+   ]).finally(()=>clearTimeout(timeout));
+   if(resultado.cartones.length===1&&actuales.includes(resultado.cartones[0])){
+    card.numeros=String(resultado.cartones[0]);card.msg='Cartón comprobado individualmente. Verifica el número.';
+    corregidas++;
+   }
+  }catch(e){
+   if(worker){try{await worker.terminate();}catch{}worker=null;}
+   // No inventar cartones si la lectura falla: se pide corrección manual.
+  }
+ }
+ if(corregidas){await save();paint();status('Se corrigieron '+corregidas+' captura(s) guardadas. Revisa los cartones detectados.');}
+ return{revisadas,corregidas};
+}
 function capturasValidadas(){
  const usados=new Map();
  const capturas=draft.cards.map((card,i)=>{
@@ -136,6 +167,7 @@ $('enviar').onclick=async()=>{
  const anterior=rows.find(e=>e.ronda===selected);
  if(anterior&&capturaAnterior(anterior)&&!confirm('Esta misma fecha tiene una captura anterior enviada a Pagos. Al enviar una nueva se creará una revisión para esta ronda. ¿Continuar?'))return;
  busy=true;controls();try{
+ if(draft.cards.some(c=>/[;,]/.test(c.numeros||'')))await revisarCapturasGuardadas();
  const capturas=capturasValidadas(),youtube=TransmisionYouTube.parse($('youtube').value).url;
  const {data:a,error:ae}=await client.auth.getSession();if(ae||a?.session?.user?.id!==user.id)throw Error('Verifica tu acceso de nuevo.');
  for(let i=0;i<draft.cards.length;i++){const c=draft.cards[i];if(!c.ruta){c.ruta=user.id+'/'+config.fecha+'/'+C.uuid()+'.jpg';await save();}capturas[i].ruta=c.ruta;if(c.uploaded)continue;status('Subiendo captura '+(i+1)+' de '+capturas.length+'…');const{error}=await client.storage.from(BUCKET).upload(c.ruta,c.blob,{contentType:'image/jpeg',upsert:false});if(error){const r=await client.storage.from(BUCKET).download(c.ruta);if(r.error||r.data?.size!==c.blob.size)throw error;const [a,b]=await Promise.all([r.data.arrayBuffer(),c.blob.arrayBuffer()]);const aa=new Uint8Array(a),bb=new Uint8Array(b);if(!aa.every((v,j)=>v===bb[j]))throw Error('La captura existente no coincide. Revisa el envío.');}c.uploaded=true;await save();}
