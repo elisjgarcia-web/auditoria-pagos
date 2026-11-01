@@ -100,8 +100,9 @@ async function revisar(forzado=false){
    texto('⚠️ Hay cartones de ruleta que no coinciden con los compradores aprobados. Actualiza aprobados.');return;
   }
   const rondas=new Set(Array.from({length:Number($('cant')?.value)||6},(_,i)=>carts($('car'+(i+1))?.value||'')).flat());
-  if(cash.some(w=>rondas.has(w.carton))){
-   texto('⚠️ Un ganador de consolación también figura en las rondas. Revisa las exclusiones de la ruleta.');return;
+  const personasRondas=new Set([...rondas].map(t=>String(buscar(t)?.cedulaCompra||'').replace(/\D/g,'')).filter(Boolean));
+  if(cash.some(w=>rondas.has(w.carton)||personasRondas.has(String(buscar(w.carton)?.cedulaCompra||'').replace(/\D/g,'')))){
+   texto('⚠️ Una persona ganadora de Consolación también aparece en las rondas. Revisa las exclusiones antes de pagar.');return;
   }
   const amount=cash[0].monto,importeActual=monto($('premioCon')?.value||'');
   const old=carts($('cartonesCon')?.value||'').map(String);
