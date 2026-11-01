@@ -8,7 +8,7 @@ function setup(map=new Map()){
   w.supabase={createClient:()=>({})};w.setTimeout=()=>0;w.alert=()=>{};w.confirm=()=>true;w.indexedDB=mockDB(map);w.URL.createObjectURL=()=> 'blob:test';w.URL.revokeObjectURL=()=>{};
   w.Image=class {width=1000;height=1600;set src(v){queueMicrotask(()=>this.onload());}};
   w.HTMLCanvasElement.prototype.getContext=function(){const c=this;return new Proxy({measureText:t=>({width:String(t).length*14}),getImageData:()=>({data:new Uint8ClampedArray(c.width*c.height*4).fill(255)})},{get(o,k){return k in o?o[k]:(...args)=>calls.push({k,args});},set(o,k,v){o[k]=v;return true;}});};
-  w.HTMLCanvasElement.prototype.toBlob=function(cb){queueMicrotask(()=>cb(new w.Blob(['raster'],{type:'image/png'})));};
+  w.HTMLCanvasElement.prototype.toBlob=function(cb,type='image/png'){queueMicrotask(()=>cb(new w.Blob(['raster'],{type})));};
   w.HTMLCanvasElement.prototype.getBoundingClientRect=()=>({left:0,top:0,width:100,height:200});
   Object.defineProperty(w.navigator,'clipboard',{value:{read:async()=>{if(clipError)throw Error('denied');return [{types:['image/png'],getType:async()=>new w.Blob(['capture'],{type:'image/png'})}];},writeText:async s=>copies.push(s)}});
   w.navigator.canShare=()=>true;w.navigator.share=async args=>shares.push(args);
@@ -37,4 +37,9 @@ test('recupera capturas locales al regenerar y recargar; fecha y monto distintos
 });
 test('sin acceso a pegar abre selección de fotos; Top también tiene sus dos botones y collage',async()=>{
  const t=setup();try{t.w.renderPagosTop(pagos().map(p=>({...p,carton:'TOP '+p.carton,lista:[p.x]})));const cont=t.w.document.getElementById('pagosBtnsTop');assert.equal(cont.querySelectorAll('.recibo-pago').length,3);assert.ok(cont.querySelector('.recibo-grupo button'));t.denyClipboard();let opened=0;cont.querySelector('input[type=file]').click=()=>{opened++;};await cont.querySelector('.recibo-acciones button').onclick();assert.equal(opened,1);assert.match(cont.querySelector('.recibo-estado').textContent,/Selecciona la captura/);}finally{t.w.close();}
+});
+
+
+test('prepara el día con imágenes JPEG cubiertas y miniaturas; ordena rondas sin incluir originales ni datos bancarios',async()=>{
+ const t=setup(),{w}=t;try{w.eval(read('publicacion.js'));w.document.getElementById('fechaSorteo').value='31/10/2026';w.document.getElementById('nom1').value='Ronda 1';w.document.getElementById('nom2').value='Ronda 2';w.crearBotonesPago('pagosBtns2',[pagos()[1]],'ok2');w.crearBotonesPago('pagosBtns1',[pagos()[0]],'ok1');await assert.rejects(w.ComprobantesPagos.prepararDia('2026-10-31'),/Falta pegar/);await attach(w,w.document.querySelector('#pagosBtns2 .recibo-pago'));await attach(w,w.document.querySelector('#pagosBtns1 .recibo-pago'));const dia=await w.ComprobantesPagos.prepararDia('2026-10-31');assert.equal(dia.fecha,'2026-10-31');assert.equal(dia.imagenes[0].ronda,'pagosBtns1');assert.equal(dia.imagenes[1].ronda,'pagosBtns2');assert(dia.imagenes.every(i=>i.blob.type==='image/jpeg'&&i.miniatura.type==='image/jpeg'));assert(dia.imagenes.every(i=>!('image' in i)&&!('x' in i)));assert(!JSON.stringify(dia).includes('04121234567'));assert(!JSON.stringify(dia).includes('12345678'));assert.equal(dia.firma,w.ComprobantesPagos.firmaDia('2026-10-31'));}finally{w.close();}
 });

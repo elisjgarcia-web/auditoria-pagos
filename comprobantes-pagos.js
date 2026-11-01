@@ -1,6 +1,6 @@
 (function(){
  'use strict';
- const estados=new Map(),grupos=new WeakMap();let dbPromise,activo=null;
+ const estados=new Map(),grupos=new WeakMap();let dbPromise,activo=null,secuencia=0;
  function abrirDB(){
   if(!window.indexedDB)return Promise.reject(Error('Almacenamiento no disponible'));
   if(!dbPromise)dbPromise=new Promise((resolve,reject)=>{const r=indexedDB.open('bingo-comprobantes-premios',1);r.onupgradeneeded=()=>r.result.createObjectStore('recibos',{keyPath:'key'});r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);r.onblocked=()=>reject(Error('Almacenamiento ocupado'));});
@@ -44,7 +44,7 @@
  async function compartir(file,status){try{if(navigator.canShare?.({files:[file]})){try{await navigator.share({files:[file],title:'Bingo Andino 75 · Comprobantes'});status('Imagen preparada para compartir.');return;}catch(e){if(e.name==='AbortError'){status('Compartir cancelado.');return;}if(e.name!=='NotAllowedError')throw e;}}descargar(file);status('Imagen descargada. Adjunta ese archivo en WhatsApp.');}catch{status('No se pudo compartir la imagen. Intenta de nuevo.');}}
  async function pegar(s,input){if(s.busy)return;activo=s;try{if(!navigator.clipboard?.read)throw Error();const items=await navigator.clipboard.read();for(const item of items){const type=item.types.find(t=>['image/png','image/jpeg','image/webp'].includes(t));if(type){await cargar(s,await item.getType(type));return;}}aviso(s,'No hay una imagen copiada. Selecciona la captura desde tus fotos.');}catch{aviso(s,'No se pudo pegar desde el portapapeles. Selecciona la captura desde tus fotos.');}input.click();}
  function obtenerEstado(p,context){const key=clave(p,context);let s=estados.get(key);if(s){const nombre=String(p.nombre||p.x?.nombre||'Ganador').trim(),changed=nombre!==s.nombre||context.titulo!==s.context.titulo;s.context=context;s.nombre=nombre;if(changed&&s.image)guardar(s);return s;}
-  s={key,context,nombre:String(p.nombre||p.x?.nombre||'Ganador').trim(),carton:String(p.carton||''),masks:[],views:new Set(),groups:new Set(),busy:false,revision:0,file:null,image:null,blob:null,message:'Pega el comprobante de este ganador. Se conserva la foto original.'};estados.set(key,s);
+  s={id:++secuencia,key,context,nombre:String(p.nombre||p.x?.nombre||'Ganador').trim(),carton:String(p.carton||''),masks:[],views:new Set(),groups:new Set(),busy:false,revision:0,file:null,image:null,blob:null,message:'Pega el comprobante de este ganador. Se conserva la foto original.'};estados.set(key,s);
   s.restauracion=(async()=>{try{const r=await almacenar('get',key);if(!r||s.revision||s.busy)return;const img=await imagenBlob(r.blob);if(s.revision||s.busy)return;s.image=img;s.blob=r.blob;s.masks=Array.isArray(r.masks)?r.masks.filter(m=>['x','y','w','h'].every(k=>Number.isFinite(m[k]))&&m.x>=0&&m.y>=0&&m.w>0&&m.h>0&&m.x+m.w<=1.001&&m.y+m.h<=1.001).slice(0,2):[];const c=document.createElement('canvas');pintar(s,c);s.file=s.masks.length===2?new File([await blobCanvas(c)],'premio-'+s.carton+'.png',{type:'image/png'}):null;aviso(s,'Comprobante recuperado de este dispositivo. Revisa antes de compartir.');actualizar(s);}catch{/* Sin copia local; sigue disponible pegar y compartir. */}})();return s;
  }
  function agregarGanador(cont,p,context){if(!p.x)return;const s=obtenerEstado(p,context),wrap=el('div','recibo-pago');wrap.dataset.reciboKey=s.key;const buttons=el('div','recibo-acciones'),paste=el('button','copy','📋 Pegar captura'),share=el('button','sec','Compartir ↗'),input=el('input'),canvas=el('canvas','recibo-vista'),status=el('p','small recibo-estado',s.message);paste.type=share.type='button';paste.setAttribute('aria-label','Pegar captura de '+s.nombre);share.setAttribute('aria-label','Compartir comprobante de '+s.nombre);input.type='file';input.accept='image/png,image/jpeg,image/webp';input.hidden=true;share.disabled=true;canvas.hidden=true;canvas.setAttribute('aria-label','Comprobante de '+s.nombre+'; arrastra los bloques para ajustar la cobertura');status.setAttribute('role','status');status.setAttribute('aria-live','polite');buttons.append(paste,share);wrap.append(buttons,input,canvas,status);cont.append(wrap);s.views.add({wrap,paste,share,canvas,status});paste.onclick=()=>pegar(s,input);input.onchange=()=>{const file=input.files[0];input.value='';cargar(s,file);};wrap.addEventListener('focusin',()=>{activo=s;});share.onclick=async()=>{if(!listo(s))return;if(!confirm('¿Revisaste que este comprobante corresponde a '+s.nombre+' y cubre la primera mitad del teléfono y la cédula?'))return;await compartir(s.file,t=>aviso(s,t));};ajustarCobertura(s,canvas);actualizar(s);return s;}
@@ -53,7 +53,26 @@
  function finalizarRonda(cont,pagos,context){const old=grupos.get(cont);if(old)for(const s of old.states)s.groups.delete(old);const states=pagos.filter(p=>p.x).map(p=>obtenerEstado(p,context));if(states.length<2)return;const wrap=el('div','recibo-grupo'),button=el('button','copy','🖼️ Compartir comprobantes de esta ronda'),status=el('p','small');button.type='button';status.setAttribute('role','status');wrap.append(button,status);cont.append(wrap);const g={states,context,button,status};grupos.set(cont,g);for(const s of states)s.groups.add(g);actualizarGrupo(g);button.onclick=async()=>{if(button.disabled)return;if(!confirm('¿Revisaste los '+states.length+' comprobantes de '+context.titulo+' y la cobertura de sus datos?'))return;button.disabled=true;status.textContent='Uniendo comprobantes…';try{const file=await collage(g);await compartir(file,t=>{status.textContent=t;});}catch{status.textContent='No se pudo preparar la imagen conjunta. Puedes compartir cada comprobante por separado.';}finally{button.disabled=!states.every(listo);}};}
  document.addEventListener('paste',e=>{const key=e.target?.closest?.('[data-recibo-key]')?.dataset.reciboKey,s=key?estados.get(key):activo;if(!s||![...s.views].some(v=>v.wrap.isConnected))return;const item=Array.from(e.clipboardData?.items||[]).find(x=>x.type.startsWith('image/'));if(item){e.preventDefault();cargar(s,item.getAsFile());}});
  async function limpiar(){for(const s of estados.values()){s.revision++;s.image=null;s.file=null;s.blob=null;s.masks=[];actualizar(s);}estados.clear();activo=null;try{await almacenar('clear');}catch{}}
- window.ComprobantesPagos=Object.freeze({agregarGanador,finalizarRonda,limpiar});
+ function fechaRecibos(text){return window.ResultadosPublicos.fechaISO(text);}
+ function activosDia(fecha){return [...estados.values()].filter(s=>[...s.views].some(v=>v.wrap.isConnected)&&fechaRecibos(s.context.fecha)===fecha);}
+ function firmaDia(fecha){return JSON.stringify(activosDia(fecha).map(s=>[s.id,s.revision,s.busy,!!s.file,s.nombre,s.context.titulo,s.masks]));}
+ function jpeg(canvas,quality){return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('No se pudo preparar la imagen pública.')),'image/jpeg',quality));}
+ async function prepararDia(fecha){
+  fecha=fechaRecibos(fecha);const states=activosDia(fecha);if(!states.length)throw Error('Primero genera los pagos de esta fecha y pega sus comprobantes.');
+  await Promise.all(states.map(s=>s.restauracion));
+  const faltantes=states.filter(s=>!listo(s));if(faltantes.length)throw Error('Falta pegar o revisar: '+faltantes.map(s=>s.nombre+' ('+s.context.titulo+')').join(', '));
+  const firma=firmaDia(fecha),groups=new Map();for(const s of states){if(!groups.has(s.context.tipo))groups.set(s.context.tipo,[]);groups.get(s.context.tipo).push(s);}
+  const orden=tipo=>Number(tipo.match(/^pagosBtns(\d+)$/)?.[1]||({pagosBtnsPozo:90,pagosBtnsCon:100,pagosBtnsTop:110}[tipo]||120));const imagenes=[];
+  for(const [ronda,ss] of [...groups].sort((a,b)=>orden(a[0])-orden(b[0]))){
+   let c=document.createElement('canvas');if(ss.length===1)pintar(ss[0],c);else{const f=await collage({states:ss,context:ss[0].context}),i=await imagenBlob(f);c.width=i.width;c.height=i.height;c.getContext('2d').drawImage(i,0,0);}
+   const thumb=document.createElement('canvas'),scale=Math.min(1,420/c.width,600/c.height);thumb.width=Math.max(1,Math.round(c.width*scale));thumb.height=Math.max(1,Math.round(c.height*scale));thumb.getContext('2d').drawImage(c,0,0,thumb.width,thumb.height);
+   const blob=await jpeg(c,.88),miniatura=await jpeg(thumb,.8);if(blob.size>8388608)throw Error('Una imagen es demasiado pesada para publicar.');
+   imagenes.push({ronda,titulo:ss[0].context.titulo,ancho:c.width,alto:c.height,ganadores:ss.map(s=>({nombre:s.nombre,carton:s.carton})),blob,miniatura});
+  }
+  if(firmaDia(fecha)!==firma)throw Error('Los comprobantes cambiaron. Genera otra vista previa.');
+  return {fecha,firma,imagenes};
+ }
+ window.ComprobantesPagos=Object.freeze({agregarGanador,finalizarRonda,limpiar,prepararDia,firmaDia});
 function localizarDatos(imagen){
  const w=imagen.width,h=imagen.height,p=imagen.getContext('2d').getImageData(0,0,w,h).data;
  const bands=[];let last=-100,current=null;
@@ -86,3 +105,4 @@ function localizarDatos(imagen){
  return result;
 }
 })();
+
