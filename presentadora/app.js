@@ -67,9 +67,78 @@ function registrarCierre(fecha,source,envios){
 async function rpc(name,args){const {data,error}=await client.rpc(name,args);if(error)throw Error(error.message);return data;}
 function node(tag,text,cls){const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;}
 function paint(){
- release();$('capturas').replaceChildren();$('tituloRonda').textContent=config?.rondas[selected-1]||'Elige una ronda';$('agregar').hidden=$('enviar').hidden=$('revisionTexto').hidden=!draft||draft.sent;$('corregir').hidden=!draft?.sent;
- if(!draft)return;draft.cards.forEach((c,i)=>{const box=node('div',null,'capture'),title=node('h3','Ganador '+(i+1)),paste=node('button',c.blob?'📋 Reemplazar captura':'📋 Pegar captura'),file=node('input'),img=node('img'),label=node('label','Cartón(es) de esta captura'),input=node('input'),msg=node('p',c.msg||'Pega la captura del resultado del bingo.','hint');file.type='file';file.accept='image/png,image/jpeg,image/webp';file.hidden=true;input.value=c.numeros||'';input.inputMode='numeric';input.placeholder='Ej.: 738 o 163, 267, 354';input.id='cartones-'+i;label.htmlFor=input.id;paste.disabled=input.disabled=!!draft.sent;paste.onclick=async()=>{if(busy)return;activeCard=c;try{if(!navigator.clipboard?.read)throw Error();const items=await navigator.clipboard.read();for(const it of items){const type=it.types.find(t=>['image/png','image/jpeg','image/webp'].includes(t));if(type){await cargar(c,await it.getType(type));return;}}}catch{}status('Selecciona la captura desde tus fotos.');file.click();};file.onchange=()=>{const blob=file.files[0];file.value='';if(blob)cargar(c,blob);};paste.onfocus=()=>activeCard=c;input.oninput=()=>{c.numeros=input.value;save().catch(()=>status('No se pudo guardar el borrador local.'));};if(c.blob){const u=URL.createObjectURL(c.blob);urls.push(u);img.src=u;img.alt='Resultado de '+config.rondas[selected-1]+' · Captura '+(i+1);}else img.hidden=true;box.append(title,paste,file,img,label,input,msg);if(!draft.sent&&draft.cards.length>1){const remove=node('button','Quitar este cuadro','secondary remove');remove.onclick=async()=>{if(busy||!confirm('¿Quitar esta captura del borrador?'))return;draft.cards.splice(i,1);await save();paint();};box.append(remove);}$('capturas').append(box);});
- document.querySelectorAll('#rondas button').forEach((b,i)=>b.setAttribute('aria-pressed',String(selected===i+1)));controls();if(draft.sent)status('Enviado ✓ · Los ganadores ya llegaron a pagos.');
+ release();
+ $('capturas').replaceChildren();
+ $('tituloRonda').textContent=config?.rondas[selected-1]||'Elige una ronda';
+ const editable=!!draft&&!draft.sent;
+ $('agregar').hidden=$('enviar').hidden=$('revisionTexto').hidden=!editable;
+ $('corregir').hidden=!draft?.sent;
+ if($('proximaRonda'))$('proximaRonda').hidden=!draft?.sent||selected>=Number(config?.rondas?.length||0);
+ if(!draft){resumen();controls();return;}
+ draft.cards.forEach((c,i)=>{
+  const box=node('div',null,'capture'),title=node('h3','Ganador '+(i+1)),
+   acciones=node('div',null,'capture-actions'),
+   paste=node('button',c.blob?'📋 Reemplazar imagen':'📋 Pegar imagen'),
+   file=node('input'),img=node('img'),placeholder=node('div','Pega aquí con Ctrl+V o selecciona una imagen','capture-placeholder'),
+   label=node('label','Cartón comprobado'),input=node('input'),
+   msg=node('p',c.msg||'Pega la captura de este ganador.','hint');
+  box.dataset.estado=draft.sent?'enviado':c.blob&&c.numeros?'listo':'incompleto';
+  file.type='file';file.accept='image/png,image/jpeg,image/webp';file.hidden=true;
+  input.value=c.numeros||'';input.inputMode='numeric';input.placeholder='Número: ej. 738';input.id='cartones-'+i;label.htmlFor=input.id;
+  input.setAttribute('aria-label','Cartón del ganador '+(i+1));
+  paste.type='button';paste.disabled=input.disabled=!!draft.sent;
+  const cargarArchivo=archivo=>{if(archivo)cargar(c,archivo);};
+  paste.onclick=async()=>{
+   if(busy||draft.sent)return;
+   activeCard=c;
+   try{
+    if(!navigator.clipboard?.read)throw Error();
+    const items=await navigator.clipboard.read();
+    for(const it of items){
+     const type=it.types.find(t=>['image/png','image/jpeg','image/webp'].includes(t));
+     if(type){cargarArchivo(await it.getType(type));return;}
+    }
+   }catch{}
+   file.click();
+  };
+  file.onchange=()=>{const blob=file.files[0];file.value='';cargarArchivo(blob);};
+  box.addEventListener('pointerdown',()=>{activeCard=c;});
+  box.addEventListener('dragover',e=>{if(editable&&e.dataTransfer?.types?.includes('Files')){e.preventDefault();box.classList.add('captura-arrastrando');}});
+  box.addEventListener('dragleave',()=>box.classList.remove('captura-arrastrando'));
+  box.addEventListener('drop',e=>{
+   box.classList.remove('captura-arrastrando');
+   if(!editable)return;const foto=[...(e.dataTransfer?.files||[])].find(f=>f.type.startsWith('image/'));
+   if(foto){e.preventDefault();activeCard=c;cargarArchivo(foto);}
+  });
+  input.onfocus=()=>activeCard=c;
+  input.oninput=()=>{
+   c.numeros=input.value;c.userEdited=true;box.dataset.estado=c.blob&&c.numeros?'listo':'incompleto';
+   resumen();save().catch(()=>status('No se pudo guardar el borrador local.'));
+  };
+  if(c.blob){
+   const u=URL.createObjectURL(c.blob);urls.push(u);img.src=u;
+   img.alt='Resultado de '+config.rondas[selected-1]+' · Captura '+(i+1);
+   img.title='Toca para ver la captura en grande';img.tabIndex=0;img.setAttribute('role','button');
+   img.onclick=()=>abrirVisor(c.blob,'Ganador '+(i+1)+' · '+config.rondas[selected-1]);
+   img.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();img.click();}};
+   placeholder.hidden=true;
+  }else{
+   img.hidden=true;placeholder.tabIndex=editable?0:-1;
+   placeholder.onclick=()=>{if(editable){activeCard=c;file.click();}};
+   placeholder.onkeydown=e=>{if(editable&&(e.key==='Enter'||e.key===' ')){e.preventDefault();placeholder.click();}};
+  }
+  acciones.append(paste);
+  if(editable&&draft.cards.length>1){
+   const remove=node('button','Quitar','secondary remove');remove.type='button';
+   remove.onclick=async()=>{if(busy||!confirm('¿Quitar esta captura del borrador?'))return;draft.cards.splice(i,1);if(activeCard===c)activeCard=draft.cards[0]||null;await save();paint();};
+   acciones.append(remove);
+  }
+  box.append(title,acciones,file,img,placeholder,label,input,msg);
+  $('capturas').append(box);
+ });
+ document.querySelectorAll('#rondas button').forEach((b,i)=>b.setAttribute('aria-pressed',String(selected===i+1)));
+ resumen();controls();
+ if(draft.sent)status('✓ Enviado a Pagos. Puedes continuar a la siguiente ronda.');
 }
 function loadScript(){return ocrScript||(ocrScript=new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.min.js';s.onload=ok;s.onerror=()=>{ocrScript=null;no(Error('No se pudo cargar la lectura automática.'));};document.head.append(s);}));}
 async function ocr(canvas){
