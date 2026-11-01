@@ -160,16 +160,18 @@ async function ocr(canvas){
 const preparando=new WeakSet();
 async function cargar(card,file){
  if(busy||!draft||draft.sent||preparando.has(card))return;
- const original=draft;
+ const original=draft,originalKey=key();
  preparando.add(card);
  const indice=original.cards.indexOf(card);
  status('Guardando captura '+(indice+1)+'…');
  try{
   const v=await C.preparar(file);
-  if(draft!==original||original.sent||!original.cards.includes(card))return;
+  if(original.sent||!original.cards.includes(card))return;
   card.blob=v.blob;card.ruta=null;card.uploaded=false;card.numeros='';card.userEdited=false;
   card.msg='Imagen lista. Escribe el cartón o confirma el que se detecte.';
-  await save();
+  // Guardar en la ronda original incluso si la presentadora cambió de ronda al procesar.
+  await C.local(originalKey,original);
+  if(draft!==original)return;
   paint();
   // La presentadora puede continuar de inmediato, incluso si el OCR tarda o no hay internet.
   const input=$('cartones-'+indice);if(input&&!input.disabled)input.focus();
@@ -204,7 +206,7 @@ async function cargar(card,file){
    if(box){const note=box.querySelector('.hint');if(note)note.textContent=card.msg;box.dataset.estado=card.numeros?'listo':'incompleto';}
    resumen();
   });
- }catch(e){status('No se guardó la captura '+(indice+1)+': '+(e?.message||'Error desconocido'));}
+ }catch(e){if(draft===original)status('No se guardó la captura '+(indice+1)+': '+(e?.message||'Error desconocido'));}
  finally{preparando.delete(card);}
 }
 async function enterRound(n){if(busy||!config)return;busy=true;controls();const token=++turno;selected=n;activeCard=null;status('Cargando ronda…');try{const k=key(),local=await C.local(k),remote=rows.find(e=>e.ronda===n);if(token!==turno)return;
