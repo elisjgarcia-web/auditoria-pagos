@@ -1890,7 +1890,7 @@ function crearBotonesPago(id,pagos,ok){
   const valid=!!(supaValidTel(tel)&&supaValidCed(ci));
   const datosPago=document.createElement("details");datosPago.className="cp-datos-pago";
   const vistaPago=document.createElement("summary");vistaPago.textContent="🏦 "+(x.bancoCodigo||"Banco por revisar")+" · "+(tel||"Teléfono por revisar")+" · CI "+(ci||"Revisar");
-  const d=document.createElement("div");d.className="msg";d.textContent=detallePago(c,x,m);datosPago.append(vistaPago,d);cont.append(datosPago);
+  const d=document.createElement("div");d.className="msg";d.textContent=detallePago(c,x,m);datosPago.append(vistaPago,d);
   if(sw){
    const warning=document.createElement("div");warning.className="warnbox";warning.textContent="⚠️ Posible teléfono y cédula intercambiados. Confirma con el beneficiario antes de pagar.";cont.append(warning);
    const details=document.createElement("details");
@@ -1903,6 +1903,7 @@ function crearBotonesPago(id,pagos,ok){
   }else{
    const w=document.createElement("div");w.className="warnbox";w.textContent="⚠️ Datos de Pago Móvil incompletos o incompatibles. Copia bloqueada.";cont.append(w);
   }
+  cont.append(datosPago);
   agregarOpcionPagoRegistro(cont,x,m,ok);
   window.ComprobantesPagos?.agregarGanador(cont,p,contextoComprobantes(id));
   agregarBotonPagado(cont,id,p,false);
