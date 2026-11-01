@@ -23,7 +23,25 @@ function mostrar(data){
 async function descargar(c,e){if(!C.ruta(c.ruta,e.creado_por,e.fecha))throw Error('La ruta de una captura no es válida.');const{data,error}=await supa.storage.from(BUCKET).download(c.ruta);if(error||!data||data.size>8388608||data.type!=='image/jpeg')throw Error('No se pudo descargar una captura. Revisa la conexión.');return data;}
 async function refrescar(){
  if(ocupado||consultando||aplicando)return;consultando=true;const token=++turno;
- try{if(root.pagosRestauracionLista)await root.pagosRestauracionLista;const{data:a}=await supa.auth.getSession();if(!a?.session){liberar();$('envivoLista').replaceChildren();$('envivoLista').dataset.version='';if(channel)supa.removeChannel(channel);channel=null;channelKey='';status('Verifica tu acceso a Supabase para recibir ganadores.');return;}const f=current(),data=await rpc('en_vivo_contexto',{p_fecha:f.fecha});if(token!==turno||f.fecha!==current().fecha||f.source!==current().source)return;if(!data?.pagos){liberar();$('envivoLista').replaceChildren();$('envivoLista').dataset.version='';status('Se necesita el acceso autorizado de la app de pagos.');return;}context=data;const serial=JSON.stringify([f.fecha,data.source,f.source,data.jornada,data.envios,(data.envios||[]).flatMap(e=>C.numeros(e).map(n=>[n,estadoCarton(n),estadoCarton(n)==='OK'?buscar(n)?.nombre:''])),Array.from({length:Number($('cant').value)},(_,i)=>$('car'+(i+1))?.value)]);if($('envivoLista').dataset.version!==serial){$('envivoLista').dataset.version=serial;mostrar(data);}const ck=a.session.user.id+':'+f.fecha;if(ck!==channelKey){if(channel)supa.removeChannel(channel);channelKey=ck;channel=supa.channel('ganadores-en-vivo:'+ck).on('postgres_changes',{event:'*',schema:'public',table:'en_vivo_envios',filter:'fecha=eq.'+f.fecha},()=>refrescar()).subscribe();}
+ try{if(root.pagosRestauracionLista)await root.pagosRestauracionLista;const{data:a}=await supa.auth.getSession();if(!a?.session){liberar();$('envivoLista').replaceChildren();$('envivoLista').dataset.version='';if(channel)supa.removeChannel(channel);channel=null;channelKey='';status('Verifica tu acceso a Supabase para recibir ganadores.');return;}const f=current();let data=await rpc('en_vivo_contexto',{p_fecha:f.fecha});if(token!==turno||f.fecha!==current().fecha||f.source!==current().source)return;if(!data?.pagos){liberar();$('envivoLista').replaceChildren();$('envivoLista').dataset.version='';status('Se necesita el acceso autorizado de la app de pagos.');return;}
+ let avisoConfiguracion='';
+ if(f.editable&&f.source&&String(data.source)===String(f.source)){
+  const nombres=Array.from({length:Number($('cant').value)},(_,i)=>String($('nom'+(i+1))?.value||'').trim());
+  const coincide=data.jornada&&JSON.stringify(data.jornada.rondas)===JSON.stringify(nombres);
+  if([5,6].includes(nombres.length)&&nombres.every(n=>n.length>0&&n.length<=80)&&!coincide){
+   if((data.envios||[]).length){
+    avisoConfiguracion='Hay ganadores recibidos: revisa las rondas antes de cambiar su configuración.';
+   }else{
+    try{
+     // Solo publica las rondas. No autoriza correos ni cambia compras, cartones o pagos.
+     await rpc('en_vivo_configurar',{p_fecha:f.fecha,p_rondas:nombres,p_email:null});
+     data=await rpc('en_vivo_contexto',{p_fecha:f.fecha});
+    }catch(e){avisoConfiguracion='No se pudieron enviar las rondas: '+e.message;}
+   }
+  }
+ }else if(!f.source){avisoConfiguracion='Carga primero las compras aprobadas en Pagos para activar las rondas del en vivo.';}
+ if(token!==turno||f.fecha!==current().fecha||f.source!==current().source)return;
+ context=data;const serial=JSON.stringify([f.fecha,data.source,f.source,data.jornada,data.envios,(data.envios||[]).flatMap(e=>C.numeros(e).map(n=>[n,estadoCarton(n),estadoCarton(n)==='OK'?buscar(n)?.nombre:''])),Array.from({length:Number($('cant').value)},(_,i)=>$('car'+(i+1))?.value)]);if($('envivoLista').dataset.version!==serial){$('envivoLista').dataset.version=serial;mostrar(data);}if(avisoConfiguracion)status(avisoConfiguracion);const ck=a.session.user.id+':'+f.fecha;if(ck!==channelKey){if(channel)supa.removeChannel(channel);channelKey=ck;channel=supa.channel('ganadores-en-vivo:'+ck).on('postgres_changes',{event:'*',schema:'public',table:'en_vivo_envios',filter:'fecha=eq.'+f.fecha},()=>refrescar()).subscribe();}
  }catch(e){status('No se pudo actualizar la recepción: '+e.message);}finally{consultando=false;}
 }
 function firmaRonda(i){return JSON.stringify([$('fechaSorteo').value,SLOT_APPROVED_SOURCE,$('cant').value,$('car'+i)?.value,$('pre'+i)?.value,$('nom'+i)?.value]);}
@@ -48,6 +66,7 @@ $('envivoRevocar').onclick=async()=>{if(ocupado||!$('envivoCorreo').value.trim()
 $('envivoCopiar').onclick=async()=>{try{const u=new URL('presentadora/?fecha='+current().fecha,location.href);await navigator.clipboard.writeText(u.href);status('Enlace de la presentadora copiado.');}catch{status('Abre el enlace de la presentadora y copia su dirección.');}};
 $('envivoAvisos').onclick=async()=>{try{avisos=true;if(root.AudioContext||root.webkitAudioContext){audio=audio||new(root.AudioContext||root.webkitAudioContext)();await audio.resume();}if(root.Notification&&Notification.permission==='default')await Notification.requestPermission();status('Avisos activados mientras esta app permanezca abierta.');}catch{status('Los avisos visuales siguen activos; el navegador no permitió sonido o notificaciones.');}};
 $('envivoActualizar').onclick=refrescar;$('fechaSorteo').addEventListener('change',()=>{primera=true;seen.clear();refrescar();});
+let timerConfig=null;document.addEventListener('pagos-local-guardado',()=>{clearTimeout(timerConfig);timerConfig=setTimeout(refrescar,700);});
 for(const ev of ['pagos-acceso-verificado','pagos-aprobados-cargados','ronda-anuncio-generado'])document.addEventListener(ev,refrescar);
 document.addEventListener('pagos-sesion-cerrada',()=>{++turno;if(channel)supa.removeChannel(channel);channel=null;channelKey='';seen.clear();liberar();$('envivoLista').replaceChildren();$('envivoLista').dataset.version='';status('Sesión cerrada.');});
 root.addEventListener('online',refrescar);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refrescar();});setInterval(refrescar,15000);Promise.resolve().then(refrescar);
