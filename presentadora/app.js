@@ -37,7 +37,7 @@ const notice=t=>{$('estado').textContent=t;},status=t=>{
  if(!bottom){bottom=document.createElement('p');bottom.id='resultadoEnvio';bottom.setAttribute('role','status');bottom.setAttribute('aria-live','polite');bottom.style.cssText='font-size:14px;font-weight:650;line-height:1.5;color:#43194e;white-space:pre-wrap';$('enviar').insertAdjacentElement('afterend',bottom);}
  bottom.textContent=t;
 };
-function controls(){document.querySelectorAll('button,input').forEach(n=>n.disabled=busy);$('enviar').disabled=busy||!draft||draft.sent;$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else $('enviar').textContent='Enviar a pagos';}
+function controls(){document.querySelectorAll('button,input').forEach(n=>n.disabled=busy);$('enviar').disabled=busy||!draft||draft.sent;$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
 function key(){return [user.id,config.fecha,config.source,selected].join(':');}
 async function save(){if(draft)await C.local(key(),draft);}
 function release(){urls.forEach(u=>URL.revokeObjectURL(u));urls=[];}
@@ -73,6 +73,10 @@ function paint(){
  const editable=!!draft&&!draft.sent;
  $('agregar').hidden=$('enviar').hidden=$('revisionTexto').hidden=!editable;
  $('corregir').hidden=!draft?.sent;
+ if(draft&&!draft.sent){
+  const anterior=rows.some(e=>e.ronda===selected);
+  $('enviar').textContent=anterior?'🔁 Reemplazar capturas en Pagos':'📤 Enviar ganadores a Pagos';
+ }
  if($('proximaRonda'))$('proximaRonda').hidden=!draft?.sent||selected>=Number(config?.rondas?.length||0);
  if(!draft){resumen();controls();return;}
  draft.cards.forEach((c,i)=>{
