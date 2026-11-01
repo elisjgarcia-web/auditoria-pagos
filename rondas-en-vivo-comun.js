@@ -5,10 +5,16 @@ function uuid(){if(root.crypto?.randomUUID)return root.crypto.randomUUID();const
 function cartones(raw){if(!/^\s*\d{1,4}(?:\s*[,;]\s*\d{1,4})*\s*$/.test(String(raw||'')))throw Error('Escribe el cartón; si hay varios, sepáralos con comas.');const n=String(raw).split(/[,;]/).map(Number);if(n.some(x=>x<1||x>9999)||new Set(n).size!==n.length)throw Error('Revisa los cartones: sin ceros ni repetidos.');return n;}
 function leerOCR(texto,lateral=''){
  const clean=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
- const t=clean(texto),l=clean(lateral),bottom=t.match(/premi[o0]\s+cart[o0]n(?:es)?\s*[:;]?\s*([\d]+(?:\s*[,;]\s*\d+)*)/i),side=l.match(/cart[o0]n\s*(?:n[°ºo.]?\s*)?[:;]?\s*(\d{1,4})/i);let ns=[];
- try{if(bottom)ns=cartones(bottom[1]);else if(side)ns=cartones(side[1]);}catch{}
- const conflicto=!!(bottom&&side&&ns.length&&!ns.includes(Number(side[1])));
- return{cartones:conflicto?[]:ns,conflicto};
+ const t=clean(texto),l=clean(lateral);
+ // El pie del bingo puede nombrar varios ganadores, mientras que la ventana
+ // de comprobación identifica el cartón INDIVIDUAL visible en esta captura.
+ const bottom=t.match(/premi[o0]\s+cart[o0]n(?:es)?\s*[:;]?\s*([\d]+(?:\s*[,;]\s*\d+)*)/i);
+ const side=l.match(/cart[o0]n\s*(?:n[°ºo.]?\s*)?[:;]?\s*(\d{1,4})/i);
+ let pie=[],individual=null;
+ try{if(bottom)pie=cartones(bottom[1]);}catch{}
+ try{if(side)individual=cartones(side[1])[0];}catch{}
+ const conflicto=individual!==null&&pie.length>0&&!pie.includes(individual);
+ return{cartones:conflicto?[]:individual!==null?[individual]:pie,conflicto};
 }
 function ultimos(rows){const m=new Map();for(const e of rows||[])if(!m.has(e.ronda)||m.get(e.ronda).revision<e.revision)m.set(e.ronda,e);return [...m.values()].sort((a,b)=>a.ronda-b.ronda);}
 function numeros(e){const ns=e.capturas.flatMap(c=>c.cartones);if(ns.length>100||new Set(ns).size!==ns.length||ns.some(n=>!Number.isInteger(n)||n<1||n>9999))throw Error('Los cartones del envío no son válidos.');return ns;}
