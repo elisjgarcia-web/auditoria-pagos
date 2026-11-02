@@ -38,7 +38,7 @@ function hoyCaracas(){
 }
 function fechaSegura(raw){
  const valor=String(raw||'').trim();
- if(!/^20\d{2}-\d{2}-\d{2}$/.test(valor))throw Error('Completa la fecha con día, mes y año de cuatro dígitos. Usa el botón 📅 Hoy si es el sorteo actual.');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(valor))throw Error('Completa la fecha con día, mes y año de cuatro dígitos. Usa el botón 📅 Hoy si es el sorteo actual.');
  const anio=Number(valor.slice(0,4));
  if(anio<2025||anio>2100)throw Error('El año del sorteo debe estar entre 2025 y 2100. Usa 📅 Hoy.');
  return C.fecha(valor);
@@ -265,7 +265,7 @@ async function loadDate(){
  try{let data=await rpc('en_vivo_contexto',{p_fecha:f});if(!data)throw Error('Tu correo aún no está autorizado. Pide al encargado de pagos que prepare tu acceso.');
  if(!data.jornada&&autoFecha&&data.source){
   // La configuración de Pagos determina la jornada; no adivinar la fecha.
-  const hoy=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const hoy=hoyCaracas();
   const anterior=new Date(hoy+'T12:00:00Z');anterior.setUTCDate(anterior.getUTCDate()-1);
   const {data:jornadas,error}=await client.from('en_vivo_jornadas').select('fecha').eq('source',data.source).gte('fecha',anterior.toISOString().slice(0,10)).order('fecha',{ascending:false}).limit(1);
   if(!error&&jornadas?.length){f=jornadas[0].fecha;$('fecha').value=f;data=await rpc('en_vivo_contexto',{p_fecha:f});}
@@ -303,7 +303,7 @@ $('nuevoSorteoPresentadora').onclick=async()=>{
   esperandoNuevoSorteo=true;autoFecha=false;++turno;
   selected=0;draft=null;config=null;rows=[];activeCard=null;release();
   $('rondas').replaceChildren();$('capturas').replaceChildren();$('fecha').value='';$('youtube').value='';
-  paint();notice('La presentadora quedó limpia. Selecciona la fecha del siguiente sorteo.');
+  paint();notice('La presentadora quedó limpia. Pulsa 📅 Hoy o elige la fecha del nuevo sorteo.');informarFecha();
   status('Capturas anteriores ocultas aquí. Los resultados ya recibidos siguen guardados en Pagos.');
  }catch(e){
   if(registro){try{if(registro.previous===null)localStorage.removeItem(registro.key);else localStorage.setItem(registro.key,registro.previous);}catch{}}
@@ -311,7 +311,18 @@ $('nuevoSorteoPresentadora').onclick=async()=>{
  }finally{busy=false;controls();}
 };
 $('actualizarRondas').onclick=loadDate;setInterval(()=>{if(user&&!config&&!busy&&!esperandoNuevoSorteo&&!document.hidden)loadDate();},12000);
-$('fecha').onchange=()=>{autoFecha=false;esperandoNuevoSorteo=false;if(user)localStorage.removeItem('envivo-esperando-fecha:'+user.id);loadDate();};$('youtube').oninput=()=>{if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);};
+function elegirFecha(){
+ autoFecha=false;esperandoNuevoSorteo=false;
+ if(user)localStorage.removeItem('envivo-esperando-fecha:'+user.id);
+ informarFecha();loadDate();
+}
+$('fecha').onchange=elegirFecha;
+$('fechaHoy').onclick=()=>{
+ if(busy&&!cargandoFecha)return;
+ $('fecha').value=hoyCaracas();
+ elegirFecha();
+};
+$('youtube').oninput=()=>{if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);};
 async function agregarGanador(){
  if(busy||!draft||draft.sent)return false;
  if(draft.cards.length>=20){status('Máximo 20 capturas por envío.');return false;}
@@ -421,8 +432,9 @@ document.addEventListener('keydown',e=>{
 $('pedir').onclick=async()=>{if(busy)return;busy=true;controls();try{const{error}=await client.auth.signInWithOtp({email:$('email').value.trim()});if(error)throw error;notice('Revisa tu correo y escribe el código recibido.');}catch(e){notice(e.message);}finally{busy=false;controls();}};
 $('verificar').onclick=async()=>{if(busy)return;busy=true;controls();try{const{error}=await client.auth.verifyOtp({email:$('email').value.trim(),token:$('codigo').value.trim(),type:'email'});if(error)throw error;notice('Acceso verificado.');}catch(e){notice(e.message);}finally{busy=false;controls();await session();}};
 $('salir').onclick=async()=>{if(busy)return;await client.auth.signOut();await session();};
-async function session(){const{data}=await client.auth.getSession();const next=data?.session?.user||null;if(next?.id===user?.id&&user)return;user=next;++turno;draft=null;config=null;rows=[];activeCard=null;release();$('trabajo').hidden=!user;$('salir').hidden=!user;$('acceso').open=!user;$('capturas').replaceChildren();if(user){$('email').value=user.email;esperandoNuevoSorteo=localStorage.getItem('envivo-esperando-fecha:'+user.id)==='1';if(esperandoNuevoSorteo){autoFecha=false;$('fecha').value='';notice('Selecciona la fecha del nuevo sorteo para empezar.');}else await loadDate();}else notice('Verifica tu correo autorizado para comenzar.');}
-let fechaInicial;try{fechaInicial=C.fecha(new URL(location.href).searchParams.get('fecha'));}catch{}
-autoFecha=!fechaInicial;$('fecha').value=fechaInicial||new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+async function session(){const{data}=await client.auth.getSession();const next=data?.session?.user||null;if(next?.id===user?.id&&user)return;user=next;++turno;draft=null;config=null;rows=[];activeCard=null;release();$('trabajo').hidden=!user;$('salir').hidden=!user;$('acceso').open=!user;$('capturas').replaceChildren();if(user){$('email').value=user.email;esperandoNuevoSorteo=localStorage.getItem('envivo-esperando-fecha:'+user.id)==='1';if(esperandoNuevoSorteo){autoFecha=false;$('fecha').value='';notice('Pulsa 📅 Hoy para cargar el sorteo del día, o selecciona otra fecha.');informarFecha();}else await loadDate();}else notice('Verifica tu correo autorizado para comenzar.');}
+let fechaInicial;try{fechaInicial=fechaSegura(new URL(location.href).searchParams.get('fecha'));}catch{}
+autoFecha=!fechaInicial;$('fecha').value=fechaInicial||hoyCaracas();
+informarFecha();
 client.auth.onAuthStateChange(()=>setTimeout(session,0));session();if(navigator.serviceWorker?.register)navigator.serviceWorker.register('sw.js',{scope:'./'}).catch(()=>{});
 })();
