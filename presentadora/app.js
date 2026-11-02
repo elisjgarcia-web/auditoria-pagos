@@ -38,7 +38,7 @@ function hoyCaracas(){
 }
 function fechaSegura(raw){
  const valor=String(raw||'').trim();
- if(!/^20\\d{2}-\\d{2}-\\d{2}$/.test(valor))throw Error('Completa la fecha con día, mes y año de cuatro dígitos. Usa el botón 📅 Hoy si es el sorteo actual.');
+ if(!/^20\d{2}-\d{2}-\d{2}$/.test(valor))throw Error('Completa la fecha con día, mes y año de cuatro dígitos. Usa el botón 📅 Hoy si es el sorteo actual.');
  const anio=Number(valor.slice(0,4));
  if(anio<2025||anio>2100)throw Error('El año del sorteo debe estar entre 2025 y 2100. Usa 📅 Hoy.');
  return C.fecha(valor);
@@ -250,7 +250,19 @@ async function enterRound(n){if(busy||!config)return;busy=true;controls();const 
  else if(!draft.sent)status('Pega una captura por ganador. Si una imagen muestra varios cartones, puedes enviarlos separados por comas.');
  }catch(e){draft=null;paint();status(e.message);}finally{busy=false;controls();}
 }
-async function loadDate(){if(busy||!user||esperandoNuevoSorteo||!$('fecha').value)return;busy=true;controls();++turno;selected=0;draft=null;activeCard=null;config=null;paint();$('rondas').replaceChildren();let abrirAuto=0;try{let f=C.fecha($('fecha').value),data=await rpc('en_vivo_contexto',{p_fecha:f});if(!data)throw Error('Tu correo aún no está autorizado. Pide al encargado de pagos que prepare tu acceso.');
+async function loadDate(){
+ if(busy){if(cargandoFecha)fechaPendiente=true;return;}
+ if(!user||esperandoNuevoSorteo)return;
+ let f;
+ try{f=fechaSegura($('fecha').value);}
+ catch(e){
+  notice(e.message);informarFecha();
+  // Una fecha incompleta no debe dejar a la vista las rondas de otro día.
+  selected=0;config=null;draft=null;rows=[];activeCard=null;
+  $('rondas').replaceChildren();paint();return;
+ }
+ cargandoFecha=true;busy=true;controls();++turno;selected=0;draft=null;activeCard=null;config=null;paint();$('rondas').replaceChildren();let abrirAuto=0;
+ try{let data=await rpc('en_vivo_contexto',{p_fecha:f});if(!data)throw Error('Tu correo aún no está autorizado. Pide al encargado de pagos que prepare tu acceso.');
  if(!data.jornada&&autoFecha&&data.source){
   // La configuración de Pagos determina la jornada; no adivinar la fecha.
   const hoy=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -265,7 +277,13 @@ async function loadDate(){if(busy||!user||esperandoNuevoSorteo||!$('fecha').valu
  abrirAuto=config.rondas.findIndex((_,i)=>!rows.some(e=>e.ronda===i+1&&!capturaAnterior(e)))+1;
  if(abrirAuto<1)abrirAuto=config.rondas.length;
  notice('✓ Jornada lista. Selecciona la ronda o pega la primera captura.');}
- catch(e){notice(e.message);}finally{busy=false;controls();if(abrirAuto&&config&&!esperandoNuevoSorteo&&!selected)enterRound(abrirAuto);}}
+ catch(e){notice(e.message);}
+ finally{
+  cargandoFecha=false;busy=false;controls();informarFecha();
+  if(fechaPendiente){fechaPendiente=false;loadDate();return;}
+  if(abrirAuto&&config&&!esperandoNuevoSorteo&&!selected)enterRound(abrirAuto);
+ }
+}
 $('nuevoSorteoPresentadora').onclick=async()=>{
  if(!user||busy)return;
  if(draft?.uncertain){status('Confirma el envio pendiente antes de comenzar otro sorteo.');return;}
