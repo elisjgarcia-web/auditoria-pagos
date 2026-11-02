@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 const C=window.EnVivoComun,$=id=>document.getElementById(id),client=window.supabase.createClient('https://dbkixcpwirjwjvjintkr.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRia2l4Y3B3aXJqd2p2amludGtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYwNjYxNDksImV4cCI6MjA2MTY0MjE0OX0.QJmWLWSe-pRYwxWeel8df7JLhNUvMKaTpL0MCDorgho'),BUCKET='ganadores-en-vivo';
-let user=null,config=null,rows=[],selected=0,draft=null,busy=false,turno=0,urls=[],worker=null,ocrScript=null,activeCard=null,autoFecha=false,esperandoNuevoSorteo=false,ocrQueue=Promise.resolve(),visorCaptura=null;
+let user=null,config=null,rows=[],selected=0,draft=null,busy=false,cargandoFecha=false,fechaPendiente=false,turno=0,urls=[],worker=null,ocrScript=null,activeCard=null,autoFecha=false,esperandoNuevoSorteo=false,ocrQueue=Promise.resolve(),visorCaptura=null;
 function resumen(){
  const estado=$('resumenTrabajo');if(!estado)return;
  if(!draft){estado.textContent='Selecciona una ronda';return;}
@@ -31,13 +31,29 @@ function abrirVisor(blob,titulo){
  visorCaptura.imagen.alt=titulo;
  visorCaptura.dialog.showModal();
 }
+function hoyCaracas(){
+ const partes=new Intl.DateTimeFormat('en-US',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+ const datos={};for(const p of partes)if(p.type!=='literal')datos[p.type]=p.value;
+ return datos.year+'-'+datos.month+'-'+datos.day;
+}
+function fechaSegura(raw){
+ const valor=String(raw||'').trim();
+ if(!/^20\\d{2}-\\d{2}-\\d{2}$/.test(valor))throw Error('Completa la fecha con día, mes y año de cuatro dígitos. Usa el botón 📅 Hoy si es el sorteo actual.');
+ const anio=Number(valor.slice(0,4));
+ if(anio<2025||anio>2100)throw Error('El año del sorteo debe estar entre 2025 y 2100. Usa 📅 Hoy.');
+ return C.fecha(valor);
+}
+function informarFecha(){
+ const ayuda=$('fechaAyuda');
+ if(ayuda)ayuda.textContent=$('fecha').value?'Fecha: '+$('fecha').value.split('-').reverse().join('/')+' · seleccionada para esta jornada.':'Pulsa 📅 Hoy para seleccionar el sorteo actual.';
+}
 const notice=t=>{$('estado').textContent=t;},status=t=>{
  $('envioEstado').textContent=t;
  let bottom=$('resultadoEnvio');
  if(!bottom){bottom=document.createElement('p');bottom.id='resultadoEnvio';bottom.setAttribute('role','status');bottom.setAttribute('aria-live','polite');bottom.style.cssText='font-size:14px;font-weight:650;line-height:1.5;color:#43194e;white-space:pre-wrap';$('enviar').insertAdjacentElement('afterend',bottom);}
  bottom.textContent=t;
 };
-function controls(){document.querySelectorAll('button,input').forEach(n=>n.disabled=busy);$('enviar').disabled=busy||!draft||draft.sent;$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
+function controls(){document.querySelectorAll('button,input').forEach(n=>{n.disabled=busy&&!(cargandoFecha&&(n.id==='fecha'||n.id==='fechaHoy'));});$('enviar').disabled=busy||!draft||draft.sent;$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
 function key(){return [user.id,config.fecha,config.source,selected].join(':');}
 async function save(){if(draft)await C.local(key(),draft);}
 function release(){urls.forEach(u=>URL.revokeObjectURL(u));urls=[];}
