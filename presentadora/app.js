@@ -65,7 +65,9 @@ function versionesCerradas(fecha,source){
 }
 function capturaAnterior(row){
  if(!row||!config||!user)return false;
- const n=Number(versionesCerradas(config.fecha,config.source)[row.ronda]);
+ const guardada=Number(versionesCerradas(config.fecha,config.source)[row.ronda]||0);
+ const servidor=Number(config.cortes?.[String(row.ronda)]||0);
+ const n=Math.max(guardada,servidor);
  return Number.isInteger(n)&&n>=Number(row.revision)&&n>0;
 }
 function registrarCierre(fecha,source,envios){
@@ -270,7 +272,10 @@ async function loadDate(){
   const {data:jornadas,error}=await client.from('en_vivo_jornadas').select('fecha').eq('source',data.source).gte('fecha',anterior.toISOString().slice(0,10)).order('fecha',{ascending:false}).limit(1);
   if(!error&&jornadas?.length){f=jornadas[0].fecha;$('fecha').value=f;data=await rpc('en_vivo_contexto',{p_fecha:f});}
  }
- if(!data.jornada)throw Error('Todavía no hay rondas para '+f+'. Comprueba que la fecha coincida con Pagos y que allí se hayan cargado los aprobados.');config=data.jornada;rows=data.envios||[];
+ if(!data.jornada)throw Error('Todavía no hay rondas para '+f+'. Comprueba que la fecha coincida con Pagos y que allí se hayan cargado los aprobados.');
+ const corte=await rpc('en_vivo_cortes',{p_fecha:f});
+ if(String(corte?.source||'')!==String(data.source||''))throw Error('El sorteo cambió. Actualiza antes de pegar capturas.');
+ config={...data.jornada,cortes:corte?.revisiones||{}};rows=data.envios||[];
  const envioVigente=rows.find(e=>!capturaAnterior(e));
  $('youtube').value=localStorage.getItem('envivo-youtube:'+user.id+':'+f+':'+config.source)||envioVigente?.youtube||'';config.rondas.forEach((r,i)=>{const b=node('button',r);b.type='button';b.onclick=()=>enterRound(i+1);$('rondas').append(b);});
  // Ir a la primera ronda sin envío de esta jornada.
