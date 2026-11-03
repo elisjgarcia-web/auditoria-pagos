@@ -692,13 +692,32 @@ function estadoVacioNuevoSorteo(){
 async function nuevoSorteo(){
  if(REINICIANDO_SORTEO)return false;
  if(!confirm('¿INICIAR UN NUEVO SORTEO? Se borrarán las rondas, ganadores, premios y capturas en preparación de Pagos, incluso los datos compartidos con otros teléfonos. Las compras, transferencias reales y publicaciones anteriores NO se eliminan. Esta acción no se puede deshacer.'))return false;
+ let reiniciadoCompartido=false, avisoCapturas='';
  try{
   if(window.pagosRestauracionLista)await window.pagosRestauracionLista;
   if(!window.PagosCompartidos?.reiniciar)throw Error('La sincronización todavía no está lista. Actualiza la aplicación.');
+  const origenRecepcion=SLOT_APPROVED_SOURCE;
+  let fechaRecepcion='';
+  try{fechaRecepcion=ResultadosPublicos.fechaISO(fechaSorteo.value);}catch{}
   const empty=estadoVacioNuevoSorteo();
   const ok=await window.PagosCompartidos.reiniciar(empty);
   if(!ok)throw Error('No se pudo confirmar el reinicio compartido.');
- }catch(e){alert('⚠️ No se reinició el sorteo. '+e.message);return false;}
+  reiniciadoCompartido=true;
+  if(origenRecepcion&&fechaRecepcion){
+   // Este corte conserva el historial y evita volver a importar capturas de pruebas
+   // al iniciar otro sorteo en la misma fecha y con los mismos aprobados.
+   try{
+    const {data,error}=await supa.rpc('en_vivo_marcar_reinicio',{p_fecha:fechaRecepcion,p_source:String(origenRecepcion)});
+    if(error||String(data?.source||'')!==String(origenRecepcion))throw Error(error?.message||'No se pudo confirmar el corte de capturas.');
+   }catch(e){avisoCapturas='⚠️ Se reinició Pagos, pero no se pudieron archivar las capturas anteriores del en vivo. No cargues resultados antiguos sin verificar. '+e.message;}
+  }else{
+   avisoCapturas='⚠️ Se reinició Pagos, pero no se pudo identificar la jornada para archivar capturas antiguas. Carga los aprobados y verifica cualquier resultado recibido.';
+  }
+ }catch(e){
+  alert(reiniciadoCompartido?'⚠️ Pagos fue reiniciado, pero hubo un problema al archivar las capturas. '+e.message:'⚠️ No se reinició el sorteo. '+e.message);
+  return false;
+ }
+ if(avisoCapturas)alert(avisoCapturas);
  // Solo limpiar el teléfono después de confirmar que la nube quedó reiniciada.
  REINICIANDO_SORTEO=true;clearTimeout(TIMER_GUARDADO);
  try{await window.ComprobantesPagos?.limpiar();}catch(e){console.warn('No se pudieron limpiar las capturas locales',e);}
