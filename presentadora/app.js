@@ -83,6 +83,50 @@ function registrarCierre(fecha,source,envios){
  return {key:k,previous:anterior};
 }
 async function rpc(name,args){const {data,error}=await client.rpc(name,args);if(error)throw Error(error.message);return data;}
+
+// La presentadora NO tiene permiso para reiniciar Pagos: solo obedece una
+// señal maestra emitida en el servidor por un usuario autorizado de Pagos.
+function claveMaestro(fecha,source){return 'envivo-maestro-v1:'+user.id+':'+fecha+':'+source;}
+async function atenderReinicioMaestro(corte,fecha,{forzado=false}={}){
+ const source=String(corte?.source||''),id=String(corte?.maestro_id||'');
+ if(!user||!source||!id||(!forzado&&(busy||exportando)))return false;
+ const clave=claveMaestro(fecha,source);
+ if(localStorage.getItem(clave)===id)return false;
+ // Limpiar exclusivamente borradores locales. El servidor conserva las
+ // imágenes, las revisiones y la evidencia de pagos históricos.
+ await C.borrarBorradores(user.id+':'+fecha+':');
+ localStorage.removeItem('envivo-youtube:'+user.id+':'+fecha+':'+source);
+ localStorage.setItem(clave,id);
+ localStorage.setItem('envivo-esperando-fecha:'+user.id,'1');
+ esperandoNuevoSorteo=true;autoFecha=false;fechaPendiente=false;++turno;
+ selected=0;draft=null;config=null;rows=[];activeCard=null;release();
+ $('rondas').replaceChildren();$('capturas').replaceChildren();
+ $('fecha').value='';$('youtube').value='';
+ paint();informarFecha();
+ notice('♻️ Pagos ordenó un reinicio maestro. La presentadora quedó limpia. Elige la fecha del próximo sorteo.');
+ status('✓ Borradores anteriores limpiados en esta laptop. Las capturas históricas siguen archivadas.');
+ return true;
+}
+let consultandoMaestro=false;
+async function comprobarReinicioMaestro(){
+ if(consultandoMaestro||busy||exportando||!user||esperandoNuevoSorteo||document.hidden)return;
+ const f=config?.fecha||$('fecha').value;
+ if(!f)return;
+ try{
+  const fecha=fechaSegura(f);
+  consultandoMaestro=true;
+  const corte=await rpc('en_vivo_cortes',{p_fecha:fecha});
+  if(config?.source&&String(config.source)!==String(corte?.source||'')){
+   status('⚠️ Cambiaron los aprobados del sorteo. Actualiza las rondas antes de enviar.');
+   return;
+  }
+  await atenderReinicioMaestro(corte,fecha);
+ }catch(e){
+  // Sin borrar borradores en fallos de red. Se reintentará al reconectar.
+  if(/borradores|almacenamiento|indexeddb|quota/i.test(e?.message||''))status('No se pudo aplicar el reinicio maestro: '+e.message);
+ }finally{consultandoMaestro=false;}
+}
+
 function node(tag,text,cls){const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;}
 function paint(){
  release();
@@ -275,7 +319,8 @@ async function loadDate(){
  if(!data.jornada)throw Error('Todavía no hay rondas para '+f+'. Comprueba que la fecha coincida con Pagos y que allí se hayan cargado los aprobados.');
  const corte=await rpc('en_vivo_cortes',{p_fecha:f});
  if(String(corte?.source||'')!==String(data.source||''))throw Error('El sorteo cambió. Actualiza antes de pegar capturas.');
- config={...data.jornada,cortes:corte?.revisiones||{}};rows=data.envios||[];
+ if(await atenderReinicioMaestro(corte,f,{forzado:true}))return;
+ config={...data.jornada,cortes:corte?.revisiones||{},maestroId:corte?.maestro_id||null};rows=data.envios||[];
  const envioVigente=rows.find(e=>!capturaAnterior(e));
  $('youtube').value=localStorage.getItem('envivo-youtube:'+user.id+':'+f+':'+config.source)||envioVigente?.youtube||'';config.rondas.forEach((r,i)=>{const b=node('button',r);b.type='button';b.onclick=()=>enterRound(i+1);$('rondas').append(b);});
  // Ir a la primera ronda sin envío de esta jornada.
@@ -394,7 +439,10 @@ $('nuevoSorteoPresentadora').onclick=async()=>{
   status('No se pudo completar el reinicio: '+e.message);
  }finally{busy=false;controls();}
 };
-$('actualizarRondas').onclick=loadDate;setInterval(()=>{if(user&&!config&&!busy&&!esperandoNuevoSorteo&&!document.hidden)loadDate();},12000);
+$('actualizarRondas').onclick=loadDate;
+setInterval(()=>{if(user&&!config&&!busy&&!esperandoNuevoSorteo&&!document.hidden)loadDate();},12000);
+setInterval(comprobarReinicioMaestro,9000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)comprobarReinicioMaestro();});
 function elegirFecha(){
  autoFecha=false;esperandoNuevoSorteo=false;
  if(user)localStorage.removeItem('envivo-esperando-fecha:'+user.id);
@@ -480,7 +528,15 @@ $('enviar').onclick=async()=>{
  if(draft.cards.some(c=>/[;,]/.test(c.numeros||'')))await revisarCapturasGuardadas();
  const capturas=capturasValidadas(),youtube=TransmisionYouTube.parse($('youtube').value).url;
  const {data:a,error:ae}=await client.auth.getSession();if(ae||a?.session?.user?.id!==user.id)throw Error('Verifica tu acceso de nuevo.');
+ const maestroAntes=await rpc('en_vivo_cortes',{p_fecha:config.fecha});
+ if(String(maestroAntes?.source||'')!==String(config.source))throw Error('El sorteo cambió. Actualiza las rondas.');
+ if(await atenderReinicioMaestro(maestroAntes,config.fecha,{forzado:true}))return;
+ if((maestroAntes?.maestro_id||null)!==(config.maestroId||null))throw Error('El reinicio maestro cambió. Actualiza las rondas antes de enviar.');
  for(let i=0;i<draft.cards.length;i++){const c=draft.cards[i];if(!c.ruta){c.ruta=user.id+'/'+config.fecha+'/'+C.uuid()+'.jpg';await save();}capturas[i].ruta=c.ruta;if(c.uploaded)continue;status('Subiendo captura '+(i+1)+' de '+capturas.length+'…');const{error}=await client.storage.from(BUCKET).upload(c.ruta,c.blob,{contentType:'image/jpeg',upsert:false});if(error){const r=await client.storage.from(BUCKET).download(c.ruta);if(r.error||r.data?.size!==c.blob.size)throw error;const [a,b]=await Promise.all([r.data.arrayBuffer(),c.blob.arrayBuffer()]);const aa=new Uint8Array(a),bb=new Uint8Array(b);if(!aa.every((v,j)=>v===bb[j]))throw Error('La captura existente no coincide. Revisa el envío.');}c.uploaded=true;await save();}
+ const maestroFinal=await rpc('en_vivo_cortes',{p_fecha:config.fecha});
+ if(String(maestroFinal?.source||'')!==String(config.source))throw Error('Cambió el sorteo. No se enviaron estos ganadores.');
+ if(await atenderReinicioMaestro(maestroFinal,config.fecha,{forzado:true}))return;
+ if((maestroFinal?.maestro_id||null)!==(config.maestroId||null))throw Error('El reinicio maestro cambió. Actualiza la ronda antes de enviar.');
  status('Enviando ganadores a pagos…');draft.uncertain=true;draft.youtube=youtube;await save();const row=await rpc('en_vivo_enviar',{p_id:draft.id,p_fecha:config.fecha,p_source:config.source,p_ronda:selected,p_revision:draft.baseRevision,p_youtube:youtube,p_capturas:capturas});if(row.id!==draft.id)throw Error('No se confirmó el envío. Reintenta sin cambiar las capturas.');draft.sent=true;draft.uncertain=false;draft.baseRevision=row.revision;rows=rows.filter(e=>e.ronda!==selected).concat(row);await save();paint();status(row.revision>1?'✓ Capturas nuevas enviadas. Reemplazan la versión anterior de esta ronda en Pagos.':'✓ Capturas enviadas a Pagos.');
  }catch(e){if(draft?.uncertain){try{const data=await rpc('en_vivo_contexto',{p_fecha:config.fecha}),r=data?.envios?.find(e=>e.id===draft.id);if(r){draft.sent=true;draft.uncertain=false;draft.baseRevision=r.revision;rows=rows.filter(e=>e.ronda!==selected).concat(r);await save();paint();status('Enviado ✓ · Confirmado al consultar pagos.');return;}}catch{}}status((e.message||'No se confirmó el envío.')+' Las capturas quedan guardadas; reintenta sin cambiarlas.');}finally{busy=false;controls();}};
 document.addEventListener('paste',async e=>{
