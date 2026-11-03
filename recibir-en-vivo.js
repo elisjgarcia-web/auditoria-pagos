@@ -3,7 +3,7 @@
 const C=root.EnVivoComun;
 function plan(e,{fecha,source,car,aprobados,editable=true}){const ns=C.numeros(e);if(!editable||e.fecha!==fecha||String(e.source)!==String(source||''))return{tipo:'bloqueado',motivo:'El envío no corresponde a la fecha y el sorteo cargados.'};const invalidos=ns.filter(n=>!aprobados(n));if(invalidos.length)return{tipo:'bloqueado',motivo:'Carga y revisa los aprobados: cartón(es) '+invalidos.join(', ')+'.'};let old=[];try{old=car.trim()?C.cartones(car):[];}catch{return{tipo:'conflicto',ns};}return{tipo:!old.length?'llenar':old.length===ns.length&&old.every(n=>ns.includes(n))?'igual':'conflicto',ns};}
 root.EnVivoRecepcion={plan};if(typeof module==='object')module.exports=root.EnVivoRecepcion;if(typeof document==='undefined')return;
-const $=id=>document.getElementById(id),BUCKET='ganadores-en-vivo';let ocupado=false,consultando=false,channel=null,channelKey='',seen=new Set(),primera=true,aplicando=false,urls=[],audio=null,avisos=false,context=null,turno=0;const intentados=new Set();
+const $=id=>document.getElementById(id),BUCKET='ganadores-en-vivo';let ocupado=false,consultando=false,channel=null,channelKey='',aplicando=false,urls=[],audio=null,avisos=false,context=null,turno=0,avisoClave='',avisoMapa=null,avisoUltimaConsulta='';const intentados=new Set();
 const status=t=>{$('envivoEstado').textContent=t;};
 
 function ultimosVigentes(data){
@@ -29,7 +29,82 @@ async function rpc(name,args){const{data,error}=await supa.rpc(name,args);if(err
 const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;};
 function liberar(){urls.forEach(u=>URL.revokeObjectURL(u));urls=[];}
 function estadoPara(e){const i=$('car'+e.ronda);if(!i)return{tipo:'bloqueado',motivo:'La cantidad de rondas no coincide. Revisa la configuración.'};return plan(e,{...current(),car:i.value,aprobados:n=>estadoCarton(n)==='OK'});}
-function avisar(es){if(!es.length)return;$('envivoTitulo').textContent='🔔 '+es.length+' ronda(s) con ganadores recibidos';if(avisos){try{if(audio){const o=audio.createOscillator(),g=audio.createGain();o.connect(g);g.connect(audio.destination);g.gain.value=.07;o.frequency.value=660;o.start();o.stop(audio.currentTime+.18);}if(document.hidden&&root.Notification?.permission==='granted')new Notification('Bingo Andino 75',{body:'Nuevos ganadores recibidos del en vivo.',tag:'andino-ganadores'});}catch{}}}
+
+function avisosGuardados(fecha,source,uid){
+ // Solo se guardan IDs y revisiones de las rondas, nunca imágenes, datos personales ni bancos.
+ return 'andino-envivo-notificaciones-v2:'+uid+':'+fecha+':'+source;
+}
+function formatearAviso(es,prueba=false){
+ const texto=es.map(e=>'Ronda '+e.ronda+' · cartón(es) '+C.numeros(e).join(', ')).join(' | ');
+ return (prueba?'PRUEBA DE AVISOS · ':'📸 Nueva captura recibida · ')+texto;
+}
+function mostrarAlerta(texto){
+ const banner=$('envivoAvisoNuevo');
+ if(banner){banner.hidden=false;banner.textContent=texto;}
+}
+function ocultarAlerta(){
+ const banner=$('envivoAvisoNuevo');
+ if(banner){banner.hidden=true;banner.textContent='';}
+}
+function sonarAviso(){
+ if(!avisos||!audio)return;
+ try{
+  if(audio.state==='suspended')audio.resume().catch(()=>{});
+  const ahora=audio.currentTime;
+  for(const [offset,frecuencia] of [[0,800],[.16,1040],[.32,860]]){
+   const osc=audio.createOscillator(),gan=audio.createGain();
+   osc.type='sine';osc.frequency.value=frecuencia;
+   osc.connect(gan);gan.connect(audio.destination);
+   gan.gain.setValueAtTime(.0001,ahora+offset);
+   gan.gain.exponentialRampToValueAtTime(.11,ahora+offset+.02);
+   gan.gain.exponentialRampToValueAtTime(.0001,ahora+offset+.13);
+   osc.start(ahora+offset);osc.stop(ahora+offset+.14);
+  }
+ }catch{}
+}
+async function notificacionSistema(texto){
+ if(!avisos||!root.Notification||root.Notification.permission!=='granted')return;
+ try{
+  const opciones={body:texto,tag:'bingo-andino-nuevo-ganador',renotify:true,icon:'./icon-192.png',data:{url:new URL('./',location.href).href}};
+  if(navigator.serviceWorker?.ready){
+   const registro=await navigator.serviceWorker.ready;
+   if(registro?.showNotification){await registro.showNotification('🎙️ Bingo Andino 75',opciones);return;}
+  }
+  new Notification('🎙️ Bingo Andino 75',opciones);
+ }catch(e){console.warn('No se pudo mostrar el aviso del sistema',e);}
+}
+function avisar(es,{prueba=false}={}){
+ if(!es.length)return;
+ const texto=formatearAviso(es,prueba);
+ mostrarAlerta('🔔 '+texto);
+ sonarAviso();
+ if(avisos)notificacionSistema(texto);
+}
+function comprobarAvisos(es,data,uid){
+ const fecha=String(data?.jornada?.fecha||$('fechaSorteo').value||'');
+ const source=String(data?.source||'');
+ if(!uid||!fecha||!source)return;
+ const clave=avisosGuardados(fecha,source,uid);
+ if(avisoClave!==clave){
+  avisoClave=clave;avisoMapa=null;ocultarAlerta();
+  try{const anterior=JSON.parse(localStorage.getItem(clave)||'null');
+   if(anterior&&typeof anterior==='object'&&!Array.isArray(anterior))avisoMapa=anterior;
+  }catch{}
+ }
+ const mapa={};
+ for(const e of es)mapa[String(e.ronda)]={id:String(e.id),revision:Number(e.revision)};
+ let nuevos=[];
+ if(avisoMapa){
+  nuevos=es.filter(e=>avisoMapa[String(e.ronda)]?.id!==String(e.id));
+ }else{
+  // Primer uso: no reproducir avisos de fechas antiguas, pero destacar los pendientes reales.
+  nuevos=es.filter(e=>!e.aplicado);
+ }
+ avisoMapa=mapa;
+ try{localStorage.setItem(clave,JSON.stringify(mapa));}catch{}
+ if(nuevos.length)avisar(nuevos);
+}
+
 function actualizarRondas(data=context){
  const ultimos=ultimosVigentes(data);
  const cuantos=Number($('cant')?.value)||6;
@@ -84,7 +159,7 @@ function actualizarRondas(data=context){
 }
 root.EnVivoRecepcion.actualizarRondas=actualizarRondas;
 function mostrar(data){
- liberar();$('envivoLista').replaceChildren();const es=ultimosVigentes(data);const nuevos=es.filter(e=>!e.aplicado&&!seen.has(e.id));es.forEach(e=>seen.add(e.id));if(!primera)avisar(nuevos);else{primera=false;if(nuevos.length)avisar(nuevos);}let pendientes=0;
+ liberar();$('envivoLista').replaceChildren();const es=ultimosVigentes(data);let pendientes=0;
  for(const e of es){if(!e.aplicado)pendientes++;const box=node('article',null,'ev-envio'),head=node('h3',(data.jornada?.rondas[e.ronda-1]||'Ronda '+e.ronda)+(e.aplicado?' · Recibido ✓':' · Nuevos ganadores')),nums=C.numeros(e),names=nums.map(n=>{const x=estadoCarton(n)==='OK'?buscar(n):null;return'Cartón '+n+(x?' · '+x.nombre:' · Falta revisar aprobados');}),p=node('p',names.join('\n'),'ev-nombres'),details=node('details'),summary=node('summary','Ver '+e.capturas.length+' captura(s) del resultado'),photos=node('div'),button=node('button',e.aplicado?'Recuperar capturas de esta ronda':'Revisar y completar ronda','gen'),hint=node('p','Revisión '+e.revision+' · '+new Date(e.creado_en).toLocaleTimeString('es-VE'),'small');details.append(summary,photos);let loaded=false;details.ontoggle=async()=>{if(!details.open||loaded)return;loaded=true;try{for(const c of e.capturas){const b=await descargar(c,e);if(!box.isConnected)return;const img=node('img');const u=URL.createObjectURL(b);urls.push(u);img.src=u;img.alt='Resultado · Cartón '+c.cartones.join(', ');photos.append(img);}}catch(err){photos.textContent=err.message;loaded=false;}};button.onclick=()=>aplicar(e);const st=estadoPara(e);if(st.tipo==='bloqueado')hint.textContent=st.motivo;else if(st.tipo==='conflicto')hint.textContent='Esta ronda ya tiene otros cartones. Se pedirá confirmación antes de reemplazarlos.';box.append(head,p,details,hint,button);$('envivoLista').append(box);
  }
  $('envivoTitulo').textContent=pendientes?'🔔 Ganadores del en vivo · '+pendientes+' por revisar':'🎙️ Ganadores del en vivo';if(!es.length)$('envivoLista').textContent='Aquí llegarán las capturas de la presentadora.';
@@ -117,7 +192,7 @@ async function refrescar(){
   }
  }else if(!f.source){avisoConfiguracion='Carga primero las compras aprobadas en Pagos para activar las rondas del en vivo.';}
  if(token!==turno||f.fecha!==current().fecha||f.source!==current().source)return;
- context=data;actualizarRondas(data);const serial=JSON.stringify([f.fecha,data.source,f.source,data.cortes,data.jornada,data.envios,(data.envios||[]).flatMap(e=>C.numeros(e).map(n=>[n,estadoCarton(n),estadoCarton(n)==='OK'?buscar(n)?.nombre:''])),Array.from({length:Number($('cant').value)},(_,i)=>$('car'+(i+1))?.value)]);if($('envivoLista').dataset.version!==serial){$('envivoLista').dataset.version=serial;mostrar(data);}if(avisoConfiguracion)status(avisoConfiguracion);const ck=a.session.user.id+':'+f.fecha;if(ck!==channelKey){if(channel)supa.removeChannel(channel);channelKey=ck;channel=supa.channel('ganadores-en-vivo:'+ck).on('postgres_changes',{event:'*',schema:'public',table:'en_vivo_envios',filter:'fecha=eq.'+f.fecha},()=>refrescar()).subscribe();}
+ context=data;comprobarAvisos(ultimosVigentes(data),data,a.session.user.id);actualizarRondas(data);const serial=JSON.stringify([f.fecha,data.source,f.source,data.cortes,data.jornada,data.envios,(data.envios||[]).flatMap(e=>C.numeros(e).map(n=>[n,estadoCarton(n),estadoCarton(n)==='OK'?buscar(n)?.nombre:''])),Array.from({length:Number($('cant').value)},(_,i)=>$('car'+(i+1))?.value)]);if($('envivoLista').dataset.version!==serial){$('envivoLista').dataset.version=serial;mostrar(data);}if(avisoConfiguracion)status(avisoConfiguracion);const ck=a.session.user.id+':'+f.fecha;if(ck!==channelKey){if(channel)supa.removeChannel(channel);channelKey=ck;channel=supa.channel('ganadores-en-vivo:'+ck).on('postgres_changes',{event:'*',schema:'public',table:'en_vivo_envios',filter:'fecha=eq.'+f.fecha},()=>refrescar()).subscribe();}
  }catch(e){status('No se pudo actualizar la recepción: '+e.message);}finally{consultando=false;}
 }
 function firmaRonda(i){return JSON.stringify([$('fechaSorteo').value,SLOT_APPROVED_SOURCE,$('cant').value,$('car'+i)?.value,$('pre'+i)?.value,$('nom'+i)?.value]);}
@@ -140,10 +215,30 @@ $('envivoProcesando').addEventListener('cancel',e=>e.preventDefault());
 $('envivoPreparar').onclick=async()=>{if(ocupado)return;ocupado=true;try{const p=parametros();const data=await rpc('en_vivo_configurar',p);status('Rondas preparadas para '+data.fecha+(p.p_email?' · Correo autorizado.':'.'));$('envivoEnlace').hidden=false;$('envivoEnlace').href=new URL('presentadora/?fecha='+data.fecha,location.href).href;}catch(e){status(e.message);}finally{ocupado=false;refrescar();}};
 $('envivoRevocar').onclick=async()=>{if(ocupado||!$('envivoCorreo').value.trim()||!confirm('¿Retirar el acceso de este correo a la app del en vivo?'))return;ocupado=true;try{await rpc('en_vivo_configurar',{...parametros(),p_activo:false});status('Acceso retirado para este correo.');}catch(e){status(e.message);}finally{ocupado=false;}};
 $('envivoCopiar').onclick=async()=>{try{const u=new URL('presentadora/?fecha='+current().fecha,location.href);await navigator.clipboard.writeText(u.href);status('Enlace de la presentadora copiado.');}catch{status('Abre el enlace de la presentadora y copia su dirección.');}};
-$('envivoAvisos').onclick=async()=>{try{avisos=true;if(root.AudioContext||root.webkitAudioContext){audio=audio||new(root.AudioContext||root.webkitAudioContext)();await audio.resume();}if(root.Notification&&Notification.permission==='default')await Notification.requestPermission();status('Avisos activados mientras esta app permanezca abierta.');}catch{status('Los avisos visuales siguen activos; el navegador no permitió sonido o notificaciones.');}};
-$('envivoActualizar').onclick=refrescar;$('fechaSorteo').addEventListener('change',()=>{primera=true;seen.clear();refrescar();});
+$('envivoAvisos').onclick=async()=>{
+ try{
+  avisos=true;
+  if(root.AudioContext||root.webkitAudioContext){
+   audio=audio||new(root.AudioContext||root.webkitAudioContext)();await audio.resume();
+  }
+  let permiso='no disponible';
+  if(root.Notification){
+   permiso=Notification.permission;
+   if(permiso==='default')permiso=await Notification.requestPermission();
+  }
+  $('envivoAvisos').textContent='🔔 Avisos activados';
+  status(permiso==='granted'?'✓ Sonido y avisos del sistema habilitados con la app abierta. Pulsa Probar aviso.':
+   '✓ Avisos visuales y sonido activados. Para avisos del sistema, permite las notificaciones en el navegador. Pulsa Probar aviso.');
+ }catch{avisos=true;status('Los avisos visuales siguen activos, pero el navegador no permitió activar el sonido.');}
+};
+$('envivoProbarAviso').onclick=()=>{
+ avisar([{ronda:1,capturas:[{cartones:[123]}]}],{prueba:true});
+ status('Aviso de prueba mostrado. Comprueba el sonido y las notificaciones de tu dispositivo.');
+};
+$('envivoCerrarAviso').onclick=ocultarAlerta;
+$('envivoActualizar').onclick=refrescar;$('fechaSorteo').addEventListener('change',()=>{avisoClave='';avisoMapa=null;ocultarAlerta();refrescar();});
 let timerConfig=null;document.addEventListener('pagos-local-guardado',()=>{clearTimeout(timerConfig);timerConfig=setTimeout(refrescar,700);});
 for(const ev of ['pagos-acceso-verificado','pagos-aprobados-cargados','ronda-anuncio-generado'])document.addEventListener(ev,refrescar);
-document.addEventListener('pagos-sesion-cerrada',()=>{++turno;if(channel)supa.removeChannel(channel);channel=null;channelKey='';seen.clear();liberar();$('envivoLista').replaceChildren();$('envivoLista').dataset.version='';status('Sesión cerrada.');});
-root.addEventListener('online',refrescar);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refrescar();});setInterval(refrescar,15000);Promise.resolve().then(refrescar);
+document.addEventListener('pagos-sesion-cerrada',()=>{++turno;if(channel)supa.removeChannel(channel);channel=null;channelKey='';avisoClave='';avisoMapa=null;ocultarAlerta();liberar();$('envivoLista').replaceChildren();$('envivoLista').dataset.version='';status('Sesión cerrada.');});
+root.addEventListener('online',refrescar);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refrescar();});setInterval(()=>{if(!document.hidden)refrescar();},7000);Promise.resolve().then(refrescar);
 })(typeof window==='object'?window:globalThis);
