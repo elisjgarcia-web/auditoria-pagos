@@ -2,8 +2,26 @@
 'use strict';
 const C=root.EnVivoComun;
 function plan(e,{fecha,source,car,aprobados,editable=true}){const ns=C.numeros(e);if(!editable||e.fecha!==fecha||String(e.source)!==String(source||''))return{tipo:'bloqueado',motivo:'El envío no corresponde a la fecha y el sorteo cargados.'};const invalidos=ns.filter(n=>!aprobados(n));if(invalidos.length)return{tipo:'bloqueado',motivo:'Carga y revisa los aprobados: cartón(es) '+invalidos.join(', ')+'.'};let old=[];try{old=car.trim()?C.cartones(car):[];}catch{return{tipo:'conflicto',ns};}return{tipo:!old.length?'llenar':old.length===ns.length&&old.every(n=>ns.includes(n))?'igual':'conflicto',ns};}
-root.EnVivoRecepcion={plan};if(typeof module==='object')module.exports=root.EnVivoRecepcion;if(typeof document==='undefined')return;
-const $=id=>document.getElementById(id),BUCKET='ganadores-en-vivo';let ocupado=false,consultando=false,aplicando=false,urls=[],audio=null,avisos=root.Notification?.permission==='granted',context=null,turno=0,avisoClave='',avisoMapa=null;
+// Las capturas de una misma ronda se procesan independientemente: un fallo
+// no impide guardar las de los demás cartones ni preparar sus pagos.
+async function cargarCapturasIndependientes(capturas,obtener,incorporar){
+ const correctos=[],faltantes=[];
+ for(const c of capturas){
+  let foto;
+  try{foto=await obtener(c);}
+  catch(err){
+   for(const n of c.cartones)faltantes.push({carton:n,motivo:String(err?.message||'No se pudo descargar la imagen.')});
+   continue;
+  }
+  for(const n of c.cartones){
+   try{await incorporar(c,n,foto);correctos.push(n);}
+   catch(err){faltantes.push({carton:n,motivo:String(err?.message||'No se pudo guardar la imagen.')});}
+  }
+ }
+ return {correctos,faltantes};
+}
+root.EnVivoRecepcion={plan,cargarCapturasIndependientes};if(typeof module==='object')module.exports=root.EnVivoRecepcion;if(typeof document==='undefined')return;
+const $=id=>document.getElementById(id),BUCKET='ganadores-en-vivo';let ocupado=false,consultando=false,aplicando=false,urls=[],audio=null,avisos=root.Notification?.permission==='granted',context=null,turno=0,avisoClave='',avisoMapa=null;const pendientesImagenes=new Map();
 const status=t=>{$('envivoEstado').textContent=t;};
 
 function ultimosVigentes(data){
@@ -130,7 +148,8 @@ function actualizarRondas(data=context){
      if(!seleccionado){info.textContent='Esta ronda todavía no tiene capturas enviadas por la presentadora.';return;}
      if(seleccionado.fecha!==ahora.fecha)throw Error('La fecha recibida no coincide con la del sorteo.');
      const cargado=await aplicar(seleccionado);
-     info.textContent=cargado?'✓ Capturas descargadas y vinculadas en Pagos. Abre Resultado y verifica el cartón antes de transferir.':'⚠️ La ronda NO quedó confirmada. Si había varios ganadores, alguna imagen pudo guardarse antes del fallo. Comprueba Resultado y vuelve a traer la ronda completa.';
+     if(cargado)info.textContent='✓ Todas las capturas guardadas en Pagos. Verifica cada imagen antes de transferir.';
+     else if(!pendientesImagenes.has(i))info.textContent=$('envivoEstado').textContent||'No se completó la recepción. Puedes seguir trabajando y reintentar.';
      actualizarRondas(context);
     }catch(err){info.textContent='No se pudo cargar esta ronda: '+(err.message||'error de conexión.');}
    });
@@ -138,6 +157,8 @@ function actualizarRondas(data=context){
   const actual=ultimos.find(x=>x.ronda===i),btn=$('cp-recibir-'+i),info=$('cp-recibo-estado-'+i),acc=$('cp-acordeon-'+i);
   if(acc)acc.dataset.recibidos=!actual?'':actual.aplicado?'✓ Confirmada en servidor':'📥 Disponible';
   root.PagosCompacto?.etiquetaRonda?.(i);
+  const parcial=pendientesImagenes.get(i);
+  if(parcial&&parcial.envio!==actual?.id)pendientesImagenes.delete(i);
   if(!actual){
    btn.textContent='📥 Traer capturas de esta ronda';
    info.textContent=!data?'Sin consultar. Pulsa «Traer capturas» para buscar en Supabase.':data?.cortes?.[String(i)]?'Sin capturas nuevas desde el reinicio. Las anteriores quedaron archivadas.':'No hay capturas nuevas en la última consulta. Pulsa para volver a buscar.';
@@ -152,6 +173,12 @@ function actualizarRondas(data=context){
     btn.textContent=actual.aplicado?'↻ Recuperar capturas de esta ronda':'📥 Traer '+(cantidad||'')+' captura(s) de esta ronda';
     if(!info.textContent||info.textContent.startsWith('Sin capturas')||info.textContent.startsWith('⚠️')||info.textContent.startsWith('Sin consultar'))info.textContent=actual.aplicado?'✓ Confirmada en servidor. Para verla en este equipo, pulsa Recuperar capturas.':'Capturas disponibles · revisión '+actual.revision;
    }
+  }
+  if(actual&&pendientesImagenes.has(i)){
+   const aviso=pendientesImagenes.get(i);
+   info.textContent=aviso.mensaje;
+   btn.textContent='↻ Reintentar capturas de esta ronda';
+   if(acc)acc.dataset.recibidos='⚠️ Fotos pendientes';
   }
  }
 }
@@ -184,26 +211,95 @@ async function refrescar(){
  }catch(e){status('No se pudo actualizar la recepción: '+e.message);}finally{consultando=false;}
 }
 function firmaRonda(i){return JSON.stringify([$('fechaSorteo').value,SLOT_APPROVED_SOURCE,$('cant').value,$('car'+i)?.value,$('pre'+i)?.value,$('nom'+i)?.value]);}
-async function aplicar(e,{automatico=false}={}){if(ocupado||aplicando)return false;ocupado=true;let completo=false;const dlg=$('envivoProcesando');try{
- const st=estadoPara(e);if(st.tipo==='bloqueado')throw Error(st.motivo);if(automatico&&!['llenar','igual'].includes(st.tipo))return;const i=e.ronda;if(!monto($('pre'+i).value))throw Error('Coloca el premio de la ronda '+i+' antes de completar sus pagos.');
- if(!automatico&&!confirm((st.tipo==='conflicto'?'Esta ronda tiene otros cartones y será reemplazada.\n\n':'')+'¿Confirmas los cartones '+st.ns.join(', ')+' de '+$('nom'+i).value+'? Se prepararán sus pagos con el premio configurado.'))return;
- const before=firmaRonda(i),check=await contextoVigente(e.fecha),latest=ultimosVigentes(check).find(x=>x.ronda===i);if(automatico&&latest?.aplicado)return;if(!latest||latest.id!==e.id||check.source!==e.source)throw Error('Llegó otra versión o cambió el sorteo. Revisa el envío más reciente.');if(before!==firmaRonda(i))throw Error('La ronda cambió mientras revisabas. Vuelve a intentarlo.');
- dlg.showModal();const blobs=[];for(const c of e.capturas)blobs.push(await descargar(c,e));if(before!==firmaRonda(i))throw Error('Los datos cambiaron durante la descarga. Revisa otra vez.');
- const editar=async()=>{const st2=estadoPara(e);if(st2.tipo==='bloqueado')throw Error(st2.motivo);if(before!==firmaRonda(i))throw Error('La ronda cambió antes de completarla.');const car=$('car'+i),oldCar=car.value,oldMsg=$('msg'+i).innerText,oldPag=$('pag'+i).innerText,cont=$('pagosBtns'+i),oldNodes=[...cont.childNodes],restaurando=RESTAURANDO_ESTADO,regen=REGENERANDO_GUARDADO;aplicando=true;RESTAURANDO_ESTADO=true;REGENERANDO_GUARDADO=true;
- try{car.value=st2.ns.join(', ');if(!genR(i))throw Error('No se pudieron preparar los pagos.');for(let j=0;j<e.capturas.length;j++)for(const n of e.capturas[j].cartones)await root.ComprobantesPagos.recibirResultado({tipo:'pagosBtns'+i,carton:n,fecha:e.fecha,source:e.source,blob:blobs[j],reemplazar:true});}
- catch(err){car.value=oldCar;$('msg'+i).innerText=oldMsg;$('pag'+i).innerText=oldPag;cont.replaceChildren(...oldNodes);throw err;}
- finally{RESTAURANDO_ESTADO=restaurando;REGENERANDO_GUARDADO=regen;aplicando=false;}
- guardarEstadoAhora();};
- if(root.PagosCompartidos?.editar)await root.PagosCompartidos.editar(editar);else await editar();
- await rpc('en_vivo_aplicar',{p_id:e.id});if(!$('transmisionEnlace').value){$('transmisionEnlace').value=e.youtube;$('transmisionEnlace').dispatchEvent(new Event('input',{bubbles:true}));}
- status('✓ Capturas de la ronda descargadas y vinculadas. Verifica la imagen de Resultado antes de transferir.');
- completo=true;
- if(context?.envios){
-  const registro=context.envios.find(x=>x.id===e.id);
-  if(registro)registro.aplicado=true;
+
+async function aplicar(e,{automatico=false}={}){
+ if(ocupado||aplicando)return false;
+ ocupado=true;let completo=false;
+ const dlg=$('envivoProcesando');
+ try{
+  const st=estadoPara(e);
+  if(st.tipo==='bloqueado')throw Error(st.motivo);
+  if(automatico&&!['llenar','igual'].includes(st.tipo))return false;
+  const i=e.ronda;
+  if(!monto($('pre'+i).value))throw Error('Coloca el premio de la ronda '+i+' antes de completar sus pagos.');
+  if(!automatico&&!confirm((st.tipo==='conflicto'?'Esta ronda tiene otros cartones y será reemplazada.\\n\\n':'')+
+    '¿Confirmas los cartones '+st.ns.join(', ')+' de '+$('nom'+i).value+'? Se prepararán sus pagos con el premio configurado.'))return false;
+  const before=firmaRonda(i);
+  const check=await contextoVigente(e.fecha),latest=ultimosVigentes(check).find(x=>x.ronda===i);
+  if(automatico&&latest?.aplicado)return false;
+  if(!latest||latest.id!==e.id||check.source!==e.source)throw Error('Llegó otra versión o cambió el sorteo. Revisa el envío más reciente.');
+  if(before!==firmaRonda(i))throw Error('La ronda cambió mientras revisabas. Vuelve a intentarlo.');
+  dlg.showModal();
+  // Una descarga fallida se anota, pero no impide descargar las otras imágenes.
+  const preparados=[];
+  for(const c of e.capturas){
+   try{preparados.push({...c,blob:await descargar(c,e)});}
+   catch(err){preparados.push({...c,error:err});}
+  }
+  if(before!==firmaRonda(i))throw Error('Los datos cambiaron durante la descarga. Revisa otra vez.');
+  let resultado={correctos:[],faltantes:[]};
+  const editar=async()=>{
+   const st2=estadoPara(e);
+   if(st2.tipo==='bloqueado')throw Error(st2.motivo);
+   if(before!==firmaRonda(i))throw Error('La ronda cambió antes de completarla.');
+   const car=$('car'+i),oldCar=car.value,oldMsg=$('msg'+i).innerText,
+    oldPag=$('pag'+i).innerText,cont=$('pagosBtns'+i),oldNodes=[...cont.childNodes],
+    restaurando=RESTAURANDO_ESTADO,regen=REGENERANDO_GUARDADO;
+   aplicando=true;RESTAURANDO_ESTADO=true;REGENERANDO_GUARDADO=true;
+   try{
+    // Preparar todos los ganadores de la ronda, incluso si falta alguna imagen.
+    car.value=st2.ns.join(', ');
+    if(!genR(i))throw Error('No se pudieron preparar los pagos de esta ronda.');
+    resultado=await cargarCapturasIndependientes(
+     preparados,
+     async c=>{if(c.error)throw c.error;return c.blob;},
+     async (c,n,blob)=>root.ComprobantesPagos.recibirResultado({
+      tipo:'pagosBtns'+i,carton:n,fecha:e.fecha,source:e.source,blob,reemplazar:true
+     })
+    );
+   }catch(err){
+    // Solo revertir si hubo un error general al preparar la ronda; nunca
+    // borrar otras imágenes porque haya fallado una captura individual.
+    car.value=oldCar;$('msg'+i).innerText=oldMsg;$('pag'+i).innerText=oldPag;
+    cont.replaceChildren(...oldNodes);throw err;
+   }finally{
+    RESTAURANDO_ESTADO=restaurando;REGENERANDO_GUARDADO=regen;aplicando=false;
+   }
+   guardarEstadoAhora();
+  };
+  if(root.PagosCompartidos?.editar)await root.PagosCompartidos.editar(editar);else await editar();
+  if(resultado.faltantes.length){
+   const cartones=resultado.faltantes.map(x=>x.carton).join(', ');
+   const mensaje='⚠️ Ronda '+i+': '+resultado.correctos.length+' de '+st.ns.length+
+    ' imagen(es) guardadas. Faltan cartón(es) '+cartones+
+    '. Los demás ganadores y pagos siguen disponibles. Reintenta cuando quieras.';
+   pendientesImagenes.set(i,{envio:e.id,mensaje,cartones});
+   status(mensaje);
+   // La confirmación del servidor sigue pendiente para permitir recuperar lo faltante.
+   // No se deshabilitan otras rondas ni el trabajo en Pagos.
+   return false;
+  }
+  pendientesImagenes.delete(i);
+  try{
+   await rpc('en_vivo_aplicar',{p_id:e.id});
+   if(context?.envios){const fila=context.envios.find(x=>x.id===e.id);if(fila)fila.aplicado=true;}
+  }catch(err){
+   status('⚠️ Las '+st.ns.length+' imágenes se guardaron en este equipo, pero el servidor no confirmó la recepción: '+
+    (err.message||'Reintenta cuando quieras.')+'. Puedes continuar trabajando.');
+   return false;
+  }
+  if(!$('transmisionEnlace').value){
+   $('transmisionEnlace').value=e.youtube;
+   $('transmisionEnlace').dispatchEvent(new Event('input',{bubbles:true}));
+  }
+  status('✓ Ronda '+i+': '+resultado.correctos.length+' imagen(es) guardadas. Verifica cada cartón antes de transferir.');
+  completo=true;
+ }catch(err){
+  status('⚠️ No se pudo completar la recepción: '+(err.message||'Error inesperado.')+'. Puedes continuar con las demás rondas.');
+ }finally{
+  if(dlg.open)dlg.close();
+  ocupado=false;actualizarRondas(context);
  }
- }catch(err){status('⚠️ No se pudo traer la captura: '+(err.message||'Error inesperado.'));}
- finally{if(dlg.open)dlg.close();ocupado=false;actualizarRondas(context);}
  return completo;
 }
 $('envivoProcesando').addEventListener('cancel',e=>e.preventDefault());
@@ -233,6 +329,7 @@ $('envivoProbarAviso').onclick=()=>{
 $('envivoCerrarAviso').onclick=ocultarAlerta;
 function limpiarVistaManual(mensaje){
  ++turno;
+ pendientesImagenes.clear();
  context=null;avisoClave='';avisoMapa=null;
  ocultarAlerta();liberar();
  $('envivoLista').replaceChildren();$('envivoLista').dataset.version='';
