@@ -54,7 +54,16 @@ const notice=t=>{$('estado').textContent=t;},status=t=>{
  bottom.textContent=t;
 };
 function controls(){document.querySelectorAll('button,input').forEach(n=>{n.disabled=busy&&!(cargandoFecha&&(n.id==='fecha'||n.id==='fechaHoy'));});$('descargarCapturas').disabled=busy||exportando||!config||!user;$('enviar').disabled=busy||!draft||draft.sent;$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
-function key(){return [user.id,config.fecha,config.source,selected].join(':');}
+function claveEpocaLocal(fecha,source){return 'envivo-epoca-borrador-v1:'+user.id+':'+fecha+':'+source;}
+function key(){
+ const partes=[user.id,config.fecha,config.source,selected];
+ // Antes del primer reinicio conserva las claves antiguas y no pierde borradores
+ // actuales. Tras un reinicio, cada jornada lógica usa un espacio separado.
+ if(config.maestroId)partes.push(String(config.maestroId));
+ const epoca=localStorage.getItem(claveEpocaLocal(config.fecha,config.source));
+ if(epoca)partes.push(epoca);
+ return partes.join(':');
+}
 async function save(){if(draft)await C.local(key(),draft);}
 function release(){urls.forEach(u=>URL.revokeObjectURL(u));urls=[];}
 // Los envíos entregados son registros de Pagos: archivarlos SOLO en la vista local.
@@ -432,6 +441,9 @@ $('nuevoSorteoPresentadora').onclick=async()=>{
   registro=registrarCierre(fecha,source,recientes);
   revisionReinicioLocal++;
   await C.borrarBorradores(user.id+':'+fecha+':');
+  // Cambiar también el espacio de borradores: una imagen que termine de
+  // procesarse tarde no podrá reaparecer en la nueva jornada.
+  if(source)localStorage.setItem(claveEpocaLocal(fecha,source),C.uuid());
   localStorage.removeItem('envivo-youtube:'+user.id+':'+fecha+':'+source);
   localStorage.setItem('envivo-esperando-fecha:'+user.id,'1');
   esperandoNuevoSorteo=true;autoFecha=false;++turno;
