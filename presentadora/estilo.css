@@ -146,3 +146,24 @@ button:focus-visible,input:focus-visible{outline:3px solid #dcae54;outline-offse
  #trabajo .fecha-controles{gap:4px}
  #trabajo .fecha-controles #fechaHoy{min-width:54px;padding:6px 5px;font-size:11px}
 }
+
+
+/* Exportación rápida y privada de todas las capturas para la presentadora. */
+#trabajo .acciones-config .descargar-capturas{
+ background:#f0cf82;color:#34113f;border:1px solid #fff1c7;
+ font-size:12px;font-weight:800;line-height:1.18;min-width:178px;
+}
+#trabajo .acciones-config .descargar-capturas:hover{background:#ffdf95}
+#trabajo .acciones-config .descargar-capturas:disabled{opacity:.55}
+#trabajo .descarga-estado{
+ margin:7px 0 3px;padding:7px 10px;background:#fff4da;border:1px solid #d9b978;
+ color:#34113f;border-radius:8px;font-size:12px;line-height:1.4;overflow-wrap:anywhere;
+}
+@media(min-width:1181px) and (max-width:1350px){
+ #trabajo .config-rapida{grid-template-columns:170px minmax(230px,1fr) auto}
+ #trabajo .acciones-config{flex-wrap:wrap;justify-content:flex-end}
+}
+@media(max-width:720px){
+ #trabajo .acciones-config{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ #trabajo .acciones-config .descargar-capturas{grid-column:1/-1;grid-row:1;min-width:0;width:100%;font-size:13px}
+}
