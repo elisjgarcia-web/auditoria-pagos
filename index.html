@@ -71,6 +71,8 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
   <input id="importarRespaldoArchivo" type="file" accept=".json,application/json" style="display:none" onchange="importarRespaldo(this)">
   <div class="small">El guardado automático permanece dentro de este teléfono: no aparece como archivo en Descargas. «Recuperar último guardado» busca ese estado local. «Importar archivo» requiere un JSON descargado anteriormente. Las copias contienen datos personales y bancarios: protégelas.</div>
   <button class="clear" onclick="nuevoSorteo()">🗑️ NUEVO SORTEO / borrar datos guardados</button>
+  <button class="gen" id="reinicioMaestro" type="button" onclick="nuevoSorteo(true)" style="background:linear-gradient(110deg,#d8ab58,#fff0c0);color:#381548;border:2px solid #fff3d9">♻️ REINICIAR TODO · PAGOS + PRESENTADORA</button>
+  <div class="small">Botón maestro, solo desde Pagos. Úsalo al terminar el sorteo: limpia la preparación de Pagos y avisa a la presentadora para limpiar sus rondas y borradores. Conserva compras, transferencias y resultados históricos.</div>
 </div>
 
 <div class="card">
@@ -689,9 +691,13 @@ function estadoVacioNuevoSorteo(){
  f.rondas=Array.from({length:6},(_,n)=>({i:n+1,nom:R[n],pre:'',car:''}));
  return{form:f,top:false,paymentKeys:[]};
 }
-async function nuevoSorteo(){
+async function nuevoSorteo(maestro=false){
  if(REINICIANDO_SORTEO)return false;
- if(!confirm('¿INICIAR UN NUEVO SORTEO? Se borrarán las rondas, ganadores, premios y capturas en preparación de Pagos, incluso los datos compartidos con otros teléfonos. Las compras, transferencias reales y publicaciones anteriores NO se eliminan. Esta acción no se puede deshacer.'))return false;
+ if(maestro){
+  if(!confirm('⚠️ REINICIO MAESTRO: limpiarás las rondas, ganadores, premios y capturas en preparación de Pagos y de la presentadora en todas las laptops conectadas.\n\nLas compras, transferencias y resultados publicados se conservan.\n\n¿Ya finalizó el sorteo y quieres reiniciar ambas aplicaciones?'))return false;
+  const palabra=prompt('Para confirmar el reinicio de Pagos Y Presentadora, escribe exactamente REINICIAR TODO:');
+  if(palabra!=='REINICIAR TODO'){if(palabra!==null)alert('No se reinició: confirmación incorrecta.');return false;}
+ }else if(!confirm('¿INICIAR UN NUEVO SORTEO? Se borrarán las rondas, ganadores, premios y capturas en preparación de Pagos, incluso los datos compartidos con otros teléfonos. Las compras, transferencias reales y publicaciones anteriores NO se eliminan. Esta acción no se puede deshacer.'))return false;
  let reiniciadoCompartido=false, avisoCapturas='';
  try{
   if(window.pagosRestauracionLista)await window.pagosRestauracionLista;
@@ -699,6 +705,7 @@ async function nuevoSorteo(){
   const origenRecepcion=SLOT_APPROVED_SOURCE;
   let fechaRecepcion='';
   try{fechaRecepcion=ResultadosPublicos.fechaISO(fechaSorteo.value);}catch{}
+  if(maestro&&(!origenRecepcion||!fechaRecepcion))throw Error('Para el reinicio maestro, carga primero los aprobados y comprueba la fecha del sorteo. No se cambió nada.');
   const empty=estadoVacioNuevoSorteo();
   const ok=await window.PagosCompartidos.reiniciar(empty);
   if(!ok)throw Error('No se pudo confirmar el reinicio compartido.');
@@ -707,9 +714,10 @@ async function nuevoSorteo(){
    // Este corte conserva el historial y evita volver a importar capturas de pruebas
    // al iniciar otro sorteo en la misma fecha y con los mismos aprobados.
    try{
-    const {data,error}=await supa.rpc('en_vivo_marcar_reinicio',{p_fecha:fechaRecepcion,p_source:String(origenRecepcion)});
-    if(error||String(data?.source||'')!==String(origenRecepcion))throw Error(error?.message||'No se pudo confirmar el corte de capturas.');
-   }catch(e){avisoCapturas='⚠️ Se reinició Pagos, pero no se pudieron archivar las capturas anteriores del en vivo. No cargues resultados antiguos sin verificar. '+e.message;}
+    const endpoint=maestro?'en_vivo_reinicio_maestro':'en_vivo_marcar_reinicio';
+    const {data,error}=await supa.rpc(endpoint,{p_fecha:fechaRecepcion,p_source:String(origenRecepcion)});
+    if(error||String(data?.source||'')!==String(origenRecepcion)||(maestro&&!data?.maestro_id))throw Error(error?.message||'No se pudo confirmar el corte de capturas.');
+   }catch(e){avisoCapturas=maestro?'⚠️ Pagos se reinició, pero la presentadora NO recibió la orden maestra. No la reinicies de nuevo desde este botón; revisa la conexión y realiza el reinicio local de la presentadora. '+e.message:'⚠️ Se reinició Pagos, pero no se pudieron archivar las capturas anteriores del en vivo. No cargues resultados antiguos sin verificar. '+e.message;}
   }else{
    avisoCapturas='⚠️ Se reinició Pagos, pero no se pudo identificar la jornada para archivar capturas antiguas. Carga los aprobados y verifica cualquier resultado recibido.';
   }
@@ -718,6 +726,7 @@ async function nuevoSorteo(){
   return false;
  }
  if(avisoCapturas)alert(avisoCapturas);
+ else if(maestro)alert('✅ Reinicio maestro confirmado: Pagos quedó reiniciado y la presentadora recibirá la orden de limpieza al conectarse o actualizar. Los resultados históricos siguen intactos.');
  // Solo limpiar el teléfono después de confirmar que la nube quedó reiniciada.
  REINICIANDO_SORTEO=true;clearTimeout(TIMER_GUARDADO);
  try{await window.ComprobantesPagos?.limpiar();}catch(e){console.warn('No se pudieron limpiar las capturas locales',e);}
