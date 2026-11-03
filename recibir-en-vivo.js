@@ -221,14 +221,14 @@ $('envivoAvisos').onclick=async()=>{
    permiso=Notification.permission;
    if(permiso==='default')permiso=await Notification.requestPermission();
   }
-  $('envivoAvisos').textContent='🔔 Avisos activados';
-  status(permiso==='granted'?'✓ Sonido y avisos del sistema habilitados con la app abierta. Pulsa Probar aviso.':
-   '✓ Avisos visuales y sonido activados. Para avisos del sistema, permite las notificaciones en el navegador. Pulsa Probar aviso.');
+  $('envivoAvisos').textContent='🔔 Sonido al consultar activo';
+  status(permiso==='granted'?'✓ Sonido activado. El aviso aparecerá solamente cuando pulses «Buscar capturas enviadas».':
+   '✓ Sonido y aviso visual activados al consultar. Las notificaciones del sistema requieren permiso del navegador.');
  }catch{avisos=true;status('Los avisos visuales siguen activos, pero el navegador no permitió activar el sonido.');}
 };
 $('envivoProbarAviso').onclick=()=>{
  avisar([{ronda:1,capturas:[{cartones:[123]}]}],{prueba:true});
- status('Aviso de prueba mostrado. Comprueba el sonido y las notificaciones de tu dispositivo.');
+ status('Prueba de sonido y alerta visual. Ninguna captura se ha descargado ni se ha registrado un ganador.');
 };
 $('envivoCerrarAviso').onclick=ocultarAlerta;
 function limpiarVistaManual(mensaje){
