@@ -3,7 +3,7 @@
 const C=root.EnVivoComun;
 function plan(e,{fecha,source,car,aprobados,editable=true}){const ns=C.numeros(e);if(!editable||e.fecha!==fecha||String(e.source)!==String(source||''))return{tipo:'bloqueado',motivo:'El envío no corresponde a la fecha y el sorteo cargados.'};const invalidos=ns.filter(n=>!aprobados(n));if(invalidos.length)return{tipo:'bloqueado',motivo:'Carga y revisa los aprobados: cartón(es) '+invalidos.join(', ')+'.'};let old=[];try{old=car.trim()?C.cartones(car):[];}catch{return{tipo:'conflicto',ns};}return{tipo:!old.length?'llenar':old.length===ns.length&&old.every(n=>ns.includes(n))?'igual':'conflicto',ns};}
 root.EnVivoRecepcion={plan};if(typeof module==='object')module.exports=root.EnVivoRecepcion;if(typeof document==='undefined')return;
-const $=id=>document.getElementById(id),BUCKET='ganadores-en-vivo';let ocupado=false,consultando=false,channel=null,channelKey='',aplicando=false,urls=[],audio=null,avisos=false,context=null,turno=0,avisoClave='',avisoMapa=null,avisoUltimaConsulta='';const intentados=new Set();
+const $=id=>document.getElementById(id),BUCKET='ganadores-en-vivo';let ocupado=false,consultando=false,channel=null,channelKey='',aplicando=false,urls=[],audio=null,avisos=root.Notification?.permission==='granted',context=null,turno=0,avisoClave='',avisoMapa=null;const intentados=new Set();
 const status=t=>{$('envivoEstado').textContent=t;};
 
 function ultimosVigentes(data){
