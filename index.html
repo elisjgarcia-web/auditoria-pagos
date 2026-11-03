@@ -70,7 +70,7 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
   <button class="sec" onclick="document.getElementById('importarRespaldoArchivo').click()">📤 Importar archivo de respaldo descargado</button>
   <input id="importarRespaldoArchivo" type="file" accept=".json,application/json" style="display:none" onchange="importarRespaldo(this)">
   <div class="small">El guardado automático permanece dentro de este teléfono: no aparece como archivo en Descargas. «Recuperar último guardado» busca ese estado local. «Importar archivo» requiere un JSON descargado anteriormente. Las copias contienen datos personales y bancarios: protégelas.</div>
-  <button class="clear" onclick="nuevoSorteo()">🗑️ NUEVO SORTEO / borrar datos guardados</button>
+  <button class="clear" onclick="nuevoSorteo()">🗑️ NUEVO SORTEO · solo Pagos</button>
   <button class="gen" id="reinicioMaestro" type="button" onclick="nuevoSorteo(true)" style="background:linear-gradient(110deg,#d8ab58,#fff0c0);color:#381548;border:2px solid #fff3d9">♻️ REINICIAR TODO · PAGOS + PRESENTADORA</button>
   <div class="small">Botón maestro, solo desde Pagos. Úsalo al terminar el sorteo: limpia la preparación de Pagos y avisa a la presentadora para limpiar sus rondas y borradores. Conserva compras, transferencias y resultados históricos.</div>
 </div>
