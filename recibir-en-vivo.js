@@ -130,7 +130,7 @@ function actualizarRondas(data=context){
      if(!seleccionado){info.textContent='Esta ronda todavía no tiene capturas enviadas por la presentadora.';return;}
      if(seleccionado.fecha!==ahora.fecha)throw Error('La fecha recibida no coincide con la del sorteo.');
      const cargado=await aplicar(seleccionado);
-     info.textContent=cargado?'✓ Capturas descargadas y vinculadas en Pagos. Abre Resultado y verifica el cartón antes de transferir.':'No se incorporaron capturas. Revisa el aviso superior y vuelve a intentar cuando sea seguro.';
+     info.textContent=cargado?'✓ Capturas descargadas y vinculadas en Pagos. Abre Resultado y verifica el cartón antes de transferir.':'⚠️ La ronda NO quedó confirmada. Si había varios ganadores, alguna imagen pudo guardarse antes del fallo. Comprueba Resultado y vuelve a traer la ronda completa.';
      actualizarRondas(context);
     }catch(err){info.textContent='No se pudo cargar esta ronda: '+(err.message||'error de conexión.');}
    });
