@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 const C=window.EnVivoComun,$=id=>document.getElementById(id),client=window.supabase.createClient('https://dbkixcpwirjwjvjintkr.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRia2l4Y3B3aXJqd2p2amludGtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYwNjYxNDksImV4cCI6MjA2MTY0MjE0OX0.QJmWLWSe-pRYwxWeel8df7JLhNUvMKaTpL0MCDorgho'),BUCKET='ganadores-en-vivo';
-let user=null,config=null,rows=[],selected=0,draft=null,busy=false,cargandoFecha=false,fechaPendiente=false,turno=0,urls=[],worker=null,ocrScript=null,activeCard=null,autoFecha=false,esperandoNuevoSorteo=false,ocrQueue=Promise.resolve(),visorCaptura=null;
+let user=null,config=null,rows=[],selected=0,draft=null,busy=false,exportando=false,cargandoFecha=false,fechaPendiente=false,turno=0,urls=[],worker=null,ocrScript=null,activeCard=null,autoFecha=false,esperandoNuevoSorteo=false,ocrQueue=Promise.resolve(),visorCaptura=null;
 function resumen(){
  const estado=$('resumenTrabajo');if(!estado)return;
  if(!draft){estado.textContent='Selecciona una ronda';return;}
@@ -53,7 +53,7 @@ const notice=t=>{$('estado').textContent=t;},status=t=>{
  if(!bottom){bottom=document.createElement('p');bottom.id='resultadoEnvio';bottom.setAttribute('role','status');bottom.setAttribute('aria-live','polite');bottom.style.cssText='font-size:14px;font-weight:650;line-height:1.5;color:#43194e;white-space:pre-wrap';$('enviar').insertAdjacentElement('afterend',bottom);}
  bottom.textContent=t;
 };
-function controls(){document.querySelectorAll('button,input').forEach(n=>{n.disabled=busy&&!(cargandoFecha&&(n.id==='fecha'||n.id==='fechaHoy'));});$('enviar').disabled=busy||!draft||draft.sent;$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
+function controls(){document.querySelectorAll('button,input').forEach(n=>{n.disabled=busy&&!(cargandoFecha&&(n.id==='fecha'||n.id==='fechaHoy'));});$('descargarCapturas').disabled=busy||exportando||!config||!user;$('enviar').disabled=busy||!draft||draft.sent;$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
 function key(){return [user.id,config.fecha,config.source,selected].join(':');}
 async function save(){if(draft)await C.local(key(),draft);}
 function release(){urls.forEach(u=>URL.revokeObjectURL(u));urls=[];}
@@ -284,6 +284,85 @@ async function loadDate(){
   if(abrirAuto&&config&&!esperandoNuevoSorteo&&!selected)enterRound(abrirAuto);
  }
 }
+
+function progresoDescarga(mensaje){
+ const estado=$('descargaEstado');
+ estado.hidden=false;estado.textContent=mensaje;
+}
+function carpetaRonda(numero,titulo){
+ const nombre=String(titulo||'Ronda '+numero).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  .replace(/[^a-zA-Z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,38);
+ return 'Ronda_'+String(numero).padStart(2,'0')+'_'+(nombre||'Ganadores');
+}
+function numerosArchivo(card){
+ const raw=Array.isArray(card.cartones)?card.cartones.map(String).join('-'):String(card.numeros||'').replace(/[\s,;]+/g,'-');
+ return /^[1-9]\d{0,3}(?:-[1-9]\d{0,3})*$/.test(raw)?raw:'Sin_carton';
+}
+async function descargarTodasCapturas(){
+ if(exportando||busy||!config||!user)return;
+ if(!window.ZipCapturasBingo?.crearZip){progresoDescarga('No se cargó el generador ZIP. Actualiza esta página con Ctrl+Shift+R.');return;}
+ const uid=user.id,fecha=config.fecha,source=String(config.source),titulos=[...config.rondas];
+ exportando=true;controls();progresoDescarga('Consultando las imágenes del sorteo…');
+ try{
+  const {data:auth,error:authError}=await client.auth.getSession();
+  if(authError||auth?.session?.user?.id!==uid)throw Error('La sesión venció. Vuelve a entrar con el correo autorizado.');
+  const info=await rpc('en_vivo_contexto',{p_fecha:fecha});
+  if(!info?.jornada||String(info.source)!==source||String(info.jornada.source)!==source)throw Error('El sorteo cambió. Actualiza las rondas antes de descargar.');
+  const envios=C.ultimos(info.envios||[]).filter(e=>e.fecha===fecha&&String(e.source)===source&&e.creado_por===uid);
+  const entries=[],detalle=[];let total=0,totalBytes=0;
+  for(let ronda=1;ronda<=titulos.length;ronda++){
+   const remoto=envios.find(e=>e.ronda===ronda);
+   const cierre=Number(versionesCerradas(fecha,source)[ronda]||0);
+   const vigente=remoto&&Number(remoto.revision)>cierre?remoto:null;
+   const k=[uid,fecha,source,ronda].join(':');
+   const local=(selected===ronda&&draft&&config?.fecha===fecha&&String(config?.source)===source)?draft:await C.local(k);
+   const sinEnviar=local&&!local.sent&&!local.uncertain&&Array.isArray(local.cards)&&local.cards.some(c=>!!c.blob)
+    &&(!remoto||Number(local.baseRevision||0)>=Number(remoto.revision||0));
+   let fotos=[],origen='';
+   if(sinEnviar){
+    origen='borrador pendiente de enviar';
+    fotos=local.cards.filter(c=>!!c.blob).map(c=>({blob:c.blob,cartones:c.numeros||''}));
+   }else if(vigente){
+    origen='enviado a Pagos';
+    for(let j=0;j<vigente.capturas.length;j++){
+     const cap=vigente.capturas[j];
+     if(!C.ruta(cap.ruta,uid,fecha))throw Error('La ruta de una captura enviada no corresponde a esta fecha o usuario.');
+     progresoDescarga('Descargando ronda '+ronda+' de '+titulos.length+' · imagen '+(j+1)+' de '+vigente.capturas.length+'…');
+     const {data,error}=await client.storage.from(BUCKET).download(cap.ruta);
+     if(error||!data||data.size<1||data.size>8388608)throw Error('No se pudo descargar la imagen '+(j+1)+' de la ronda '+ronda+'. No se generó un ZIP incompleto.');
+     fotos.push({blob:data,cartones:cap.cartones});
+    }
+   }
+   if(!fotos.length)continue;
+   const carpeta=carpetaRonda(ronda,titulos[ronda-1]);
+   for(let j=0;j<fotos.length;j++){
+    const foto=fotos[j],carton=numerosArchivo(foto),archivo=carpeta+'/Ganador_'+String(j+1).padStart(2,'0')+'_Carton_'+carton+'.jpg';
+    if(!(foto.blob instanceof Blob)||!foto.blob.size)throw Error('La ronda '+ronda+' tiene una imagen sin guardar.');
+    totalBytes+=foto.blob.size;
+    if(totalBytes>600*1024*1024)throw Error('El conjunto supera los 600 MB. Descarga menos capturas por jornada para evitar agotar la memoria.');
+    entries.push({name:archivo,blob:foto.blob});
+    total++;
+   }
+   detalle.push('Ronda '+ronda+' · '+titulos[ronda-1]+': '+fotos.length+' imagen(es) · '+origen);
+  }
+  if(!total)throw Error('Todavía no hay capturas de esta jornada para descargar. Primero pega o envía al menos una imagen.');
+  if(!user||user.id!==uid)throw Error('La sesión cambió durante la descarga. Repite la exportación.');
+  const manifiesto='BINGO ANDINO 75 · CAPTURAS DEL EN VIVO\nFecha: '+fecha+
+   '\nTotal: '+total+' imágenes\n\n'+detalle.join('\n')+
+   '\n\nIncluye las últimas capturas visibles de cada ronda y, cuando existan, borradores locales pendientes de enviar.\nNo incluye versiones anteriores archivadas ni comprobantes bancarios.\n';
+  entries.unshift({name:'LEER_PRIMERO.txt',blob:new Blob([manifiesto],{type:'text/plain;charset=utf-8'})});
+  progresoDescarga('Preparando el ZIP con '+total+' imágenes…');
+  const zip=await window.ZipCapturasBingo.crearZip(entries);
+  const url=URL.createObjectURL(zip),a=document.createElement('a');
+  a.href=url;a.download='BingoAndino75_Capturas_'+fecha+'.zip';
+  document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  progresoDescarga('✓ ZIP listo: '+total+' imágenes, organizadas por ronda. Búscalo en Descargas y envíalo por WhatsApp o correo.');
+ }catch(e){progresoDescarga('⚠️ '+(e?.message||'No se pudieron descargar las imágenes.'));}
+ finally{exportando=false;controls();}
+}
+$('descargarCapturas').onclick=descargarTodasCapturas;
+
 $('nuevoSorteoPresentadora').onclick=async()=>{
  if(!user||busy)return;
  if(draft?.uncertain){status('Confirma el envio pendiente antes de comenzar otro sorteo.');return;}
