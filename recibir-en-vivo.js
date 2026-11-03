@@ -3,7 +3,7 @@
 const C=root.EnVivoComun;
 function plan(e,{fecha,source,car,aprobados,editable=true}){const ns=C.numeros(e);if(!editable||e.fecha!==fecha||String(e.source)!==String(source||''))return{tipo:'bloqueado',motivo:'El envío no corresponde a la fecha y el sorteo cargados.'};const invalidos=ns.filter(n=>!aprobados(n));if(invalidos.length)return{tipo:'bloqueado',motivo:'Carga y revisa los aprobados: cartón(es) '+invalidos.join(', ')+'.'};let old=[];try{old=car.trim()?C.cartones(car):[];}catch{return{tipo:'conflicto',ns};}return{tipo:!old.length?'llenar':old.length===ns.length&&old.every(n=>ns.includes(n))?'igual':'conflicto',ns};}
 root.EnVivoRecepcion={plan};if(typeof module==='object')module.exports=root.EnVivoRecepcion;if(typeof document==='undefined')return;
-const $=id=>document.getElementById(id),BUCKET='ganadores-en-vivo';let ocupado=false,consultando=false,channel=null,channelKey='',aplicando=false,urls=[],audio=null,avisos=root.Notification?.permission==='granted',context=null,turno=0,avisoClave='',avisoMapa=null;const intentados=new Set();
+const $=id=>document.getElementById(id),BUCKET='ganadores-en-vivo';let ocupado=false,consultando=false,aplicando=false,urls=[],audio=null,avisos=root.Notification?.permission==='granted',context=null,turno=0,avisoClave='',avisoMapa=null;
 const status=t=>{$('envivoEstado').textContent=t;};
 
 function ultimosVigentes(data){
@@ -129,11 +129,9 @@ function actualizarRondas(data=context){
      const seleccionado=ultimosVigentes(nuevo).find(x=>x.ronda===i);
      if(!seleccionado){info.textContent='Esta ronda todavía no tiene capturas enviadas por la presentadora.';return;}
      if(seleccionado.fecha!==ahora.fecha)throw Error('La fecha recibida no coincide con la del sorteo.');
-     await aplicar(seleccionado);
-     const confirmado=await contextoVigente(ahora.fecha);
-     const actualizado=ultimosVigentes(confirmado).find(x=>x.ronda===i);
-     info.textContent=actualizado?.aplicado?'✓ Ganadores y capturas cargados en esta ronda. Revisa los pagos antes de transferir.':($('envivoEstado').textContent||'Esta ronda continúa pendiente de revisión.');
-     actualizarRondas(confirmado);
+     const cargado=await aplicar(seleccionado);
+     info.textContent=cargado?'✓ Capturas descargadas y vinculadas en Pagos. Abre Resultado y verifica el cartón antes de transferir.':'No se incorporaron capturas. Revisa el aviso superior y vuelve a intentar cuando sea seguro.';
+     actualizarRondas(context);
     }catch(err){info.textContent='No se pudo cargar esta ronda: '+(err.message||'error de conexión.');}
    });
   }
@@ -141,7 +139,7 @@ function actualizarRondas(data=context){
   if(acc)acc.dataset.recibidos=!actual?'':actual.aplicado?'✓ Cargada':'📥 Recibidos';
   root.PagosCompacto?.etiquetaRonda?.(i);
   if(!actual){
-   btn.textContent='📥 Cargar ganadores enviados';
+   btn.textContent='📥 Traer capturas de esta ronda';
    info.textContent=data?.cortes?.[String(i)]?'Sin capturas nuevas desde el reinicio. Las anteriores quedaron archivadas.':'Sin capturas recibidas para esta ronda.';
   }else{
    let cantidad=0;try{cantidad=C.numeros(actual).length;}catch{}
@@ -151,7 +149,7 @@ function actualizarRondas(data=context){
     info.textContent='⚠️ Los cartones de Pagos no coinciden con la revisión '+actual.revision+'. Comprueba los ganadores antes de transferir.';
     if(acc)acc.dataset.recibidos='⚠️ Revisar';
    }else{
-    btn.textContent=actual.aplicado?'↻ Revisar capturas de esta ronda':'📥 Cargar '+(cantidad||'')+' ganador(es) recibido(s)';
+    btn.textContent=actual.aplicado?'↻ Recuperar capturas de esta ronda':'📥 Traer '+(cantidad||'')+' captura(s) de esta ronda';
     if(!info.textContent||info.textContent.startsWith('Sin capturas')||info.textContent.startsWith('⚠️'))info.textContent=actual.aplicado?'Recibido ✓':'Capturas disponibles · revisión '+actual.revision;
    }
   }
@@ -163,40 +161,30 @@ function mostrar(data){
  for(const e of es){if(!e.aplicado)pendientes++;const box=node('article',null,'ev-envio'),head=node('h3',(data.jornada?.rondas[e.ronda-1]||'Ronda '+e.ronda)+(e.aplicado?' · Recibido ✓':' · Nuevos ganadores')),nums=C.numeros(e),names=nums.map(n=>{const x=estadoCarton(n)==='OK'?buscar(n):null;return'Cartón '+n+(x?' · '+x.nombre:' · Falta revisar aprobados');}),p=node('p',names.join('\n'),'ev-nombres'),details=node('details'),summary=node('summary','Ver '+e.capturas.length+' captura(s) del resultado'),photos=node('div'),button=node('button',e.aplicado?'Recuperar capturas de esta ronda':'Revisar y completar ronda','gen'),hint=node('p','Revisión '+e.revision+' · '+new Date(e.creado_en).toLocaleTimeString('es-VE'),'small');details.append(summary,photos);let loaded=false;details.ontoggle=async()=>{if(!details.open||loaded)return;loaded=true;try{for(const c of e.capturas){const b=await descargar(c,e);if(!box.isConnected)return;const img=node('img');const u=URL.createObjectURL(b);urls.push(u);img.src=u;img.alt='Resultado · Cartón '+c.cartones.join(', ');photos.append(img);}}catch(err){photos.textContent=err.message;loaded=false;}};button.onclick=()=>aplicar(e);const st=estadoPara(e);if(st.tipo==='bloqueado')hint.textContent=st.motivo;else if(st.tipo==='conflicto')hint.textContent='Esta ronda ya tiene otros cartones. Se pedirá confirmación antes de reemplazarlos.';box.append(head,p,details,hint,button);$('envivoLista').append(box);
  }
  $('envivoTitulo').textContent=pendientes?'🔔 Ganadores del en vivo · '+pendientes+' por revisar':'🎙️ Ganadores del en vivo';if(!es.length)$('envivoLista').textContent='Aquí llegarán las capturas de la presentadora.';
- if(!document.hidden&&!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||'')){const auto=es.find(e=>{
-  if(e.aplicado||intentados.has(e.id)||!monto($('pre'+e.ronda)?.value))return false;
-  // Capturas corregidas de los mismos cartones se sustituyen sin pasos adicionales.
-  // Un cambio de ganadores requiere revisión explícita en Pagos antes de modificar pagos.
-  return ['llenar','igual'].includes(estadoPara(e).tipo);
- });if(auto){intentados.add(auto.id);setTimeout(()=>aplicar(auto,{automatico:true}),0);}}
- if(data.jornada)status('Recepción conectada para '+data.jornada.fecha+'. Los avisos llegan con esta app abierta.');else status('Prepara las rondas para que la presentadora pueda enviar sus capturas.');
+ // Traer capturas solo a petición de Pagos. No tocar premios o rondas al consultar.
+ if(data.jornada)status('✓ Capturas consultadas para '+data.jornada.fecha+'. Abre la ronda y toca «Traer capturas» para incorporarlas. No hay consultas automáticas.');else status('Sin rondas preparadas. Usa «Preparar rondas» para habilitar a la presentadora.');
 }
 async function descargar(c,e){if(!C.ruta(c.ruta,e.creado_por,e.fecha))throw Error('La ruta de una captura no es válida.');const{data,error}=await supa.storage.from(BUCKET).download(c.ruta);if(error||!data||data.size>8388608||data.type!=='image/jpeg')throw Error('No se pudo descargar una captura. Revisa la conexión.');return data;}
 async function refrescar(){
  if(ocupado||consultando||aplicando)return;consultando=true;const token=++turno;
  try{if(root.pagosRestauracionLista)await root.pagosRestauracionLista;const{data:a}=await supa.auth.getSession();if(!a?.session){liberar();$('envivoLista').replaceChildren();$('envivoLista').dataset.version='';if(channel)supa.removeChannel(channel);channel=null;channelKey='';status('Verifica tu acceso a Supabase para recibir ganadores.');return;}const f=current();let data=await contextoVigente(f.fecha);if(token!==turno||f.fecha!==current().fecha||f.source!==current().source)return;if(!data?.pagos){liberar();$('envivoLista').replaceChildren();$('envivoLista').dataset.version='';status('Se necesita el acceso autorizado de la app de pagos.');return;}
  let avisoConfiguracion='';
- if(f.editable&&f.source&&String(data.source)===String(f.source)){
+ if(!f.source||String(data.source)!==String(f.source)){
+  avisoConfiguracion='Carga los compradores aprobados del sorteo actual antes de traer capturas.';
+ }else if(!data.jornada){
+  avisoConfiguracion='Todavía no están preparadas las rondas de la presentadora. Usa «Preparar rondas» una vez.';
+ }else{
   const nombres=Array.from({length:Number($('cant').value)},(_,i)=>String($('nom'+(i+1))?.value||'').trim());
-  const coincide=data.jornada&&JSON.stringify(data.jornada.rondas)===JSON.stringify(nombres);
-  if([5,6].includes(nombres.length)&&nombres.every(n=>n.length>0&&n.length<=80)&&!coincide){
-   if((data.envios||[]).length){
-    avisoConfiguracion='Hay ganadores recibidos: revisa las rondas antes de cambiar su configuración.';
-   }else{
-    try{
-     // Solo publica las rondas. No autoriza correos ni cambia compras, cartones o pagos.
-     await rpc('en_vivo_configurar',{p_fecha:f.fecha,p_rondas:nombres,p_email:null});
-     data=await contextoVigente(f.fecha);
-    }catch(e){avisoConfiguracion='No se pudieron enviar las rondas: '+e.message;}
-   }
+  if(JSON.stringify(data.jornada.rondas)!==JSON.stringify(nombres)){
+   avisoConfiguracion='⚠️ Los nombres o la cantidad de rondas cambiaron. Comprueba la configuración antes de traer capturas.';
   }
- }else if(!f.source){avisoConfiguracion='Carga primero las compras aprobadas en Pagos para activar las rondas del en vivo.';}
+ }
  if(token!==turno||f.fecha!==current().fecha||f.source!==current().source)return;
- context=data;comprobarAvisos(ultimosVigentes(data),data,a.session.user.id);actualizarRondas(data);const serial=JSON.stringify([f.fecha,data.source,f.source,data.cortes,data.jornada,data.envios,(data.envios||[]).flatMap(e=>C.numeros(e).map(n=>[n,estadoCarton(n),estadoCarton(n)==='OK'?buscar(n)?.nombre:''])),Array.from({length:Number($('cant').value)},(_,i)=>$('car'+(i+1))?.value)]);if($('envivoLista').dataset.version!==serial){$('envivoLista').dataset.version=serial;mostrar(data);}if(avisoConfiguracion)status(avisoConfiguracion);const ck=a.session.user.id+':'+f.fecha;if(ck!==channelKey){if(channel)supa.removeChannel(channel);channelKey=ck;channel=supa.channel('ganadores-en-vivo:'+ck).on('postgres_changes',{event:'*',schema:'public',table:'en_vivo_envios',filter:'fecha=eq.'+f.fecha},()=>refrescar()).subscribe();}
+ context=data;comprobarAvisos(ultimosVigentes(data),data,a.session.user.id);actualizarRondas(data);const serial=JSON.stringify([f.fecha,data.source,f.source,data.cortes,data.jornada,data.envios,(data.envios||[]).flatMap(e=>C.numeros(e).map(n=>[n,estadoCarton(n),estadoCarton(n)==='OK'?buscar(n)?.nombre:''])),Array.from({length:Number($('cant').value)},(_,i)=>$('car'+(i+1))?.value)]);if($('envivoLista').dataset.version!==serial){$('envivoLista').dataset.version=serial;mostrar(data);}if(avisoConfiguracion)status(avisoConfiguracion);
  }catch(e){status('No se pudo actualizar la recepción: '+e.message);}finally{consultando=false;}
 }
 function firmaRonda(i){return JSON.stringify([$('fechaSorteo').value,SLOT_APPROVED_SOURCE,$('cant').value,$('car'+i)?.value,$('pre'+i)?.value,$('nom'+i)?.value]);}
-async function aplicar(e,{automatico=false}={}){if(ocupado||aplicando)return;ocupado=true;const dlg=$('envivoProcesando');try{
+async function aplicar(e,{automatico=false}={}){if(ocupado||aplicando)return false;ocupado=true;let completo=false;const dlg=$('envivoProcesando');try{
  const st=estadoPara(e);if(st.tipo==='bloqueado')throw Error(st.motivo);if(automatico&&!['llenar','igual'].includes(st.tipo))return;const i=e.ronda;if(!monto($('pre'+i).value))throw Error('Coloca el premio de la ronda '+i+' antes de completar sus pagos.');
  if(!automatico&&!confirm((st.tipo==='conflicto'?'Esta ronda tiene otros cartones y será reemplazada.\n\n':'')+'¿Confirmas los cartones '+st.ns.join(', ')+' de '+$('nom'+i).value+'? Se prepararán sus pagos con el premio configurado.'))return;
  const before=firmaRonda(i),check=await contextoVigente(e.fecha),latest=ultimosVigentes(check).find(x=>x.ronda===i);if(automatico&&latest?.aplicado)return;if(!latest||latest.id!==e.id||check.source!==e.source)throw Error('Llegó otra versión o cambió el sorteo. Revisa el envío más reciente.');if(before!==firmaRonda(i))throw Error('La ronda cambió mientras revisabas. Vuelve a intentarlo.');
@@ -208,8 +196,15 @@ async function aplicar(e,{automatico=false}={}){if(ocupado||aplicando)return;ocu
  guardarEstadoAhora();};
  if(root.PagosCompartidos?.editar)await root.PagosCompartidos.editar(editar);else await editar();
  await rpc('en_vivo_aplicar',{p_id:e.id});if(!$('transmisionEnlace').value){$('transmisionEnlace').value=e.youtube;$('transmisionEnlace').dispatchEvent(new Event('input',{bubbles:true}));}
- status('✓ Última versión de la ronda cargada. Capturas anteriores reemplazadas; revisa los pagos antes de transferir.');document.dispatchEvent(new Event('ronda-anuncio-generado'));
- }catch(err){status(err.message);}finally{if(dlg.open)dlg.close();ocupado=false;await refrescar();}
+ status('✓ Capturas de la ronda descargadas y vinculadas. Verifica la imagen de Resultado antes de transferir.');
+ completo=true;
+ if(context?.envios){
+  const registro=context.envios.find(x=>x.id===e.id);
+  if(registro)registro.aplicado=true;
+ }
+ }catch(err){status('⚠️ No se pudo traer la captura: '+(err.message||'Error inesperado.'));}
+ finally{if(dlg.open)dlg.close();ocupado=false;actualizarRondas(context);}
+ return completo;
 }
 $('envivoProcesando').addEventListener('cancel',e=>e.preventDefault());
 $('envivoPreparar').onclick=async()=>{if(ocupado)return;ocupado=true;try{const p=parametros();const data=await rpc('en_vivo_configurar',p);status('Rondas preparadas para '+data.fecha+(p.p_email?' · Correo autorizado.':'.'));$('envivoEnlace').hidden=false;$('envivoEnlace').href=new URL('presentadora/?fecha='+data.fecha,location.href).href;}catch(e){status(e.message);}finally{ocupado=false;refrescar();}};
@@ -236,9 +231,19 @@ $('envivoProbarAviso').onclick=()=>{
  status('Aviso de prueba mostrado. Comprueba el sonido y las notificaciones de tu dispositivo.');
 };
 $('envivoCerrarAviso').onclick=ocultarAlerta;
-$('envivoActualizar').onclick=refrescar;$('fechaSorteo').addEventListener('change',()=>{avisoClave='';avisoMapa=null;ocultarAlerta();refrescar();});
-let timerConfig=null;document.addEventListener('pagos-local-guardado',()=>{clearTimeout(timerConfig);timerConfig=setTimeout(refrescar,700);});
-for(const ev of ['pagos-acceso-verificado','pagos-aprobados-cargados','ronda-anuncio-generado'])document.addEventListener(ev,refrescar);
-document.addEventListener('pagos-sesion-cerrada',()=>{++turno;if(channel)supa.removeChannel(channel);channel=null;channelKey='';avisoClave='';avisoMapa=null;ocultarAlerta();liberar();$('envivoLista').replaceChildren();$('envivoLista').dataset.version='';status('Sesión cerrada.');});
-root.addEventListener('online',refrescar);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refrescar();});setInterval(()=>{if(!document.hidden)refrescar();},7000);Promise.resolve().then(refrescar);
+function limpiarVistaManual(mensaje){
+ ++turno;
+ context=null;avisoClave='';avisoMapa=null;
+ ocultarAlerta();liberar();
+ $('envivoLista').replaceChildren();$('envivoLista').dataset.version='';
+ actualizarRondas(null);
+ status(mensaje);
+}
+$('envivoActualizar').onclick=refrescar;
+$('fechaSorteo').addEventListener('change',()=>limpiarVistaManual('Fecha cambiada. Pulsa «Buscar capturas enviadas» cuando quieras consultar.'));
+document.addEventListener('pagos-local-guardado',()=>actualizarRondas(context));
+document.addEventListener('pagos-aprobados-cargados',()=>limpiarVistaManual('Aprobados cargados. Pulsa «Buscar capturas enviadas» cuando la presentadora haya enviado resultados.'));
+document.addEventListener('pagos-sesion-cerrada',()=>limpiarVistaManual('Sesión cerrada. Verifica tu acceso antes de traer capturas.'));
+actualizarRondas(null);
+status('Modo manual activado: no se consultan capturas automáticamente. Pulsa «Buscar capturas enviadas» o «Traer capturas» en cada ronda.');
 })(typeof window==='object'?window:globalThis);
