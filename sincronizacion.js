@@ -1,9 +1,9 @@
 (function(root){
 'use strict';
 function crear(ad){
- let connected=false,online=false,controller=false,revision=-1,formRevision=-1,applying=false,busy=false,dirty=false,timer=null,needsReload=false,lastShared='',latest=null,paymentKeys=[],conflictHint='';
+ let connected=false,online=false,controller=false,revision=-1,formRevision=-1,applying=false,busy=false,dirty=false,timer=null,needsReload=false,fuenteObsoleta=false,lastShared='',latest=null,paymentKeys=[],conflictHint='';
  const device=ad.device,label=ad.label;let source=null;
- const estado=()=>({connected,online,controller,busy,applying,revision,formRevision,latest,paymentKeys});
+ const estado=()=>({connected,online,controller,busy,applying,revision,formRevision,latest,paymentKeys,fuenteObsoleta});
  function notice(text){ad.notice(text,estado());}
  function render(){ad.roles(estado());}
  async function rpc(action,extra={}){
@@ -22,12 +22,21 @@ function crear(ad){
   notice(conflictHint?'⚠️ Se cargaron los cambios más recientes. Repite tu última edición; quedó un borrador local.':'☁️ Datos compartidos actualizados · Puedes editar desde este teléfono.');
   render();ad.events(data.events||[]);
  }
- function failed(error){if(/Otro teléfono|más reciente/i.test(error.message))conflictHint=error.message;if(dirty||controller)ad.backup(ad.snapshot());dirty=false;online=false;needsReload=true;notice('⚠️ Sin sincronizar: '+error.message+' · Cambios compartidos pausados.');render();}
+ function failed(error){
+  if(/Otro teléfono|más reciente/i.test(error.message))conflictHint=error.message;
+  if(/El sorteo cambió[.] Vuelve a conectar con los aprobados actuales[.]/i.test(error.message))fuenteObsoleta=true;
+  if(dirty||controller)ad.backup(ad.snapshot());
+  dirty=false;online=false;needsReload=true;
+  notice(fuenteObsoleta
+   ?'⚠️ Cambió el sorteo del servidor. Sincronización detenida para no repetir solicitudes antiguas. Pulsa «Actualizar aprobados» y revisa las rondas. No se han borrado tus datos locales.'
+   :'⚠️ Sin sincronizar: '+error.message+' · Cambios compartidos pausados.');
+  render();
+ }
  async function ejecutar(action,extra={},own=false){
   if(busy)return false;busy=true;render();try{await accept(await rpc(action,extra),own);return true;}catch(e){failed(e);return false;}finally{busy=false;render();if(dirty)programar();}
  }
- async function conectar(src){if(busy)return false;if(source!==src){revision=-1;formRevision=-1;paymentKeys=[];}source=src;connected=true;needsReload=true;return ejecutar('join',{state:ad.seed?ad.seed():ad.snapshot()});}
- async function leer(){if(!connected||busy)return;if(dirty&&online)await guardar();if(busy)return;return ejecutar('read');}
+ async function conectar(src){if(busy)return false;if(source!==src){revision=-1;formRevision=-1;paymentKeys=[];}source=src;fuenteObsoleta=false;connected=true;needsReload=true;return ejecutar('join',{state:ad.seed?ad.seed():ad.snapshot()});}
+ async function leer(){if(!connected||busy||fuenteObsoleta)return;if(dirty&&online)await guardar();if(busy||fuenteObsoleta)return;return ejecutar('read');}
  async function tomar(){if(!connected||!online||busy)return false;return ejecutar('claim',{state:ad.snapshot()});}
  async function liberar(){if(!controller||!online)return false;await guardar();if(!online)return false;return ejecutar('release');}
  function programar(){if(!connected||!online||!controller||applying)return;dirty=JSON.stringify(ad.snapshot())!==lastShared;if(!dirty)return;clearTimeout(timer);timer=setTimeout(guardar,350);}
@@ -55,7 +64,7 @@ function crear(ad){
   paymentKeys=[];
   return true;
  }
- async function salir(){connected=false;online=false;controller=false;dirty=false;clearTimeout(timer);notice('Verifica tu acceso para cargar los datos compartidos.');render();return true;}
+ async function salir(){connected=false;online=false;controller=false;dirty=false;fuenteObsoleta=false;clearTimeout(timer);notice('Verifica tu acceso para cargar los datos compartidos.');render();return true;}
  return {conectar,leer,tomar,liberar,programar,guardar,marcar,reiniciar,salir,estado};
 }
 root.PagosSync={crear};if(typeof module!=='undefined')module.exports=root.PagosSync;
