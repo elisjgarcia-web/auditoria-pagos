@@ -67,11 +67,18 @@ function actualizarRondas(data=context){
   root.PagosCompacto?.etiquetaRonda?.(i);
   if(!actual){
    btn.textContent='📥 Cargar ganadores enviados';
-   if(!info.textContent||info.textContent.startsWith('✓'))info.textContent='Sin capturas recibidas para esta ronda.';
+   info.textContent=data?.cortes?.[String(i)]?'Sin capturas nuevas desde el reinicio. Las anteriores quedaron archivadas.':'Sin capturas recibidas para esta ronda.';
   }else{
    let cantidad=0;try{cantidad=C.numeros(actual).length;}catch{}
-   btn.textContent=actual.aplicado?'↻ Revisar capturas de esta ronda':'📥 Cargar '+(cantidad||'')+' ganador(es) recibido(s)';
-   if(!info.textContent||info.textContent.startsWith('Sin capturas'))info.textContent=actual.aplicado?'Recibido ✓':'Capturas disponibles · revisión '+actual.revision;
+   const estado=estadoPara(actual);
+   if(estado.tipo==='conflicto'){
+    btn.textContent='⚠️ Actualizar a los ganadores más recientes';
+    info.textContent='⚠️ Los cartones de Pagos no coinciden con la revisión '+actual.revision+'. Comprueba los ganadores antes de transferir.';
+    if(acc)acc.dataset.recibidos='⚠️ Revisar';
+   }else{
+    btn.textContent=actual.aplicado?'↻ Revisar capturas de esta ronda':'📥 Cargar '+(cantidad||'')+' ganador(es) recibido(s)';
+    if(!info.textContent||info.textContent.startsWith('Sin capturas')||info.textContent.startsWith('⚠️'))info.textContent=actual.aplicado?'Recibido ✓':'Capturas disponibles · revisión '+actual.revision;
+   }
   }
  }
 }
