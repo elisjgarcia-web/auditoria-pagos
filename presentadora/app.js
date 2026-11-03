@@ -295,7 +295,7 @@ function carpetaRonda(numero,titulo){
  return 'Ronda_'+String(numero).padStart(2,'0')+'_'+(nombre||'Ganadores');
 }
 function numerosArchivo(card){
- const raw=Array.isArray(card.cartones)?card.cartones.map(String).join('-'):String(card.numeros||'').replace(/[\s,;]+/g,'-');
+ const raw=Array.isArray(card.cartones)?card.cartones.map(String).join('-'):String(card.cartones||card.numeros||'').replace(/[\s,;]+/g,'-');
  return /^[1-9]\d{0,3}(?:-[1-9]\d{0,3})*$/.test(raw)?raw:'Sin_carton';
 }
 async function descargarTodasCapturas(){
