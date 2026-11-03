@@ -1,1 +1,14 @@
 .ev-envio{padding:14px;border:1px solid #a17ab0;border-radius:14px;margin:12px 0;background:#190528}.ev-envio h3{font-size:17px;color:#efd6a6;margin:0 0 9px}.ev-nombres{white-space:pre-line;font-size:14px;line-height:1.5}.ev-envio img{display:block;width:100%;height:auto;max-height:320px;object-fit:contain;margin:12px auto}.ev-links{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.ev-links a{color:#eed6a9}.ev-acciones{display:grid;grid-template-columns:1fr 1fr;gap:8px}#envivoProcesando{background:#43194e;color:#fffaf0;border:1px solid #c49b4b;border-radius:16px;max-width:90vw}#envivoProcesando::backdrop{background:#16001caa}
+
+
+/* Avisos visibles de nuevas capturas, aun cuando la ronda se aplique automáticamente. */
+.ev-alerta-ganador{
+ margin:10px 0;padding:12px 14px;border:2px solid #e6c16c;border-radius:12px;
+ background:#fff1c8;color:#341144;font-size:15px;font-weight:800;line-height:1.45;
+ box-shadow:0 3px 14px rgba(50,14,52,.22);overflow-wrap:anywhere;
+}
+.ev-alerta-ganador[hidden],.ev-alerta-ganador[hidden]+.ev-cerrar-alerta{display:none!important}
+.ev-cerrar-alerta{background:#4f2665;color:#fff;max-width:240px;margin-top:0}
+.ev-acciones{display:flex;flex-wrap:wrap;gap:7px}
+.ev-acciones button{flex:1 1 145px;width:auto;margin-top:6px}
+@media(max-width:650px){.ev-acciones button{flex:1 1 130px;font-size:13px}}
