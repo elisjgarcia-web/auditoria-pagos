@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 const C=window.EnVivoComun,$=id=>document.getElementById(id),client=window.supabase.createClient('https://dbkixcpwirjwjvjintkr.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRia2l4Y3B3aXJqd2p2amludGtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYwNjYxNDksImV4cCI6MjA2MTY0MjE0OX0.QJmWLWSe-pRYwxWeel8df7JLhNUvMKaTpL0MCDorgho'),BUCKET='ganadores-en-vivo';
-let user=null,config=null,rows=[],selected=0,draft=null,busy=false,exportando=false,cargandoFecha=false,fechaPendiente=false,turno=0,urls=[],worker=null,ocrScript=null,activeCard=null,autoFecha=false,esperandoNuevoSorteo=false,ocrQueue=Promise.resolve(),visorCaptura=null;
+let user=null,config=null,rows=[],selected=0,draft=null,busy=false,exportando=false,cargandoFecha=false,fechaPendiente=false,turno=0,revisionReinicioLocal=0,urls=[],worker=null,ocrScript=null,activeCard=null,autoFecha=false,esperandoNuevoSorteo=false,ocrQueue=Promise.resolve(),visorCaptura=null;
 function resumen(){
  const estado=$('resumenTrabajo');if(!estado)return;
  if(!draft){estado.textContent='Selecciona una ronda';return;}
@@ -92,6 +92,9 @@ async function atenderReinicioMaestro(corte,fecha,{forzado=false}={}){
  if(!user||!source||!id||(!forzado&&(busy||exportando)))return false;
  const clave=claveMaestro(fecha,source);
  if(localStorage.getItem(clave)===id)return false;
+ // Invalidar las preparaciones de imágenes pendientes antes de limpiar.
+ // Una conversión PNG/JPEG tardía no podrá regenerar los borradores antiguos.
+ revisionReinicioLocal++;
  // Limpiar exclusivamente borradores locales. El servidor conserva las
  // imágenes, las revisiones y la evidencia de pagos históricos.
  await C.borrarBorradores(user.id+':'+fecha+':');
@@ -232,17 +235,18 @@ async function ocr(canvas){
 const preparando=new WeakSet();
 async function cargar(card,file){
  if(busy||!draft||draft.sent||preparando.has(card))return;
- const original=draft,originalKey=key();
+ const original=draft,originalKey=key(),revisionInicio=revisionReinicioLocal;
  preparando.add(card);
  const indice=original.cards.indexOf(card);
  status('Guardando captura '+(indice+1)+'…');
  try{
   const v=await C.preparar(file);
-  if(original.sent||!original.cards.includes(card))return;
+  if(revisionInicio!==revisionReinicioLocal||original.sent||!original.cards.includes(card))return;
   card.blob=v.blob;card.ruta=null;card.uploaded=false;card.numeros='';card.userEdited=false;
   card.msg='Imagen lista. Escribe el cartón o confirma el que se detecte.';
   // Guardar en la ronda original incluso si la presentadora cambió de ronda al procesar.
   await C.local(originalKey,original);
+  if(revisionInicio!==revisionReinicioLocal)return;
   if(draft!==original)return;
   paint();
   // La presentadora puede continuar de inmediato, incluso si el OCR tarda o no hay internet.
@@ -426,6 +430,7 @@ $('nuevoSorteoPresentadora').onclick=async()=>{
   const source=config?.source||consulta.jornada?.source||consulta.source||'';
   const recientes=source&&consulta.source===source?(consulta.envios||[]):rows;
   registro=registrarCierre(fecha,source,recientes);
+  revisionReinicioLocal++;
   await C.borrarBorradores(user.id+':'+fecha+':');
   localStorage.removeItem('envivo-youtube:'+user.id+':'+fecha+':'+source);
   localStorage.setItem('envivo-esperando-fecha:'+user.id,'1');
