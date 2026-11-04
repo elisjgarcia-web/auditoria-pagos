@@ -18,7 +18,7 @@
  }
  refresh.onclick=async()=>{
   if(busy)return;busy=true;buttons();status('Consultando…');
-  try{await read();status('Estado actualizado.')}catch(e){status(e.message)}finally{busy=false;buttons()}
+  try{await read();status(dirty?'Estado consultado. Tu enlace nuevo sigue pendiente de «Enviar transmisión a la página».':'Estado actualizado.')}catch(e){status(e.message)}finally{busy=false;buttons()}
  };
  async function write(id){
   if(busy||revision===null)return;
