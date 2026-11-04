@@ -53,6 +53,18 @@
    else status('No se pudo copiar automáticamente. Mantén presionado el anuncio para seleccionarlo y copiarlo completo.');
   }finally{copying=false;copy.disabled=false;}
  };
+ function recibirDePresentadora(value){
+  let youtube;
+  try{youtube=T.parse(value).url;}
+  catch(e){status('Enlace de Presentadora inválido: '+e.message);return false;}
+  // Solo prepara el enlace; se requiere confirmar «Enviar transmisión a la página».
+  // dirty impide que una lectura asíncrona del enlace público anterior lo reemplace.
+  dirty=true;
+  field.value=youtube;
+  status('✓ Enlace de Presentadora cargado. Pulsa «Enviar transmisión a la página» para mostrarlo a los jugadores.');
+  return true;
+ }
+ window.PagosTransmision={recibirDePresentadora};
  field.addEventListener('input',()=>dirty=true);
  buttons();refresh.click();
 })();
