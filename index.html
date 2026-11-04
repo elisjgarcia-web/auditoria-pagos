@@ -43,7 +43,7 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
   <label>Buscar cualquier fecha publicada</label><input id="buscarFechaPublicada" type="date"><button class="sec" onclick="verFechaPublicada()">Ver fecha</button>
   <div id="historialPublicaciones"></div><div id="resultadoHistorico"></div>
 </div>
-<section class="card" aria-labelledby="envivoTitulo"><h2 id="envivoTitulo" class="title">🎙️ Ganadores del en vivo</h2><p id="envivoEstado" class="small" role="status" aria-live="polite">Verifica tu acceso para recibir las capturas.</p><div class="ev-acciones"><button id="envivoActualizar" class="sec">🔎 Buscar capturas y enlace</button><button id="envivoAvisos" class="sec">🔔 Activar sonido al consultar</button><button id="envivoProbarAviso" class="sec">🔊 Probar sonido</button></div><p class="small">Modo manual para ahorrar consultas a Supabase: la presentadora envía una vez y Pagos solo busca cuando toques el botón. No llegan avisos automáticos en segundo plano.</p><div id="envivoAvisoNuevo" class="ev-alerta-ganador" role="alert" aria-live="assertive" hidden></div><button id="envivoCerrarAviso" type="button" class="ev-cerrar-alerta">✓ Aviso visto</button><div id="envivoLista"></div><details><summary>Preparar acceso de la presentadora</summary><p class="small">Usa la fecha y las rondas configuradas abajo. Autoriza el correo con el que ella recibirá su código de acceso.</p><label for="envivoCorreo">Correo de la presentadora</label><input id="envivoCorreo" type="email" autocomplete="off" placeholder="correo@ejemplo.com"><button id="envivoPreparar" class="gen">Preparar rondas y autorizar correo</button><button id="envivoCopiar" class="copy">Copiar enlace de la presentadora</button><div class="ev-links"><a id="envivoEnlace" href="presentadora/" target="_blank" rel="noopener">Abrir app del en vivo</a></div><button id="envivoRevocar" class="clear">Retirar acceso de este correo</button></details></section><dialog id="envivoProcesando"><p>Recibiendo las capturas y preparando la ronda…</p></dialog>
+<section class="card" aria-labelledby="envivoTitulo"><h2 id="envivoTitulo" class="title">🎙️ Ganadores del en vivo</h2><p id="envivoAutoEstado" class="small" role="status" aria-live="polite">Las rondas se preparan automáticamente al iniciar los pagos del día.</p><p id="envivoEstado" class="small" role="status" aria-live="polite">Verifica tu acceso para recibir las capturas.</p><div class="ev-acciones"><button id="envivoActualizar" class="sec">🔎 Buscar capturas y enlace</button><button id="envivoAvisos" class="sec">🔔 Activar sonido al consultar</button><button id="envivoProbarAviso" class="sec">🔊 Probar sonido</button></div><p class="small">Modo manual para ahorrar consultas a Supabase: la presentadora envía una vez y Pagos solo busca cuando toques el botón. No llegan avisos automáticos en segundo plano.</p><div id="envivoAvisoNuevo" class="ev-alerta-ganador" role="alert" aria-live="assertive" hidden></div><button id="envivoCerrarAviso" type="button" class="ev-cerrar-alerta">✓ Aviso visto</button><div id="envivoLista"></div><details><summary>Acceso y ajustes de Presentadora (opcional)</summary><p class="small">Las rondas se preparan automáticamente al iniciar Pagos. Aquí puedes autorizar una vez el correo de la presentadora o cambiar la configuración cuando sea necesario.</p><label for="envivoCorreo">Correo de la presentadora</label><input id="envivoCorreo" type="email" autocomplete="off" placeholder="correo@ejemplo.com"><button id="envivoPreparar" class="gen">Preparar rondas y autorizar correo</button><button id="envivoCopiar" class="copy">Copiar enlace de la presentadora</button><div class="ev-links"><a id="envivoEnlace" href="presentadora/" target="_blank" rel="noopener">Abrir app del en vivo</a></div><button id="envivoRevocar" class="clear">Retirar acceso de este correo</button></details></section><dialog id="envivoProcesando"><p>Recibiendo las capturas y preparando la ronda…</p></dialog>
 <section class="card" aria-labelledby="publicarComprobantesTitulo"><h2 id="publicarComprobantesTitulo" class="title">🏆 Premios pagados</h2><p class="small">Reúne los resultados del bingo y los comprobantes de cada ganador para publicarlos por fecha. El público verá solamente las imágenes de la vista previa, con sus datos parcialmente cubiertos.</p><button class="gen" onclick="vistaPreviaComprobantes()">Publicar comprobantes del día</button><p id="publicarComprobantesEstado" class="small" role="status" aria-live="polite"></p><a id="enlaceComprobantes" hidden target="_blank" rel="noopener"></a><details><summary>Consultar o retirar publicación de esta fecha</summary><button class="sec" onclick="consultarComprobantes()">Consultar fecha del sorteo</button><div id="estadoPublicacionComprobantes"></div></details></section>
 <dialog id="dialogoComprobantes" aria-labelledby="dialogoComprobantesTitulo" style="width:min(95vw,760px);max-height:90dvh;overflow:auto;background:#130020;color:white;border:2px solid #c49b4b;border-radius:16px"><h2 id="dialogoComprobantesTitulo">Revisa los comprobantes públicos</h2><div id="vistaComprobantes"></div><label style="display:flex;gap:10px;align-items:flex-start;margin:16px 0"><input type="checkbox" id="confirmoComprobantes" style="width:22px;flex:none">Revisé los resultados del bingo, sus pagos y la cobertura de los datos. Autorizo publicar estas imágenes.</label><button id="confirmarComprobantes" class="gen" onclick="confirmarComprobantes()" disabled>Confirmar y publicar comprobantes</button><button id="cancelarComprobantes" class="sec" onclick="cancelarComprobantes()">Cancelar</button></dialog>
 <dialog id="dialogoPublicacion" aria-labelledby="tituloPublicacion" style="width:min(95vw,650px);max-height:90vh;overflow:auto;background:#130020;color:white;border:2px solid #00d084;border-radius:16px">
@@ -264,6 +264,52 @@ async function supaAbrirComprobante(evento,url){
  try{const {data,error}=await supa.storage.from('comprobantes').createSignedUrl(url.slice(prefijo.length),300);if(error||!data?.signedUrl)throw Error('sin acceso');if(ventana)ventana.location.replace(data.signedUrl);else alert('Permite abrir ventanas para ver el comprobante.');}
  catch{if(ventana)ventana.close();alert('No se pudo abrir el comprobante. Verifica tu sesión y vuelve a intentarlo.');}
 }
+// Solo registra la configuración que falta; nunca sustituye rondas en curso.
+async function prepararJornadaEnVivoAutomatica(){
+ const aviso=document.getElementById('envivoAutoEstado');
+ const informar=t=>{if(aviso)aviso.textContent=t;};
+ if(!SLOT_APPROVED_SOURCE||!Array.isArray(REGISTROS)||!REGISTROS.length){
+  informar('Las rondas se prepararán cuando Pagos cargue los aprobados del sorteo.');
+  return false;
+ }
+ let fecha;
+ try{fecha=ResultadosPublicos.fechaISO(fechaSorteo.value);}
+ catch{
+  informar('La fecha del sorteo no es válida; corrígela para preparar las rondas.');
+  return false;
+ }
+ const cantidad=Number(cant.value);
+ if(![5,6].includes(cantidad)){
+  informar('Selecciona 5 o 6 rondas para preparar el en vivo.');
+  return false;
+ }
+ const nombres=Array.from({length:cantidad},(_,i)=>
+  document.getElementById('nom'+(i+1))?.value.trim()||''
+ );
+ if(nombres.some(nombre=>!nombre||nombre.length>80)){
+  informar('Revisa los nombres de las rondas antes de iniciar el en vivo.');
+  return false;
+ }
+ const source=String(SLOT_APPROVED_SOURCE);
+ informar('🎙️ Preparando las rondas para Presentadora…');
+ try{
+  const {data,error}=await supa.rpc('en_vivo_preparar_automatico',{
+   p_fecha:fecha,p_source:source,p_rondas:nombres
+  });
+  if(error)throw Error(error.message);
+  if(data?.fecha!==fecha||String(data?.source)!==source||
+     !Array.isArray(data?.rondas)||data.rondas.length<5)
+   throw Error('El servidor no confirmó la jornada.');
+  informar(data.creada
+   ?'✅ Rondas listas para Presentadora. Ya puede entrar sin preparar nada más.'
+   :'✅ La jornada ya estaba lista. Se conservaron sus rondas y capturas.');
+  return true;
+ }catch(e){
+  informar('⚠️ No se pudieron preparar las rondas: '+e.message+
+   '. Los pagos y las compras siguen disponibles.');
+  return false;
+ }
+}
 async function supaCargar(){
  const {data:{session}}=await supa.auth.getSession();if(!session){supaMensaje('Primero verifica tu acceso con el código enviado al correo');return}
  supaMensaje('Consultando compras aprobadas...');let all=[];
@@ -285,6 +331,7 @@ async function supaCargar(){
  const issues=regs.filter(r=>!supaValidPago(r)||supaSwap(r));
  supaMensaje(all.length+' compras aprobadas · '+[...conflictos.keys()].length+' cartones únicos. '+issues.length+' compras con datos de pago para revisar.'+(repetidos.length?' ⚠️ CARTONES DUPLICADOS: '+repetidos.slice(0,20).join(', '):''));
  document.dispatchEvent(new Event('pagos-aprobados-cargados'));
+ void prepararJornadaEnVivoAutomatica();
  }catch(e){supaMensaje('Error consultando Supabase: '+e.message+' (verifica acceso y permisos RLS). No se modificaron los datos anteriores.')}
 }
 
