@@ -53,7 +53,7 @@ const notice=t=>{$('estado').textContent=t;},status=t=>{
  if(!bottom){bottom=document.createElement('p');bottom.id='resultadoEnvio';bottom.setAttribute('role','status');bottom.setAttribute('aria-live','polite');bottom.style.cssText='font-size:14px;font-weight:650;line-height:1.5;color:#43194e;white-space:pre-wrap';$('enviar').insertAdjacentElement('afterend',bottom);}
  bottom.textContent=t;
 };
-function controls(){document.querySelectorAll('button,input').forEach(n=>{n.disabled=busy&&!(cargandoFecha&&(n.id==='fecha'||n.id==='fechaHoy'));});$('descargarCapturas').disabled=busy||exportando||!config||!user;$('enviar').disabled=busy||!draft||draft.sent;$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
+function controls(){document.querySelectorAll('button,input').forEach(n=>{n.disabled=busy&&!(cargandoFecha&&(n.id==='fecha'||n.id==='fechaHoy'));});$('descargarCapturas').disabled=busy||exportando||!config||!user;$('enviar').disabled=busy||!draft||draft.sent;$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if($('youtubeEnviar'))$('youtubeEnviar').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
 function claveEpocaLocal(fecha,source){return 'envivo-epoca-borrador-v1:'+user.id+':'+fecha+':'+source;}
 function key(){
  const partes=[user.id,config.fecha,config.source,selected];
@@ -113,7 +113,7 @@ async function atenderReinicioMaestro(corte,fecha,{forzado=false}={}){
  esperandoNuevoSorteo=true;autoFecha=false;fechaPendiente=false;++turno;
  selected=0;draft=null;config=null;rows=[];activeCard=null;release();
  $('rondas').replaceChildren();$('capturas').replaceChildren();
- $('fecha').value='';$('youtube').value='';
+ $('fecha').value='';$('youtube').value='';if($('youtubeEstado'))$('youtubeEstado').textContent='Elige la fecha del próximo sorteo para enviar otro enlace.';
  paint();informarFecha();
  notice('♻️ Pagos ordenó un reinicio maestro. La presentadora quedó limpia. Elige la fecha del próximo sorteo.');
  status('✓ Borradores anteriores limpiados en esta laptop. Las capturas históricas siguen archivadas.');
@@ -335,7 +335,15 @@ async function loadDate(){
  if(await atenderReinicioMaestro(corte,f,{forzado:true}))return;
  config={...data.jornada,cortes:corte?.revisiones||{},maestroId:corte?.maestro_id||null};rows=data.envios||[];
  const envioVigente=rows.find(e=>!capturaAnterior(e));
- $('youtube').value=localStorage.getItem('envivo-youtube:'+user.id+':'+f+':'+config.source)||envioVigente?.youtube||'';config.rondas.forEach((r,i)=>{const b=node('button',r);b.type='button';b.onclick=()=>enterRound(i+1);$('rondas').append(b);});
+ const enlaceLocal=localStorage.getItem('envivo-youtube:'+user.id+':'+f+':'+config.source)||'';
+  const enlaceServidor=String(config.youtube||'').trim();
+  $('youtube').value=enlaceLocal||enlaceServidor||envioVigente?.youtube||'';
+  $('youtubeEstado').textContent=enlaceServidor&&$('youtube').value===enlaceServidor
+   ?'✓ Enlace confirmado en Pagos. Si lo cambias, pulsa Enviar enlace a Pagos.'
+   : $('youtube').value
+    ?'Enlace escrito aquí. Pulsa Enviar enlace a Pagos para confirmarlo, sin esperar las capturas.'
+    :'Pega el enlace y pulsa Enviar enlace a Pagos; no necesitas capturas.';
+  config.rondas.forEach((r,i)=>{const b=node('button',r);b.type='button';b.onclick=()=>enterRound(i+1);$('rondas').append(b);});
  // Ir a la primera ronda sin envío de esta jornada.
  abrirAuto=config.rondas.findIndex((_,i)=>!rows.some(e=>e.ronda===i+1&&!capturaAnterior(e)))+1;
  if(abrirAuto<1)abrirAuto=config.rondas.length;
@@ -471,7 +479,40 @@ $('fechaHoy').onclick=()=>{
  $('fecha').value=hoyCaracas();
  elegirFecha();
 };
-$('youtube').oninput=()=>{if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);};
+$('youtube').oninput=()=>{
+ if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);
+ $('youtubeEstado').textContent='Enlace pendiente de enviar a Pagos. Pulsa el botón para confirmarlo.';
+};
+$('youtubeEnviar').onclick=async()=>{
+ if(busy||!user||!config||esperandoNuevoSorteo){
+  $('youtubeEstado').textContent='Primero entra y carga la fecha y las rondas preparadas en Pagos.';
+  return;
+ }
+ if(draft?.uncertain){
+  $('youtubeEstado').textContent='Confirma primero el envío pendiente de la ronda.';
+  return;
+ }
+ let youtube;
+ try{youtube=TransmisionYouTube.parse($('youtube').value).url;}
+ catch(e){$('youtubeEstado').textContent='⚠️ '+e.message;return;}
+ const fecha=config.fecha,source=config.source,maestro=config.maestroId||null;
+ busy=true;controls();$('youtubeEstado').textContent='Enviando enlace de YouTube a Pagos…';
+ try{
+  const result=await rpc('en_vivo_enlace_guardar',{
+   p_fecha:fecha,p_source:source,p_youtube:youtube,p_maestro_id:maestro
+  });
+  if(result?.youtube!==youtube||String(result?.source)!==String(source))
+   throw Error('El servidor no confirmó el enlace. Reintenta.');
+  if(config?.fecha===fecha&&config?.source===source){
+   config.youtube=youtube;config.youtube_actualizado_en=result.actualizado_en;
+   $('youtube').value=youtube;
+   localStorage.setItem('envivo-youtube:'+user.id+':'+fecha+':'+source,youtube);
+   $('youtubeEstado').textContent='✓ Enlace guardado en Pagos. Allí deben pulsar «Buscar capturas y enlace» y luego «Usar enlace de Presentadora».';
+  }else $('youtubeEstado').textContent='✓ Enlace guardado, pero la fecha cambió. Vuelve a consultar la jornada.';
+ }catch(e){
+  $('youtubeEstado').textContent='⚠️ Enlace NO confirmado: '+(e.message||'Revisa la conexión.')+' Puedes reintentar sin afectar las capturas.';
+ }finally{busy=false;controls();}
+};
 async function agregarGanador(){
  if(busy||!draft||draft.sent)return false;
  if(draft.cards.length>=20){status('Máximo 20 capturas por envío.');return false;}
