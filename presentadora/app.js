@@ -109,7 +109,7 @@ async function atenderReinicioMaestro(corte,fecha,{forzado=false}={}){
  await C.borrarBorradores(user.id+':'+fecha+':');
  localStorage.removeItem('envivo-youtube:'+user.id+':'+fecha+':'+source);
  localStorage.setItem(clave,id);
- localStorage.setItem('envivo-esperando-fecha:'+user.id,'1');
+ localStorage.setItem('envivo-esperando-fecha:'+user.id,fecha);
  esperandoNuevoSorteo=true;autoFecha=false;fechaPendiente=false;++turno;
  selected=0;draft=null;config=null;rows=[];activeCard=null;release();
  $('rondas').replaceChildren();$('capturas').replaceChildren();
@@ -322,14 +322,8 @@ async function loadDate(){
  }
  cargandoFecha=true;busy=true;controls();++turno;selected=0;draft=null;activeCard=null;config=null;paint();$('rondas').replaceChildren();let abrirAuto=0;
  try{let data=await rpc('en_vivo_contexto',{p_fecha:f});if(!data)throw Error('Tu correo aún no está autorizado. Pide al encargado de pagos que prepare tu acceso.');
- if(!data.jornada&&autoFecha&&data.source){
-  // La configuración de Pagos determina la jornada; no adivinar la fecha.
-  const hoy=hoyCaracas();
-  const anterior=new Date(hoy+'T12:00:00Z');anterior.setUTCDate(anterior.getUTCDate()-1);
-  const {data:jornadas,error}=await client.from('en_vivo_jornadas').select('fecha').eq('source',data.source).gte('fecha',anterior.toISOString().slice(0,10)).order('fecha',{ascending:false}).limit(1);
-  if(!error&&jornadas?.length){f=jornadas[0].fecha;$('fecha').value=f;data=await rpc('en_vivo_contexto',{p_fecha:f});}
- }
- if(!data.jornada)throw Error('Todavía no hay rondas para '+f+'. Comprueba que la fecha coincida con Pagos y que allí se hayan cargado los aprobados.');
+ // No usar rondas de ayer si aún no se prepararon las de hoy.
+ if(!data.jornada)throw Error('Rondas pendientes para '+f+'. Se prepararán al iniciar Pagos con los aprobados. Esta pantalla las buscará automáticamente.');
  const corte=await rpc('en_vivo_cortes',{p_fecha:f});
  if(String(corte?.source||'')!==String(data.source||''))throw Error('El sorteo cambió. Actualiza antes de pegar capturas.');
  if(await atenderReinicioMaestro(corte,f,{forzado:true}))return;
@@ -453,7 +447,7 @@ $('nuevoSorteoPresentadora').onclick=async()=>{
   // procesarse tarde no podrá reaparecer en la nueva jornada.
   if(source)localStorage.setItem(claveEpocaLocal(fecha,source),C.uuid());
   localStorage.removeItem('envivo-youtube:'+user.id+':'+fecha+':'+source);
-  localStorage.setItem('envivo-esperando-fecha:'+user.id,'1');
+  localStorage.setItem('envivo-esperando-fecha:'+user.id,fecha);
   esperandoNuevoSorteo=true;autoFecha=false;++turno;
   selected=0;draft=null;config=null;rows=[];activeCard=null;release();
   $('rondas').replaceChildren();$('capturas').replaceChildren();$('fecha').value='';$('youtube').value='';
@@ -630,7 +624,19 @@ document.addEventListener('keydown',e=>{
 $('pedir').onclick=async()=>{if(busy)return;busy=true;controls();try{const{error}=await client.auth.signInWithOtp({email:$('email').value.trim()});if(error)throw error;notice('Revisa tu correo y escribe el código recibido.');}catch(e){notice(e.message);}finally{busy=false;controls();}};
 $('verificar').onclick=async()=>{if(busy)return;busy=true;controls();try{const{error}=await client.auth.verifyOtp({email:$('email').value.trim(),token:$('codigo').value.trim(),type:'email'});if(error)throw error;notice('Acceso verificado.');}catch(e){notice(e.message);}finally{busy=false;controls();await session();}};
 $('salir').onclick=async()=>{if(busy)return;await client.auth.signOut();await session();};
-async function session(){const{data}=await client.auth.getSession();const next=data?.session?.user||null;if(next?.id===user?.id&&user)return;user=next;++turno;draft=null;config=null;rows=[];activeCard=null;release();$('trabajo').hidden=!user;$('salir').hidden=!user;$('acceso').open=!user;$('capturas').replaceChildren();if(user){$('email').value=user.email;esperandoNuevoSorteo=localStorage.getItem('envivo-esperando-fecha:'+user.id)==='1';if(esperandoNuevoSorteo){autoFecha=false;$('fecha').value='';notice('Pulsa 📅 Hoy para cargar el sorteo del día, o selecciona otra fecha.');informarFecha();}else await loadDate();}else notice('Verifica tu correo autorizado para comenzar.');}
+async function session(){const{data}=await client.auth.getSession();const next=data?.session?.user||null;if(next?.id===user?.id&&user)return;user=next;++turno;draft=null;config=null;rows=[];activeCard=null;release();$('trabajo').hidden=!user;$('salir').hidden=!user;$('acceso').open=!user;$('capturas').replaceChildren();if(user){$('email').value=user.email;const fechaCerrada=localStorage.getItem('envivo-esperando-fecha:'+user.id);
+  // Conservar el cierre del sorteo del mismo día. En fecha distinta,
+  // buscar la jornada nueva sin volver a solicitar el botón Hoy.
+  esperandoNuevoSorteo=!!fechaCerrada&&(fechaCerrada==='1'||fechaCerrada===hoyCaracas());
+  if(fechaCerrada&&!esperandoNuevoSorteo){
+   localStorage.removeItem('envivo-esperando-fecha:'+user.id);
+   autoFecha=true;$('fecha').value=hoyCaracas();
+  }
+  if(esperandoNuevoSorteo){
+   autoFecha=false;$('fecha').value='';
+   notice('El sorteo anterior está cerrado. Selecciona una fecha nueva para continuar.');
+   informarFecha();
+  }else await loadDate();}else notice('Verifica tu correo autorizado para comenzar.');}
 let fechaInicial;try{fechaInicial=fechaSegura(new URL(location.href).searchParams.get('fecha'));}catch{}
 autoFecha=!fechaInicial;$('fecha').value=fechaInicial||hoyCaracas();
 informarFecha();
