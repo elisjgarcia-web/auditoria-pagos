@@ -4,7 +4,11 @@
 'use strict';
 if(!root.document)return;
 const d=root.document,$=id=>d.getElementById(id);
-let cargando=false,pendiente=false,anterior='',mounted=false;
+let cargando=false,pendiente=false,anterior='',mounted=false,reintento=null;
+function reintentar(ms=700){
+ if(reintento!==null||d.hidden)return;
+ reintento=setTimeout(()=>{reintento=null;revisar();},ms);
+}
 const texto=t=>{const n=$('ruletaPagosEstado');if(n&&n.textContent!==t)n.textContent=t;};
 function fechaCaracas(value){
  const date=new Date(value);if(!Number.isFinite(date.getTime()))return '';
@@ -121,7 +125,7 @@ async function revisar(forzado=false){
    return;
   }
   if(!root.PagosCompartidos?.conectado||!root.PagosCompartidos?.puedeEditar||root.PagosCompartidos.aplicando){
-   texto('🎰 '+missing.length+' ganador(es) de ruleta esperando a que Pagos termine de sincronizar.');return;
+   texto('🎰 '+missing.length+' ganador(es) de ruleta esperando a que Pagos termine de sincronizar.');if(root.PagosCompartidos?.conectado&&root.PagosCompartidos.puedeEditar)reintentar();return;
   }
   if(['premioCon','cartonesCon','fechaSorteo','tasaCambio'].includes(d.activeElement?.id)){
    texto('🎰 '+missing.length+' ganador(es) listos; terminaré de cargarlos al salir del campo que editas.');return;
@@ -146,7 +150,9 @@ async function revisar(forzado=false){
   });
   anterior=firma;
   texto('✓ '+cash.length+' ganador(es) de la ruleta cargados en Consolación · '+fmt(amount)+' Bs c/u. Revisa antes de transferir.');
- }catch(e){texto('⚠️ '+(e?.message||'No se pudo sincronizar la consola.'));}
+ }catch(e){texto('⚠️ '+(e?.message||'No se pudo sincronizar la consola.'));
+  if(/Espera a que termine la sincronización/i.test(e?.message||''))reintentar();
+ }
  finally{
   cargando=false;
   if(pendiente){pendiente=false;setTimeout(()=>revisar(),250);}
@@ -158,6 +164,8 @@ d.addEventListener('pagos-aprobados-cargados',()=>setTimeout(()=>revisar(),1200)
 d.addEventListener('pagos-acceso-verificado',()=>setTimeout(()=>revisar(),1200));
 d.addEventListener('visibilitychange',()=>{if(!d.hidden)revisar();});
 root.addEventListener('online',()=>revisar());
-setInterval(()=>revisar(),12000);
+d.addEventListener('focusout',e=>{if(['premioCon','cartonesCon','fechaSorteo','tasaCambio'].includes(e.target?.id))reintentar(250);});
+root.addEventListener('focus',()=>revisar());
+setInterval(()=>revisar(),4000);
 setTimeout(()=>revisar(),1700);
 })(typeof window!=='undefined'?window:globalThis);
