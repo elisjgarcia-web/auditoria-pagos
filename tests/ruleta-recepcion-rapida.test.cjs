@@ -12,12 +12,12 @@ function fixture(){
  w.eval(script);
  return{w,el,timers,intervals,get reads(){return reads;},get generated(){return generated;},busy:v=>busy=v,close:()=>w.close(),retry:async(ms)=>{const i=timers.findIndex(t=>t.ms===ms);assert.ok(i>=0,'retry scheduled');const t=timers.splice(i,1)[0];t.fn();await new Promise(r=>setImmediate(r));}};
 }
-test('a winner waiting for shared sync is retried without duplicate payments',async()=>{
- const f=fixture();try{f.busy(true);await f.w.RuletaConsolacionPagos.revisar(true);assert.equal(f.generated,0);f.busy(false);await f.retry(700);assert.equal(f.el('cartonesCon').value,'75');assert.equal(f.el('premioCon').value,'9000');assert.equal(f.generated,1);await f.w.RuletaConsolacionPagos.revisar(true);assert.equal(f.generated,1);}finally{f.close();}
+test('nothing is fetched automatically; manual click brings sent winners once',async()=>{
+ const f=fixture();try{assert.equal(f.reads,0);assert.equal(f.timers.length,0);assert.equal(f.intervals.length,0);const b=f.el('traerGanadoresRuleta');assert.match(b.textContent,/Traer ganadores/);await b.onclick();assert.equal(f.generated,1);assert.equal(f.el('cartonesCon').value,'75');await b.onclick();assert.equal(f.generated,1);assert.equal(b.disabled,false);}finally{f.close();}
 });
-test('leaving an edited field brings waiting winners, without replacing an active edit',async()=>{
- const f=fixture();try{f.el('premioCon').focus();await f.w.RuletaConsolacionPagos.revisar();assert.equal(f.generated,0);f.el('premioCon').blur();await f.retry(250);assert.equal(f.generated,1);assert.equal(f.el('cartonesCon').value,'75');}finally{f.close();}
+test('busy synchronization reports failure without a loop; second manual click retries',async()=>{
+ const f=fixture();try{f.busy(true);await f.el('traerGanadoresRuleta').onclick();assert.equal(f.generated,0);assert.equal(f.timers.length,0);assert.equal(f.el('traerGanadoresRuleta').disabled,false);f.busy(false);await f.el('traerGanadoresRuleta').onclick();assert.equal(f.generated,1);}finally{f.close();}
 });
-test('hidden app does not poll and offline shared sync does not create a rapid retry loop',async()=>{
- const f=fixture();try{assert.equal(f.intervals[0].ms,4000);Object.defineProperty(f.w.document,'hidden',{value:true,configurable:true});await f.w.RuletaConsolacionPagos.revisar();assert.equal(f.reads,0);Object.defineProperty(f.w.document,'hidden',{value:false,configurable:true});f.w.PagosCompartidos.puedeEditar=false;await f.w.RuletaConsolacionPagos.revisar();assert.equal(f.generated,0);assert.ok(!f.timers.some(t=>t.ms===700));}finally{f.close();}
+test('manual fetch preserves conflicting existing consolation instead of overwriting it',async()=>{
+ const f=fixture();try{f.el('cartonesCon').value='99';f.el('premioCon').value='500';await f.el('traerGanadoresRuleta').onclick();assert.equal(f.generated,0);assert.equal(f.el('cartonesCon').value,'99');assert.equal(f.el('premioCon').value,'500');assert.match(f.el('ruletaPagosEstado').textContent,/No la reemplacé/);}finally{f.close();}
 });

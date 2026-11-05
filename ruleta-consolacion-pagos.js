@@ -4,11 +4,7 @@
 'use strict';
 if(!root.document)return;
 const d=root.document,$=id=>d.getElementById(id);
-let cargando=false,pendiente=false,anterior='',mounted=false,reintento=null;
-function reintentar(ms=700){
- if(reintento!==null||d.hidden)return;
- reintento=setTimeout(()=>{reintento=null;revisar();},ms);
-}
+let cargando=false,anterior='',mounted=false;
 const texto=t=>{const n=$('ruletaPagosEstado');if(n&&n.textContent!==t)n.textContent=t;};
 function fechaCaracas(value){
  const date=new Date(value);if(!Number.isFinite(date.getTime()))return '';
@@ -49,9 +45,9 @@ function montar(){
  const box=d.createElement('div');box.className='cp-ruleta-directa';box.id='ruletaPagos';
  const top=d.createElement('div');top.className='cp-ruleta-superior';
  const name=d.createElement('strong');name.textContent='🎰 Consolación desde la ruleta';
- const reload=d.createElement('button');reload.className='sec';reload.type='button';reload.textContent='↻ Consultar';reload.onclick=()=>revisar(true);
+ const reload=d.createElement('button');reload.className='sec';reload.type='button';reload.id='traerGanadoresRuleta';reload.textContent='↓ Traer ganadores';reload.onclick=()=>revisar(true);
  top.append(name,reload);
- const state=d.createElement('p');state.id='ruletaPagosEstado';state.setAttribute('role','status');state.setAttribute('aria-live','polite');state.textContent='Los ganadores de dinero se cargarán automáticamente cuando salgan en la ruleta.';
+ const state=d.createElement('p');state.id='ruletaPagosEstado';state.setAttribute('role','status');state.setAttribute('aria-live','polite');state.textContent='Primero pulsa «Enviar ganadores a pagos» en la ruleta y luego «Traer ganadores» aquí.';
  box.append(top,state);base.insertBefore(box,$('premioCon').previousElementSibling||$('premioCon'));mounted=true;
 }
 function actualizarBadge(cantidad){
@@ -75,14 +71,15 @@ function listaCash(rows,fecha,tasa){
 }
 async function revisar(forzado=false){
  montar();
- if(cargando){pendiente=true;return;}
+ if(cargando)return;
  if(!forzado&&d.hidden)return;
  if(typeof supa==='undefined'||!root.ResultadosPublicos||!$('fechaSorteo'))return;
  cargando=true;
+ const boton=$('traerGanadoresRuleta');if(boton){boton.disabled=true;boton.textContent='Trayendo ganadores…';}
  try{
   if(root.pagosRestauracionLista)await root.pagosRestauracionLista;
   const {data:auth,error:authError}=await supa.auth.getSession();
-  if(authError||!auth?.session){texto('Inicia sesión en Pagos para recibir automáticamente los ganadores.');return;}
+  if(authError||!auth?.session){texto('Inicia sesión en Pagos para traer los ganadores enviados.');return;}
   const {data,error}=await supa.rpc('pagos_ruleta_consolacion');
   if(error)throw Error('No se pudo consultar la ruleta: '+error.message);
   if(!data||!Array.isArray(data.winners))throw Error('La ruleta respondió sin ganadores válidos.');
@@ -97,7 +94,7 @@ async function revisar(forzado=false){
   if(invalid.length){
    texto('⚠️ '+invalid.length+' premio(s) de dinero necesitan revisión: '+invalid[0].motivo+'. No se modificó Consolación.');return;
   }
-  if(!cash.length){texto(regalos.length?'🎁 '+regalos.length+' cartón(es) gratis en la ruleta. Sin premios en dinero para esta fecha.':'Sin premios de dinero de ruleta para este sorteo.');return;}
+  if(!cash.length){texto(regalos.length?'🎁 '+regalos.length+' cartón(es) gratis en la ruleta. Sin premios en dinero para esta fecha.':'No hay ganadores de dinero enviados. Pulsa «Enviar ganadores a pagos» en la ruleta y vuelve a traerlos.');return;}
   const nums=new Set();
   if(cash.some(w=>{if(nums.has(w.carton))return true;nums.add(w.carton);return false;})){
    texto('⚠️ Un cartón ganó dinero más de una vez. Revisa los giros antes de crear pagos duplicados.');return;
@@ -125,10 +122,10 @@ async function revisar(forzado=false){
    return;
   }
   if(!root.PagosCompartidos?.conectado||!root.PagosCompartidos?.puedeEditar||root.PagosCompartidos.aplicando){
-   texto('🎰 '+missing.length+' ganador(es) de ruleta esperando a que Pagos termine de sincronizar.');if(root.PagosCompartidos?.conectado&&root.PagosCompartidos.puedeEditar)reintentar();return;
+   texto('🎰 '+missing.length+' ganador(es) de ruleta esperando a que Pagos termine de sincronizar.');return;
   }
-  if(['premioCon','cartonesCon','fechaSorteo','tasaCambio'].includes(d.activeElement?.id)){
-   texto('🎰 '+missing.length+' ganador(es) listos; terminaré de cargarlos al salir del campo que editas.');return;
+  if(!forzado&&['premioCon','cartonesCon','fechaSorteo','tasaCambio'].includes(d.activeElement?.id)){
+   texto('🎰 '+missing.length+' ganador(es) listos; pulsa «Traer ganadores» al terminar de editar.');return;
   }
   const firma=JSON.stringify([data.source,fecha,expected,amount]);
   if(anterior===firma&&!forzado)return;
@@ -151,21 +148,12 @@ async function revisar(forzado=false){
   anterior=firma;
   texto('✓ '+cash.length+' ganador(es) de la ruleta cargados en Consolación · '+fmt(amount)+' Bs c/u. Revisa antes de transferir.');
  }catch(e){texto('⚠️ '+(e?.message||'No se pudo sincronizar la consola.'));
-  if(/Espera a que termine la sincronización/i.test(e?.message||''))reintentar();
  }
  finally{
   cargando=false;
-  if(pendiente){pendiente=false;setTimeout(()=>revisar(),250);}
+  if(boton){boton.disabled=false;boton.textContent='↓ Traer ganadores';}
  }
 }
 root.RuletaConsolacionPagos=Object.freeze({interpretar,dineroEnBs,dineroEnUsd,listaCash,revisar});
 montar();
-d.addEventListener('pagos-aprobados-cargados',()=>setTimeout(()=>revisar(),1200));
-d.addEventListener('pagos-acceso-verificado',()=>setTimeout(()=>revisar(),1200));
-d.addEventListener('visibilitychange',()=>{if(!d.hidden)revisar();});
-root.addEventListener('online',()=>revisar());
-d.addEventListener('focusout',e=>{if(['premioCon','cartonesCon','fechaSorteo','tasaCambio'].includes(e.target?.id))reintentar(250);});
-root.addEventListener('focus',()=>revisar());
-setInterval(()=>revisar(),4000);
-setTimeout(()=>revisar(),1700);
 })(typeof window!=='undefined'?window:globalThis);
