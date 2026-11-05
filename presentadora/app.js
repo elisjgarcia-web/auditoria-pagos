@@ -432,7 +432,7 @@ $('nuevoSorteoPresentadora').onclick=async()=>{
  if(!user||busy)return;
  if(draft?.uncertain){status('Confirma el envio pendiente antes de comenzar otro sorteo.');return;}
  let fecha;try{fecha=config?.fecha||C.fecha($('fecha').value);}catch{status('Selecciona la fecha que deseas cerrar.');return;}
- if(!confirm('Nuevo sorteo: se limpiaran los borradores y capturas locales de esta fecha. Los envios anteriores ya recibidos en Pagos y el historial se mantienen. ¿Continuar?'))return;
+ if(!confirm('Nuevo sorteo: se limpiaran los borradores y capturas locales de esta fecha. También se vaciará la lista de ganadores excluidos en la ruleta. Los pagos e historial se mantienen. ¿Continuar?'))return;
  busy=true;controls();let registro=null;
  try{
   // Consultar la última revisión antes de ocultarla; no borrar archivos ni filas remotas.
@@ -440,6 +440,8 @@ $('nuevoSorteoPresentadora').onclick=async()=>{
   if(!consulta)throw Error('No se pudo consultar la jornada. Revisa tu conexión.');
   const source=config?.source||consulta.jornada?.source||consulta.source||'';
   const recientes=source&&consulta.source===source?(consulta.envios||[]):rows;
+  const limpieza=await rpc('slot_reiniciar_rondas',{p_source:String(source)});
+  if(String(limpieza?.source)!==String(source)||limpieza.sent!==false)throw Error('No se pudo confirmar la limpieza de ganadores en la ruleta.');
   registro=registrarCierre(fecha,source,recientes);
   revisionReinicioLocal++;
   await C.borrarBorradores(user.id+':'+fecha+':');
@@ -452,7 +454,7 @@ $('nuevoSorteoPresentadora').onclick=async()=>{
   selected=0;draft=null;config=null;rows=[];activeCard=null;release();
   $('rondas').replaceChildren();$('capturas').replaceChildren();$('fecha').value='';$('youtube').value='';
   paint();notice('La presentadora quedó limpia. Pulsa 📅 Hoy o elige la fecha del nuevo sorteo.');informarFecha();
-  status('Capturas anteriores ocultas aquí. Los resultados ya recibidos siguen guardados en Pagos.');
+  status('Presentadora y lista de excluidos reiniciadas. Los pagos e historial siguen guardados.');
  }catch(e){
   if(registro){try{if(registro.previous===null)localStorage.removeItem(registro.key);else localStorage.setItem(registro.key,registro.previous);}catch{}}
   status('No se pudo completar el reinicio: '+e.message);

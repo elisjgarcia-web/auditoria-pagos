@@ -320,6 +320,7 @@ async function aplicar(e,{automatico=false}={}){
    guardarEstadoAhora();
   };
   if(root.PagosCompartidos?.editar)await root.PagosCompartidos.editar(editar);else await editar();
+  document.dispatchEvent(new Event('ronda-anuncio-generado'));
   if(resultado.faltantes.length){
    const cartones=resultado.faltantes.map(x=>x.carton).join(', ');
    const mensaje='⚠️ Ronda '+i+': '+resultado.correctos.length+' de '+st.ns.length+
