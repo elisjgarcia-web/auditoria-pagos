@@ -132,7 +132,7 @@ function sonarAviso(){
  }catch{}
 }
 async function notificacionSistema(texto){
- if(!avisos||!root.Notification||root.Notification.permission!=='granted')return;
+ if(root.PagosPush?.activo||!avisos||!root.Notification||root.Notification.permission!=='granted')return;
  try{
   const opciones={body:texto,tag:'bingo-andino-nuevo-ganador',renotify:true,icon:'./icon-192.png',data:{url:new URL('./',location.href).href}};
   if(navigator.serviceWorker?.ready){
@@ -379,11 +379,14 @@ $('envivoAvisos').onclick=async()=>{
   }
   $('envivoAvisos').textContent='🔔 Activar avisos / reconectar';
   await avisosAutomaticos.activar();
-  status(permiso==='granted'?'✓ Avisos activados: recibirás sonido y notificación cuando la presentadora envíe una captura. Mantén Pagos abierto.':
-   '✓ Avisos en pantalla y sonido activados. Permite las notificaciones del navegador para recibir también el aviso del sistema. Mantén Pagos abierto.');
+  if(permiso==='granted'&&root.PagosPush){
+   try{if(!await root.PagosPush.activar(supa))throw Error('El dispositivo no quedó registrado.');status('✅ Avisos push activados en este dispositivo. Puedes usar otras aplicaciones. Pulsa «Probar notificación» para comprobarlo.');}
+   catch(e){status('Avisos con Pagos abierto activos. No se activó el aviso con la app cerrada: '+e.message);}
+  }else status('Avisos con Pagos abierto activos. Permite las notificaciones para recibir avisos con la app cerrada.');
  }catch{avisos=true;await avisosAutomaticos.activar();status('Avisos en pantalla activados. El navegador no permitió activar el sonido o las notificaciones.');}
 };
-$('envivoProbarAviso').onclick=()=>{
+$('envivoProbarAviso').onclick=async()=>{
+ if(root.PagosPush?.activo){try{await root.PagosPush.probar(supa);status('Prueba enviada desde el servidor a este dispositivo. Puedes dejar Pagos en segundo plano.');}catch(e){status('No se pudo enviar la prueba: '+e.message);}return;}
  avisar([{ronda:1,capturas:[{cartones:[123]}]}],{prueba:true});
  status('Prueba de sonido y alerta visual. Ninguna captura se ha descargado ni se ha registrado un ganador.');
 };
@@ -400,9 +403,9 @@ function limpiarVistaManual(mensaje){
 $('envivoActualizar').onclick=refrescar;
 $('fechaSorteo').addEventListener('change',()=>{limpiarVistaManual('Fecha cambiada. Pulsa «Buscar capturas enviadas» cuando quieras consultar.');avisosAutomaticos?.actualizar();});
 document.addEventListener('pagos-local-guardado',()=>actualizarRondas(context));
-document.addEventListener('pagos-aprobados-cargados',()=>{limpiarVistaManual('Aprobados cargados. Pulsa «Buscar capturas enviadas» cuando la presentadora haya enviado resultados.');avisosAutomaticos?.actualizar();});
-document.addEventListener('pagos-sesion-cerrada',()=>{avisosAutomaticos?.pausar();limpiarVistaManual('Sesión cerrada. Verifica tu acceso antes de traer capturas.');});
-document.addEventListener('pagos-acceso-verificado',()=>avisosAutomaticos?.actualizar());
+document.addEventListener('pagos-aprobados-cargados',()=>{limpiarVistaManual('Aprobados cargados. Pulsa «Buscar capturas enviadas» cuando la presentadora haya enviado resultados.');avisosAutomaticos?.actualizar();root.PagosPush?.restaurar(supa);});
+document.addEventListener('pagos-sesion-cerrada',()=>{avisosAutomaticos?.pausar();root.PagosPush?.desactivar(supa);limpiarVistaManual('Sesión cerrada. Verifica tu acceso antes de traer capturas.');});
+document.addEventListener('pagos-acceso-verificado',()=>{avisosAutomaticos?.actualizar();root.PagosPush?.restaurar(supa);});
 root.addEventListener('online',()=>avisosAutomaticos?.actualizar(true));
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)avisosAutomaticos?.actualizar(true);});
 actualizarRondas(null);

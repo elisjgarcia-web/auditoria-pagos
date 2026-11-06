@@ -1,0 +1,47 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),{PGlite}=require('@electric-sql/pglite'),fs=require('node:fs'),path=require('node:path');
+const sql=fs.readFileSync(path.join(__dirname,'../supabase/presentadora-push.sql'),'utf8');
+const u='10000000-0000-4000-8000-000000000001',id='20000000-0000-4000-8000-000000000001';
+const sub=n=>({endpoint:'https://fcm.googleapis.com/fcm/send/device'+n,keys:{p256dh:'B'.repeat(87),auth:'a'.repeat(22)}});
+test('push privacy, registration, durable queue, leases, retry dedup, expiry and source/reset checks',async()=>{
+ const db=new PGlite();try{
+ await db.exec(`create role anon;create role authenticated;create role service_role;
+ create schema auth;create table auth.users(id uuid primary key);insert into auth.users values('${u}');
+ create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+ create schema privado_resultados;create table privado_resultados.publicadores_resultados(usuario_id uuid,activo boolean);insert into privado_resultados.publicadores_resultados values('${u}',true);
+ create schema privado_en_vivo;create table privado_en_vivo.cortes_reinicio(fecha date,source text,revisiones jsonb);
+ create function privado_en_vivo.es_pagos() returns boolean language sql security definer as $$select exists(select 1 from privado_resultados.publicadores_resultados where usuario_id=auth.uid() and activo)$$;
+ create function privado_en_vivo.source_actual() returns text language sql as $$select '88'::text$$;
+ create table public.en_vivo_envios(id uuid primary key,fecha date,source text,ronda int,revision int,capturas jsonb);
+ create schema extensions;grant usage on schema extensions to service_role;create function extensions.hmac(v text,k text,alg text) returns bytea language sql as $$select decode(md5(v||k)||md5(k||v),'hex')$$;
+ create schema net;create function net.http_post(url text,headers jsonb,body jsonb,timeout_milliseconds int) returns bigint language sql as $$select 1::bigint$$;`);
+ await db.exec(sql);
+ await db.exec("insert into privado_push.config values(true,'public-test','private-test','hook-test')");
+ await db.exec('set role authenticated');
+ await assert.rejects(db.query('select public.pagos_push_clave()'),/no autorizado/);
+ await db.exec(`select set_config('request.jwt.claim.sub','${u}',false)`);
+ assert.deepEqual((await db.query('select public.pagos_push_clave() as r')).rows[0].r,{publicKey:'public-test'});
+ await assert.rejects(db.query('select * from privado_push.config'),/permission denied/);
+ await assert.rejects(db.query('select public.push_servidor_tomar($1)',[id]),/permission denied/);
+ await assert.rejects(db.query('select public.pagos_push_guardar($1)',[{...sub(1),endpoint:'https://127.0.0.1/private'}]),/inválida/);
+ const reg=async n=>(await db.query('select public.pagos_push_guardar($1) as r',[sub(n)])).rows[0].r;
+ const d1=await reg(1);assert.equal((await reg(1)).id,d1.id);const d2=await reg(2);
+ await db.exec('reset role');
+ await db.exec(`create or replace function net.http_post(url text,headers jsonb,body jsonb,timeout_milliseconds int) returns bigint language plpgsql as $$begin raise exception 'network unavailable';end$$;
+ insert into public.en_vivo_envios values('${id}','2026-11-05','88',2,1,'[{"cartones":[75,76]}]');`);
+ assert.equal((await db.query('select count(*)::int as n from privado_push.cola')).rows[0].n,1);
+ await db.exec('set role service_role');
+ const take=async()=>(await db.query('select public.push_servidor_tomar($1) as r',[id])).rows[0].r;
+ const time=String(Math.floor(Date.now()/1000));
+ assert.equal((await db.query('select public.push_servidor_autorizar($1,$2,$3) as r',[id,time,'a'.repeat(64)])).rows[0].r,null);
+ const signature=(await db.query("select encode(extensions.hmac($1,'hook-test','sha256'),'hex') as h",[id+':'+time])).rows[0].h;
+ const job=(await db.query('select public.push_servidor_autorizar($1,$2,$3) as r',[id,time,signature])).rows[0].r;assert.equal(job.destinos.length,2);assert.deepEqual(job.payload.cartones,[75,76]);assert.equal(await take(),null);
+ await db.query('select public.push_servidor_finalizar($1,$2,$3,true)',[id,[d1.id],[]]);
+ await db.exec('reset role');await db.query('update privado_push.cola set proximo_en=now() where id=$1',[id]);await db.exec('set role service_role');
+ assert.deepEqual((await take()).destinos.map(d=>d.id),[d2.id]);await db.query('select public.push_servidor_finalizar($1,$2,$3,false)',[id,[],[d2.id]]);assert.equal(await take(),null);
+ await db.exec('reset role');assert.equal((await db.query('select activo from privado_push.dispositivos where id=$1',[d2.id])).rows[0].activo,false);
+ const old='20000000-0000-4000-8000-000000000002';await db.query("insert into public.en_vivo_envios values($1,'2026-11-05','88',2,2,'[]')",[old]);
+ await db.exec("insert into privado_en_vivo.cortes_reinicio values('2026-11-05','88','{\"2\":2}')");
+ assert.equal((await db.query('select public.push_servidor_tomar($1) as r',[old])).rows[0].r,null);
+ const privileges=(await db.query("select has_function_privilege('anon','public.push_servidor_tomar(uuid)','EXECUTE') as anon,has_function_privilege('authenticated','public.push_servidor_tomar(uuid)','EXECUTE') as auth")).rows[0];assert.deepEqual(privileges,{anon:false,auth:false});
+ }finally{await db.close();}
+});
