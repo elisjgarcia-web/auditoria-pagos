@@ -8,7 +8,7 @@ function botones(){const ok=!!pendiente&&!ocupado&&$('confirmoComprobantes').che
 function vigente(){return pendiente&&fecha()===pendiente.fecha&&ComprobantesPagos.firmaDia(pendiente.fecha)===pendiente.firma;}
 async function sesion(){const {data,error}=await supa.auth.getSession();if(error||!data?.session)throw Error('Primero verifica tu acceso a Supabase.');return data.session;}
 async function publicacion(f){const {data,error}=await supa.from('premios_pagados').select('fecha,revision,publicado').eq('fecha',f).maybeSingle();if(error)throw Error('No se pudo consultar la publicación. '+error.message);return data;}
-function enlace(f){const u=new URL('https://bingoandino75.com/');u.searchParams.set('premios',f);return u.href;}
+function enlace(f){const u=new URL('https://bingoandino75.com/premios/');u.searchParams.set('premios',f);return u.href;}
 window.vistaPreviaComprobantes=async function(){if(ocupado)return;ocupado=true;pendiente=null;liberar();botones();estado('Preparando las imágenes del día…');try{
  await sesion();const dia=await ComprobantesPagos.prepararDia(fecha()),previa=await publicacion(dia.fecha);pendiente={...dia,revision:previa?.revision||0};
  const box=$('vistaComprobantes');box.replaceChildren();const intro=document.createElement('p');intro.textContent=dia.imagenes.length+' rondas · '+dia.fecha+(previa?.publicado?' · Reemplazará la publicación de esta fecha.':'');box.append(intro);
