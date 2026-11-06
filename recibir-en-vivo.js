@@ -356,7 +356,17 @@ $('envivoProcesando').addEventListener('cancel',e=>e.preventDefault());
 $('envivoPreparar').onclick=async()=>{if(ocupado)return;ocupado=true;try{const p=parametros();const data=await rpc('en_vivo_configurar',p);status('Rondas preparadas para '+data.fecha+(p.p_email?' · Correo autorizado.':'.'));$('envivoEnlace').hidden=false;$('envivoEnlace').href=new URL('presentadora/?fecha='+data.fecha,location.href).href;}catch(e){status(e.message);}finally{ocupado=false;refrescar();}};
 $('envivoRevocar').onclick=async()=>{if(ocupado||!$('envivoCorreo').value.trim()||!confirm('¿Retirar el acceso de este correo a la app del en vivo?'))return;ocupado=true;try{await rpc('en_vivo_configurar',{...parametros(),p_activo:false});status('Acceso retirado para este correo.');}catch(e){status(e.message);}finally{ocupado=false;}};
 $('envivoCopiar').onclick=async()=>{try{const u=new URL('presentadora/?fecha='+current().fecha,location.href);await navigator.clipboard.writeText(u.href);status('Enlace de la presentadora copiado.');}catch{status('Abre el enlace de la presentadora y copia su dirección.');}};
+const avisosAutomaticos=root.EnVivoAvisos?.crear({
+ contexto:async()=>{const {data,error}=await supa.auth.getSession();if(error||!data?.session)return null;const f=current();return {...f,uid:data.session.user.id};},
+ consultar:f=>contextoVigente(f.fecha),
+ suscribir:(f,nuevo,estado)=>supa.channel('avisos-presentadora:'+f.uid+':'+f.fecha+':'+f.source)
+  .on('postgres_changes',{event:'INSERT',schema:'public',table:'en_vivo_envios',filter:'source=eq.'+f.source},nuevo).subscribe(estado),
+ cerrar:canal=>supa.removeChannel(canal),
+ notificar:(data,uid)=>comprobarAvisos(ultimosVigentes(data),data,uid),
+ estado:texto=>{const n=$('envivoAvisosEstado');if(n)n.textContent=texto;}
+})||null;
 $('envivoAvisos').onclick=async()=>{
+ if(!avisosAutomaticos){status('No se cargó el sistema de avisos. Actualiza la aplicación; puedes seguir trayendo capturas manualmente.');return;}
  try{
   avisos=true;
   if(root.AudioContext||root.webkitAudioContext){
@@ -367,10 +377,11 @@ $('envivoAvisos').onclick=async()=>{
    permiso=Notification.permission;
    if(permiso==='default')permiso=await Notification.requestPermission();
   }
-  $('envivoAvisos').textContent='🔔 Sonido al consultar activo';
-  status(permiso==='granted'?'✓ Sonido activado. El aviso aparecerá solamente cuando pulses «Buscar capturas enviadas».':
-   '✓ Sonido y aviso visual activados al consultar. Las notificaciones del sistema requieren permiso del navegador.');
- }catch{avisos=true;status('Los avisos visuales siguen activos, pero el navegador no permitió activar el sonido.');}
+  $('envivoAvisos').textContent='🔔 Activar avisos / reconectar';
+  await avisosAutomaticos.activar();
+  status(permiso==='granted'?'✓ Avisos activados: recibirás sonido y notificación cuando la presentadora envíe una captura. Mantén Pagos abierto.':
+   '✓ Avisos en pantalla y sonido activados. Permite las notificaciones del navegador para recibir también el aviso del sistema. Mantén Pagos abierto.');
+ }catch{avisos=true;await avisosAutomaticos.activar();status('Avisos en pantalla activados. El navegador no permitió activar el sonido o las notificaciones.');}
 };
 $('envivoProbarAviso').onclick=()=>{
  avisar([{ronda:1,capturas:[{cartones:[123]}]}],{prueba:true});
@@ -387,10 +398,13 @@ function limpiarVistaManual(mensaje){
  status(mensaje);
 }
 $('envivoActualizar').onclick=refrescar;
-$('fechaSorteo').addEventListener('change',()=>limpiarVistaManual('Fecha cambiada. Pulsa «Buscar capturas enviadas» cuando quieras consultar.'));
+$('fechaSorteo').addEventListener('change',()=>{limpiarVistaManual('Fecha cambiada. Pulsa «Buscar capturas enviadas» cuando quieras consultar.');avisosAutomaticos?.actualizar();});
 document.addEventListener('pagos-local-guardado',()=>actualizarRondas(context));
-document.addEventListener('pagos-aprobados-cargados',()=>limpiarVistaManual('Aprobados cargados. Pulsa «Buscar capturas enviadas» cuando la presentadora haya enviado resultados.'));
-document.addEventListener('pagos-sesion-cerrada',()=>limpiarVistaManual('Sesión cerrada. Verifica tu acceso antes de traer capturas.'));
+document.addEventListener('pagos-aprobados-cargados',()=>{limpiarVistaManual('Aprobados cargados. Pulsa «Buscar capturas enviadas» cuando la presentadora haya enviado resultados.');avisosAutomaticos?.actualizar();});
+document.addEventListener('pagos-sesion-cerrada',()=>{avisosAutomaticos?.pausar();limpiarVistaManual('Sesión cerrada. Verifica tu acceso antes de traer capturas.');});
+document.addEventListener('pagos-acceso-verificado',()=>avisosAutomaticos?.actualizar());
+root.addEventListener('online',()=>avisosAutomaticos?.actualizar(true));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)avisosAutomaticos?.actualizar(true);});
 actualizarRondas(null);
-status('Modo manual activado: no se consultan capturas automáticamente. Pulsa «Buscar capturas enviadas» o «Traer capturas» en cada ronda.');
+status('Pulsa «Activar avisos» para recibir alertas de nuevas capturas. Para incorporarlas, usa «Traer capturas» en cada ronda.');
 })(typeof window==='object'?window:globalThis);

@@ -32,9 +32,8 @@ test('una fecha o sorteo distinto se bloquea',()=>{
  assert.throws(()=>C.numeros({capturas:[{cartones:[272]},{cartones:[272]}]}));
 });
 
-test('recepción manual sin sondeos ni suscripción automática',()=>{
+test('capturas siguen siendo manuales y sin sondeos aunque haya avisos en tiempo real',()=>{
  assert.doesNotMatch(receptor,/setInterval\(/);
- assert.doesNotMatch(receptor,/\.subscribe\(/);
  assert.doesNotMatch(receptor,/Promise\.resolve\(\)\.then\(refrescar\)/);
  assert.doesNotMatch(receptor,/setTimeout\(\(\)=>aplicar\(auto/);
  assert.match(receptor,/\$\('envivoActualizar'\)\.onclick=refrescar/);
