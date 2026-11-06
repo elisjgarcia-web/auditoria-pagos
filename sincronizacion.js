@@ -12,7 +12,8 @@ function crear(ad){
  }
  async function accept(data,own=false){
   latest=data;if(data.state)paymentKeys=data.state.paymentKeys||[];online=true;controller=data.controller;revision=data.revision;
-  if(data.state&&(!own||needsReload)){
+  const cambioFormulario=needsReload||!Number.isSafeInteger(data.formRevision)||data.formRevision!==formRevision;
+  if(data.state&&(!own||needsReload)&&cambioFormulario){
    if(dirty){ad.backup(ad.snapshot());conflictHint='Otro teléfono guardó cambios mientras editabas.';}
    applying=true;try{await ad.apply(data.state);}finally{applying=false;}
    dirty=false;
@@ -102,7 +103,17 @@ client=crear({device,label:()=>('Teléfono '+device.slice(0,4).toUpperCase()),uu
  payments:p=>{PAGO_ESTADOS=p;document.querySelectorAll('[data-clave-pago]').forEach(b=>actualizarBotonPagado(b,b.dataset.clavePago));},
  notice:text=>{el('syncStatus').textContent=text;},roles:bloquear,events:()=>{}
 });
-root.PagosCompartidos={async editar(fn){if(edicionLocal||starting||client.estado().busy||client.estado().applying||!root.PagosCompartidos.puedeEditar)throw Error('Espera a que termine la sincronización e intenta de nuevo.');edicionLocal=true;try{return await fn();}finally{edicionLocal=false;client.programar();}},get aplicando(){return client.estado().applying;},get conectado(){return client.estado().connected;},get puedeEditar(){const s=client.estado();return !s.connected||s.online;},guardar:()=>client.programar(),marcar:key=>client.marcar(key),
+async function editarCuandoLibre(fn,{vigente=()=>true,limite=10000}={}){
+ const hasta=Date.now()+limite;
+ while(edicionLocal||starting||client.estado().busy||client.estado().applying||reiniciando){
+  if(!vigente())throw Error('El sorteo cambió mientras se esperaba la sincronización.');
+  if(Date.now()>=hasta)throw Error('La sincronización sigue ocupada. Tus ganadores no se perdieron; pulsa Traer ganadores otra vez.');
+  await new Promise(resolve=>setTimeout(resolve,60));
+ }
+ if(!vigente())throw Error('El sorteo cambió mientras se esperaba la sincronización.');
+ return root.PagosCompartidos.editar(fn);
+}
+root.PagosCompartidos={editarCuandoLibre,async editar(fn){if(edicionLocal||starting||client.estado().busy||client.estado().applying||!root.PagosCompartidos.puedeEditar)throw Error('Espera a que termine la sincronización e intenta de nuevo.');edicionLocal=true;try{return await fn();}finally{edicionLocal=false;client.programar();}},get aplicando(){return client.estado().applying;},get conectado(){return client.estado().connected;},get puedeEditar(){const s=client.estado();return !s.connected||s.online;},guardar:()=>client.programar(),marcar:key=>client.marcar(key),
  async reiniciar(state){
   if(reiniciando||edicionLocal||starting||client.estado().busy||client.estado().applying)throw Error('Espera a que termine la sincronización.');
   if(!client.estado().connected||!client.estado().online)throw Error('Inicia sesión y carga los aprobados para reiniciar también el sorteo compartido.');

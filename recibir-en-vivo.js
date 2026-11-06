@@ -42,7 +42,12 @@ function enlaceVigente(data,envios=[]){
  opciones.sort((a,b)=>b.tiempo-a.tiempo);
  return opciones[0]||null;
 }
-root.EnVivoRecepcion={plan,cargarCapturasIndependientes,enlaceVigente};if(typeof module==='object')module.exports=root.EnVivoRecepcion;if(typeof document==='undefined')return;
+async function prepararCapturas(capturas,descargar,concurrencia=3){
+ const resultado=new Array(capturas.length);let cursor=0;
+ async function worker(){while(cursor<capturas.length){const i=cursor++,c=capturas[i];try{resultado[i]={...c,blob:await descargar(c)};}catch(error){resultado[i]={...c,error};}}}
+ await Promise.all(Array.from({length:Math.min(concurrencia,capturas.length)},worker));return resultado;
+}
+root.EnVivoRecepcion={plan,cargarCapturasIndependientes,enlaceVigente,prepararCapturas};if(typeof module==='object')module.exports=root.EnVivoRecepcion;if(typeof document==='undefined')return;
 const $=id=>document.getElementById(id),BUCKET='ganadores-en-vivo';let ocupado=false,consultando=false,aplicando=false,urls=[],audio=null,avisos=root.Notification?.permission==='granted',context=null,turno=0,avisoClave='',avisoMapa=null;const pendientesImagenes=new Map();
 const status=t=>{$('envivoEstado').textContent=t;};
 
@@ -283,11 +288,7 @@ async function aplicar(e,{automatico=false}={}){
   if(before!==firmaRonda(i))throw Error('La ronda cambió mientras revisabas. Vuelve a intentarlo.');
   dlg.showModal();
   // Una descarga fallida se anota, pero no impide descargar las otras imágenes.
-  const preparados=[];
-  for(const c of e.capturas){
-   try{preparados.push({...c,blob:await descargar(c,e)});}
-   catch(err){preparados.push({...c,error:err});}
-  }
+  const preparados=await prepararCapturas(e.capturas,c=>descargar(c,e));
   if(before!==firmaRonda(i))throw Error('Los datos cambiaron durante la descarga. Revisa otra vez.');
   let resultado={correctos:[],faltantes:[]};
   const editar=async()=>{

@@ -21,3 +21,11 @@ test('busy synchronization reports failure without a loop; second manual click r
 test('manual fetch preserves conflicting existing consolation instead of overwriting it',async()=>{
  const f=fixture();try{f.el('cartonesCon').value='99';f.el('premioCon').value='500';await f.el('traerGanadoresRuleta').onclick();assert.equal(f.generated,0);assert.equal(f.el('cartonesCon').value,'99');assert.equal(f.el('premioCon').value,'500');assert.match(f.el('ruletaPagosEstado').textContent,/No la reemplacé/);}finally{f.close();}
 });
+test('one manual click keeps the fetched winners while waiting for shared sync, without polling the server again',async()=>{
+ const f=fixture();try{
+  let release;const gate=new Promise(r=>release=r);f.busy(true);
+  f.w.PagosCompartidos.editarCuandoLibre=async(fn,{vigente})=>{await gate;if(!vigente())throw Error('El sorteo cambió');return f.w.PagosCompartidos.editar(fn);};
+  const p=f.el('traerGanadoresRuleta').onclick();await new Promise(r=>setImmediate(r));assert.equal(f.reads,1);assert.equal(f.generated,0);assert.equal(f.el('traerGanadoresRuleta').disabled,true);
+  f.busy(false);release();await p;assert.equal(f.generated,1);assert.equal(f.reads,1);assert.equal(f.timers.length,0);
+ }finally{f.close();}
+});

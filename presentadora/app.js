@@ -53,7 +53,7 @@ const notice=t=>{$('estado').textContent=t;},status=t=>{
  if(!bottom){bottom=document.createElement('p');bottom.id='resultadoEnvio';bottom.setAttribute('role','status');bottom.setAttribute('aria-live','polite');bottom.style.cssText='font-size:14px;font-weight:650;line-height:1.5;color:#43194e;white-space:pre-wrap';$('enviar').insertAdjacentElement('afterend',bottom);}
  bottom.textContent=t;
 };
-function controls(){document.querySelectorAll('button,input').forEach(n=>{n.disabled=busy&&!(cargandoFecha&&(n.id==='fecha'||n.id==='fechaHoy'));});$('descargarCapturas').disabled=busy||exportando||!config||!user;$('enviar').disabled=busy||!draft||draft.sent;$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if($('youtubeEnviar'))$('youtubeEnviar').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
+function controls(){document.querySelectorAll('button,input').forEach(n=>{n.disabled=busy&&!(cargandoFecha&&(n.id==='fecha'||n.id==='fechaHoy'));});$('descargarCapturas').disabled=busy||exportando||!config||!user;$('enviar').disabled=busy||!draft||draft.sent||draft.cards.some(c=>preparando.has(c));$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if($('youtubeEnviar'))$('youtubeEnviar').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
 function claveEpocaLocal(fecha,source){return 'envivo-epoca-borrador-v1:'+user.id+':'+fecha+':'+source;}
 function key(){
  const partes=[user.id,config.fecha,config.source,selected];
@@ -246,13 +246,17 @@ async function cargar(card,file){
  if(busy||!draft||draft.sent||preparando.has(card))return;
  const original=draft,originalKey=key(),revisionInicio=revisionReinicioLocal;
  preparando.add(card);
- const indice=original.cards.indexOf(card);
+ const indice=original.cards.indexOf(card),anterior={...card};
+ if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>20*1024*1024){preparando.delete(card);status('Usa una captura JPG, PNG o WebP de menos de 20 MB.');return;}
+ card.blob=file;card.ruta=null;card.uploaded=false;card.numeros='';card.userEdited=false;card.msg='Preparando imagen; ya puedes revisar el cartón.';
+ paint();
  status('Guardando captura '+(indice+1)+'…');
  try{
   const v=await C.preparar(file);
   if(revisionInicio!==revisionReinicioLocal||original.sent||!original.cards.includes(card))return;
-  card.blob=v.blob;card.ruta=null;card.uploaded=false;card.numeros='';card.userEdited=false;
+  card.blob=v.blob;card.ruta=null;card.uploaded=false;
   card.msg='Imagen lista. Escribe el cartón o confirma el que se detecte.';
+  if(draft===original)paint();
   // Guardar en la ronda original incluso si la presentadora cambió de ronda al procesar.
   await C.local(originalKey,original);
   if(revisionInicio!==revisionReinicioLocal)return;
@@ -291,8 +295,8 @@ async function cargar(card,file){
    if(box){const note=box.querySelector('.hint');if(note)note.textContent=card.msg;box.dataset.estado=card.numeros?'listo':'incompleto';}
    resumen();
   });
- }catch(e){if(draft===original)status('No se guardó la captura '+(indice+1)+': '+(e?.message||'Error desconocido'));}
- finally{preparando.delete(card);}
+ }catch(e){if(revisionInicio===revisionReinicioLocal){Object.assign(card,anterior);if(draft===original){paint();status('No se guardó la captura '+(indice+1)+': '+(e?.message||'Error desconocido'));}}}
+ finally{preparando.delete(card);if(draft===original)controls();}
 }
 async function enterRound(n){if(busy||!config)return;busy=true;controls();const token=++turno;selected=n;activeCard=null;status('Cargando ronda…');try{const k=key(),local=await C.local(k),remote=rows.find(e=>e.ronda===n);if(token!==turno)return;
  const archivado=!!remote&&capturaAnterior(remote);
@@ -300,13 +304,21 @@ async function enterRound(n){if(busy||!config)return;busy=true;controls();const 
  draft=archivado&&!borradorPosterior?{id:C.uuid(),baseRevision:remote.revision,cards:[{numeros:''}],sent:false}:local||{id:C.uuid(),baseRevision:remote?.revision||0,cards:[{numeros:''}],sent:false};
  if(remote&&!archivado&&(!local||remote.id===local.id||remote.revision>local.baseRevision)){
   if(local&&remote.id!==local.id)await C.local(k+':borrador:'+Date.now(),local);
-  const cards=[];for(const c of remote.capturas){if(!C.ruta(c.ruta,user.id,config.fecha))throw Error('La captura no pertenece a este usuario y fecha.');const{data,error}=await client.storage.from(BUCKET).download(c.ruta);if(error||!data||data.size>8388608)throw Error('No se pudo recuperar una captura enviada.');cards.push({blob:data,ruta:c.ruta,numeros:c.cartones.join(', '),msg:'Captura enviada a pagos.',uploaded:true});}
-  draft={id:remote.id,baseRevision:remote.revision,cards,sent:true};if(!$('youtube').value)$('youtube').value=remote.youtube;await save();
+  const objetivo={id:remote.id,baseRevision:remote.revision,cards:[],sent:true};draft=objetivo;
+  const cards=await window.CapturasRapidas.recuperar(remote,local,{
+   validar:ruta=>{if(!C.ruta(ruta,user.id,config.fecha))throw Error('La captura no pertenece a este usuario y fecha.');},
+   descargar:async ruta=>{const {data,error}=await client.storage.from(BUCKET).download(ruta);if(error)throw Error('No se pudo recuperar una captura enviada.');return data;},
+   recibida:(_card,_i,lista)=>{if(token===turno&&draft===objetivo){objetivo.cards=lista;paint();}}
+  });
+  if(token!==turno||draft!==objetivo)return;
+  objetivo.cards=cards;if(!$('youtube').value)$('youtube').value=remote.youtube;paint();
+  if(!local?.sent||local.uncertain||local.id!==remote.id||local.baseRevision!==remote.revision||cards.some(c=>!local.cards?.some(x=>x.ruta===c.ruta&&x.blob===c.blob)))await save();
  }
  if(archivado&&!borradorPosterior)await save();
  if(draft.uncertain&&draft.youtube)$('youtube').value=draft.youtube;paint();
  if(archivado)status('Ronda lista para nuevas capturas. Al enviarlas, reemplazarán las anteriores de esta ronda en Pagos.');
  else if(!draft.sent)status('Pega una captura por ganador. Si una imagen muestra varios cartones, puedes enviarlos separados por comas.');
+ else if(draft.cards.some(c=>!c.blob))status('Algunas imágenes no se pudieron recuperar. Las demás siguen visibles; pulsa de nuevo la ronda para reintentar.');
  }catch(e){draft=null;paint();status(e.message);}finally{busy=false;controls();}
 }
 async function loadDate(){
@@ -576,6 +588,7 @@ function capturasValidadas(){
 }
 $('enviar').onclick=async()=>{
  if(busy||!draft||draft.sent)return;
+ if(draft.cards.some(c=>preparando.has(c))){status('La imagen todavía se está guardando. Espera un momento antes de enviar.');return;}
  // Enviar una corrección reemplaza la versión vigente de esta ronda en Pagos.
  // La revisión anterior permanece en el historial de auditoría, pero no se mezcla con la nueva.
  busy=true;controls();try{

@@ -78,6 +78,7 @@ async function revisar(forzado=false){
  const boton=$('traerGanadoresRuleta');if(boton){boton.disabled=true;boton.textContent='Trayendo ganadores…';}
  try{
   if(root.pagosRestauracionLista)await root.pagosRestauracionLista;
+  texto('Consultando los ganadores enviados desde la ruleta…');
   const {data:auth,error:authError}=await supa.auth.getSession();
   if(authError||!auth?.session){texto('Inicia sesión en Pagos para traer los ganadores enviados.');return;}
   const {data,error}=await supa.rpc('pagos_ruleta_consolacion');
@@ -121,7 +122,7 @@ async function revisar(forzado=false){
    texto('✓ '+cash.length+' ganador(es) de consola recibidos · '+fmt(amount)+' Bs por ganador. Cartones gratis excluidos.');
    return;
   }
-  if(!root.PagosCompartidos?.conectado||!root.PagosCompartidos?.puedeEditar||root.PagosCompartidos.aplicando){
+  if(!root.PagosCompartidos?.conectado||!root.PagosCompartidos?.puedeEditar){
    texto('🎰 '+missing.length+' ganador(es) de ruleta esperando a que Pagos termine de sincronizar.');return;
   }
   if(!forzado&&['premioCon','cartonesCon','fechaSorteo','tasaCambio'].includes(d.activeElement?.id)){
@@ -129,7 +130,9 @@ async function revisar(forzado=false){
   }
   const firma=JSON.stringify([data.source,fecha,expected,amount]);
   if(anterior===firma&&!forzado)return;
-  await root.PagosCompartidos.editar(async()=>{
+  const editar=root.PagosCompartidos.editarCuandoLibre||root.PagosCompartidos.editar;
+  texto('Preparando los pagos de '+cash.length+' ganador(es)…');
+  await editar(async()=>{
    // Segunda comprobación para no pisar cambios recibidos desde otro teléfono.
    if(String(SLOT_APPROVED_SOURCE)!==String(data.source)||ResultadosPublicos.fechaISO($('fechaSorteo').value)!==fecha)throw Error('El sorteo cambió mientras se recibían ganadores.');
    const actuales=carts($('cartonesCon').value||'').map(String);
@@ -144,7 +147,7 @@ async function revisar(forzado=false){
     throw Error('No se prepararon los pagos. Revisa las compras aprobadas.');
    }
    d.dispatchEvent(new Event('ronda-anuncio-generado'));
-  });
+  },{vigente:()=>String(SLOT_APPROVED_SOURCE)===String(data.source)&&ResultadosPublicos.fechaISO($('fechaSorteo').value)===fecha});
   anterior=firma;
   texto('✓ '+cash.length+' ganador(es) de la ruleta cargados en Consolación · '+fmt(amount)+' Bs c/u. Revisa antes de transferir.');
  }catch(e){texto('⚠️ '+(e?.message||'No se pudo sincronizar la consola.'));
