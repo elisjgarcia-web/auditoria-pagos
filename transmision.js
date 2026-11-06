@@ -2,9 +2,10 @@
  'use strict';
  const el=id=>document.getElementById(id),T=window.TransmisionYouTube;
  let revision=null,busy=false,dirty=false;
+ const traer=el('transmisionTraerPresentadora');
  const field=el('transmisionEnlace'),send=el('transmisionEnviar'),remove=el('transmisionQuitar'),refresh=el('transmisionConsultar');
  function status(text){el('transmisionEstado').textContent=text;}
- function buttons(){send.disabled=busy||revision===null;remove.disabled=busy||revision===null;refresh.disabled=busy;field.disabled=busy;}
+ function buttons(){send.disabled=busy||revision===null;remove.disabled=busy||revision===null;refresh.disabled=busy;field.disabled=busy;if(traer)traer.disabled=busy;}
  function show(data,replace){
   T.row(data);revision=data.revision;
   const url=T.validId(data.video_id)?'https://www.youtube.com/watch?v='+data.video_id:'';
@@ -16,6 +17,26 @@
   if(error)throw Error('No se pudo consultar la transmisión. Revisa tu conexión y vuelve a consultar.');
   show(data,true);return data;
  }
+ if(traer)traer.onclick=async()=>{
+  if(busy)return;
+  busy=true;buttons();status('Buscando el enlace enviado por Presentadora…');
+  try{
+   const fecha=(window.EnVivoComun?.fecha||window.ResultadosPublicos?.fechaISO)?.(el('fechaSorteo').value);
+   if(!fecha)throw Error('Selecciona una fecha válida y actualiza la aplicación.');
+   const source=typeof SLOT_APPROVED_SOURCE==='undefined'?'':String(SLOT_APPROVED_SOURCE||'');
+   if(!source)throw Error('Carga primero los aprobados del sorteo actual.');
+   const {data:auth,error:ae}=await supa.auth.getSession();if(ae||!auth?.session)throw Error('Verifica tu acceso a Pagos.');
+   const {data,error}=await supa.rpc('en_vivo_enlace_recibir',{p_fecha:fecha});
+   if(error)throw Error('No se pudo traer el enlace: '+error.message);
+   if(data?.fecha!==fecha||String(data?.source||'')!==source||String(SLOT_APPROVED_SOURCE)!==source||
+    (window.EnVivoComun?.fecha||window.ResultadosPublicos?.fechaISO)(el('fechaSorteo').value)!==fecha)
+    throw Error('Cambió el sorteo o la fecha. Actualiza los aprobados antes de traer el enlace.');
+   if(!data.youtube)throw Error('La presentadora todavía no ha enviado el enlace para este sorteo. Debe actualizar su jornada y pulsar «Enviar enlace a Pagos».');
+   if(!recibirDePresentadora(data.youtube))throw Error('El enlace recibido no es válido. Pide a Presentadora que lo revise.');
+   const info=el('transmisionRecibido');if(info){info.hidden=false;info.textContent='✓ Enlace de Presentadora recibido para '+fecha+'.';}
+  }catch(e){status(e.message||'No se pudo traer el enlace.');}
+  finally{busy=false;buttons();}
+ };
  refresh.onclick=async()=>{
   if(busy)return;busy=true;buttons();status('Consultando…');
   try{await read();status(dirty?'Estado consultado. Tu enlace nuevo sigue pendiente de «Enviar transmisión a la página».':'Estado actualizado.')}catch(e){status(e.message)}finally{busy=false;buttons()}

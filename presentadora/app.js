@@ -515,7 +515,7 @@ $('youtubeEnviar').onclick=async()=>{
    config.youtube=youtube;config.youtube_actualizado_en=result.actualizado_en;
    $('youtube').value=youtube;
    localStorage.setItem('envivo-youtube:'+user.id+':'+fecha+':'+source,youtube);
-   $('youtubeEstado').textContent='✓ Enlace guardado en Pagos. Allí deben pulsar «Buscar capturas y enlace» y luego «Usar enlace de Presentadora».';
+   $('youtubeEstado').textContent='✓ Enlace guardado en Pagos. Allí deben pulsar «Traer enlace de Presentadora» junto al campo de YouTube.';
   }else $('youtubeEstado').textContent='✓ Enlace guardado, pero la fecha cambió. Vuelve a consultar la jornada.';
  }catch(e){
   $('youtubeEstado').textContent='⚠️ Enlace NO confirmado: '+(e.message||'Revisa la conexión.')+' Puedes reintentar sin afectar las capturas.';

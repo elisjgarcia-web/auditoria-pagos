@@ -363,7 +363,7 @@ const avisosAutomaticos=root.EnVivoAvisos?.crear({
  suscribir:(f,nuevo,estado)=>supa.channel('avisos-presentadora:'+f.uid+':'+f.fecha+':'+f.source)
   .on('postgres_changes',{event:'INSERT',schema:'public',table:'en_vivo_envios',filter:'source=eq.'+f.source},nuevo).subscribe(estado),
  cerrar:canal=>supa.removeChannel(canal),
- notificar:(data,uid)=>comprobarAvisos(ultimosVigentes(data),data,uid),
+ notificar:(data,uid)=>{actualizarEnlaceRecibido(data);comprobarAvisos(ultimosVigentes(data),data,uid);},
  estado:texto=>{const n=$('envivoAvisosEstado');if(n)n.textContent=texto;}
 })||null;
 $('envivoAvisos').onclick=async()=>{

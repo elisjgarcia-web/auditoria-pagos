@@ -27,7 +27,8 @@ test('Postgres aislado: permisos reales, expiración, revisión y bloqueo de esc
 async function admin(opts={}){
  const dom=new JSDOM(fs.readFileSync('index.html','utf8'),{url:'https://pagos.test',runScripts:'outside-only'}),w=dom.window;
  const calls=[];let row={video_id:null,revision:0,expira_en:null},resolve;
- w.confirm=()=>true;w.supa={auth:{getSession:async()=>({data:{session:opts.noSession?null:{user:{id:'u'}}}})},from:()=>({select:()=>({eq:()=>({single:async()=>({data:row,error:opts.readError})})})}),rpc:async(name,args)=>{calls.push({name,args});if(opts.pending)await new Promise(r=>resolve=r);if(opts.rpcError)return{error:{message:'error'}};row={video_id:args.p_video_id,revision:args.p_revision+1,expira_en:args.p_video_id?new Date(Date.now()+3600000).toISOString():null};return {data:row};}};
+ w.confirm=()=>true;w.supa={auth:{getSession:async()=>({data:{session:opts.noSession?null:{user:{id:'u'}}}})},from:()=>({select:()=>({eq:()=>({single:async()=>({data:row,error:opts.readError})})})}),rpc:async(name,args)=>{calls.push({name,args});if(opts.pending)await new Promise(r=>resolve=r);if(opts.rpcError)return{error:{message:'error'}};if(name==='en_vivo_enlace_recibir')return {data:opts.presenter};row={video_id:args.p_video_id,revision:args.p_revision+1,expira_en:args.p_video_id?new Date(Date.now()+3600000).toISOString():null};return {data:row};}};
+ w.SLOT_APPROVED_SOURCE='88';w.EnVivoComun={fecha:()=> '2026-11-05'};
  w.eval(fs.readFileSync('shared/youtube.js','utf8'));w.eval(fs.readFileSync('transmision.js','utf8'));await new Promise(r=>setTimeout(r,0));
  return {w,calls,finish:()=>resolve?.(),el:id=>w.document.getElementById(id),settle:()=>new Promise(r=>setTimeout(r,0)),close:()=>w.close()};
 }
@@ -60,4 +61,15 @@ test('copiar rechaza enlace vacío o falso, y ofrece anuncio seleccionable si el
   for(const value of ['', 'https://youtube.com.ejemplo.test/watch?v=Abcd_123-xy']){a.el('transmisionEnlace').value=value;a.el('transmisionCopiar').click();await a.settle();assert.equal(copied.length,0);}
   a.el('transmisionEnlace').value='https://youtu.be/Abcd_123-xy';a.el('transmisionCopiar').click();await a.settle();assert.equal(a.el('transmisionAnuncio').hidden,false);assert.ok(a.el('transmisionAnuncio').value.includes('¡Mucha suerte para todos!'));assert.equal(a.el('transmisionAnuncio').selectionEnd,a.el('transmisionAnuncio').value.length);assert.equal(a.el('transmisionCopiar').disabled,false);assert.equal(a.calls.length,0);
  }finally{a.close()}
+});
+
+test('one click brings the presenter link without capture queries or public publication',async()=>{
+ const a=await admin({presenter:{fecha:'2026-11-05',source:'88',youtube:'https://youtu.be/Abcd_123-xy'}});try{
+ a.el('transmisionTraerPresentadora').click();await a.settle();assert.equal(a.el('transmisionEnlace').value,'https://www.youtube.com/watch?v=Abcd_123-xy');assert.deepEqual(a.calls.map(c=>c.name),['en_vivo_enlace_recibir']);assert.match(a.el('transmisionEstado').textContent,/Pulsa.*Enviar transmisión/);assert.equal(a.el('transmisionTraerPresentadora').disabled,false);
+ }finally{a.close();}
+});
+test('missing or foreign-draw presenter links preserve the existing field and explain what to do',async()=>{
+ for(const presenter of [{fecha:'2026-11-05',source:'88',youtube:null},{fecha:'2026-11-05',source:'old',youtube:'https://youtu.be/Abcd_123-xy'}]){
+ const a=await admin({presenter});try{a.el('transmisionEnlace').value='https://youtu.be/ZyXw_123-xy';a.el('transmisionTraerPresentadora').click();await a.settle();assert.equal(a.el('transmisionEnlace').value,'https://youtu.be/ZyXw_123-xy');assert.match(a.el('transmisionEstado').textContent,/sorteo|actualiza/i);assert.equal(a.calls.length,1);}finally{a.close();}
+ }
 });
