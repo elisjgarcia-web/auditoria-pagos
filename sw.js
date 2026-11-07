@@ -1,5 +1,5 @@
-const CACHE='auditoria-supabase-pwa-v60-enlace-directo';
-const CORE=['./compacto-pagos.css?v=9','./compacto-pagos.js?v=5','./ruleta-consolacion-pagos.js?v=4','./rondas-en-vivo-comun.js?v=3','./avisos-presentadora.js?v=1','./push-presentadora.js?v=1','./recibir-en-vivo.js?v=18','./recibir-en-vivo.css?v=2','./publicar-comprobantes.js?v=2','./comprobantes-pagos.js?v=9','./comprobantes-pagos.css?v=2','./sincronizacion.js?v=8','./rondas-ruleta.js?v=3','./shared/youtube.js?v=1','./transmision.js?v=5','./','./index.html','./publicacion.js?v=3','./publicacion.css?v=1','./publicar-ganadores.js?v=2','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
+const CACHE='auditoria-supabase-pwa-v61-avisos-enlace-consolacion';
+const CORE=['./compacto-pagos.css?v=9','./compacto-pagos.js?v=5','./ruleta-consolacion-pagos.js?v=4','./rondas-en-vivo-comun.js?v=3','./avisos-presentadora.js?v=1','./push-presentadora.js?v=1','./recibir-en-vivo.js?v=19','./recibir-en-vivo.css?v=2','./publicar-comprobantes.js?v=2','./comprobantes-pagos.js?v=9','./comprobantes-pagos.css?v=2','./sincronizacion.js?v=8','./rondas-ruleta.js?v=3','./shared/youtube.js?v=1','./transmision.js?v=5','./','./index.html','./publicacion.js?v=3','./publicacion.css?v=1','./publicar-ganadores.js?v=2','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 const PDFJS=[];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(async c=>{await c.addAll(CORE);await Promise.all(PDFJS.map(u=>c.add(u).catch(()=>{})));}));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('auditoria-supabase-pwa-')&&k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
@@ -21,12 +21,19 @@ self.addEventListener('notificationclick',event=>{
 
 self.addEventListener('push',event=>{
  let data={};try{data=event.data?.json()||{};}catch{}
- const prueba=data.type==='test';
+ const prueba=data.type==='test',youtube=data.type==='youtube',consolacion=data.type==='consolacion';
  const ronda=Number(data.ronda),cartones=Array.isArray(data.cartones)?data.cartones.filter(n=>Number.isInteger(n)&&n>0&&n<10000):[];
- const body=prueba?'Prueba correcta: los avisos del servidor llegan a este dispositivo.':
+ const cantidad=Number.isInteger(data.cantidad)&&data.cantidad>0&&data.cantidad<=500?data.cantidad:null;
+ const title=prueba?'🔔 Prueba de avisos · Bingo Andino 75':youtube?'▶️ Enlace de YouTube recibido':consolacion?'🎰 Ganadores de consolación enviados':'📸 Nuevo ganador · Bingo Andino 75';
+ const body=prueba?'Prueba correcta: los avisos del servidor llegan a este dispositivo.':youtube?
+  'La presentadora envió el enlace. Pulsa «Traer enlace de Presentadora» en Pagos.':consolacion?
+  'La ruleta envió '+(cantidad?cantidad+' ganador(es)':'ganadores')+' de consolación. Pulsa «Traer ganadores» en Pagos.':
   'La presentadora envió una captura'+(ronda>=1&&ronda<=6?' de la ronda '+ronda:'')+(cartones.length?' · Cartón(es) '+cartones.join(', '):'')+'.';
- event.waitUntil(self.registration.showNotification(prueba?'🔔 Prueba de avisos · Bingo Andino 75':'📸 Nuevo ganador · Bingo Andino 75',{
+ event.waitUntil(Promise.all([self.registration.showNotification(title,{
   body,icon:'./icon-192.png',badge:'./icon-192.png',tag:'presentadora:'+(data.id||'nuevo'),renotify:false,
   data:{url:new URL('./',self.registration.scope).href,envioId:data.envioId||null}
- }));
+ }), ...(youtube||consolacion?[self.clients.matchAll({type:'window',includeUncontrolled:true}).then(cs=>{
+  const base=new URL(self.registration.scope);
+  for(const c of cs){const u=new URL(c.url);if(u.origin===base.origin&&(u.pathname===base.pathname||u.pathname===base.pathname+'index.html'))c.postMessage({type:'pagos-aviso',aviso:{id:data.id,type:data.type,fecha:data.fecha,source:data.source,cantidad}});}
+ })]:[])]));
 });

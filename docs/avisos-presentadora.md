@@ -18,3 +18,9 @@ Si el navegador no admite Push, siguen disponibles las alertas en tiempo real mi
 - La notificación contiene ronda y cartones, sin imágenes, datos bancarios o datos personales. El service worker muestra el aviso sin necesitar una pestaña abierta.
 
 La infraestructura se documenta en `supabase/presentadora-push-infra.sql`; las solicitudes de `pg_net` solo contienen una firma breve y vinculada al evento, nunca claves privadas ni el secreto del webhook. Las claves se generan y se aprovisionan fuera del repositorio. Instalar `pg_net` antes del SQL; después de aprovisionar la configuración y desplegar la Edge Function, programar `privado_push.despachar()` cada minuto y limpiar cola con más de siete días. No recrear la clave VAPID al actualizar: se invalidarían las suscripciones existentes.
+
+## Enlace de YouTube y consolación
+
+El mismo permiso Push avisa cuando Presentadora guarda un enlace nuevo y cuando Ruleta envía explícitamente nuevos ganadores de consolación a Pagos. Los triggers privados de `pagos-avisos-enlace-consolacion.sql` encolan después del guardado y aíslan los errores de notificación. No se avisa al girar ni por cartones gratis. Un guardado repetido no repite el aviso. Antes de despachar se comprueba sorteo, fecha, vigencia del enlace y que los ganadores continúen enviados.
+
+El aviso indica «Traer enlace de Presentadora» o «Traer ganadores». Abre Pagos al tocarlo y también muestra un aviso dentro de una ventana de Pagos abierta. No publica YouTube ni incorpora ganadores automáticamente. Actualizar Pagos una vez instala el service worker v61; se conservan las suscripciones existentes.

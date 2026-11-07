@@ -154,6 +154,17 @@ function avisar(es,{prueba=false}={}){
  sonarAviso();
  if(avisos)notificacionSistema(texto);
 }
+// Push also informs the open Payments window without importing anything.
+const avisosPushVistos=new Set();
+navigator.serviceWorker?.addEventListener?.('message',event=>{
+ const e=event.data?.aviso;
+ if(event.data?.type!=='pagos-aviso'||!root.PagosPush?.activo||!e?.id||avisosPushVistos.has(e.id)||!['youtube','consolacion'].includes(e.type))return;
+ let f;try{f=current();}catch{return;}
+ if(e.fecha!==f.fecha||String(e.source)!==String(f.source))return;
+ avisosPushVistos.add(e.id);if(avisosPushVistos.size>100)avisosPushVistos.delete(avisosPushVistos.values().next().value);
+ mostrarAlerta(e.type==='youtube'?'▶️ Enlace de YouTube recibido. Pulsa «Traer enlace de Presentadora».':'🎰 Ganadores de consolación enviados. Pulsa «Traer ganadores».');
+ sonarAviso();
+});
 function comprobarAvisos(es,data,uid){
  const fecha=String(data?.jornada?.fecha||$('fechaSorteo').value||'');
  const source=String(data?.source||'');
