@@ -2,11 +2,11 @@ const {test}=require('node:test');const assert=require('node:assert/strict');con
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 test('DOM: vista previa, confirmación, datos cambiados, error, reintento e historial',async()=>{
  const calls=[];let saved=null,fail=false;
- const mock={auth:{getSession:async()=>({data:{session:{}}})},rpc:async(name,args)=>{if(name==='slot_estado_rondas')return {data:{source:'80',sent:false,winners:[]}};calls.push({name,args});if(fail)return {error:{message:'Sin conexión'}};saved=args.p_resultado;return {data:{fecha:saved.fecha}}},from:()=>({select:()=>({order:()=>({limit:async()=>({data:saved?[{fecha:saved.fecha}]:[]})}),eq:()=>({single:async()=>({data:{resultado:saved}})})})})};
+ const mock={auth:{getSession:async()=>({data:{session:{}}})},rpc:async(name,args)=>{if(name==='en_vivo_preparar_automatico')return {data:{fecha:args.p_fecha,source:args.p_source,rondas:args.p_rondas}};if(name==='en_vivo_marcar_reinicio')return {data:{source:args.p_source}};if(name==='slot_estado_rondas')return {data:{source:'80',sent:false,winners:[]}};calls.push({name,args});if(fail)return {error:{message:'Sin conexión'}};saved=args.p_resultado;return {data:{fecha:saved.fecha}}},from:()=>({select:()=>({order:()=>({limit:async()=>({data:saved?[{fecha:saved.fecha}]:[]})}),eq:()=>({single:async()=>({data:{resultado:saved}})})})})};
  const html=read('index.html').replace(/<script[^>]*src=[^>]*><\/script>/g,'');
  const console=new VirtualConsole();console.on('jsdomError',e=>{if(!e.message.includes('navigation'))throw e});
  const dom=new JSDOM(html,{virtualConsole:console,url:'https://local.test',runScripts:'dangerously',beforeParse(w){w.supabase={createClient:()=>mock};w.setTimeout=()=>0;w.alert=()=>{};w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};}});
- const w=dom.window;
+ const w=dom.window;w.pagosRestauracionLista=Promise.resolve();let reinicio=null;w.PagosCompartidos={reiniciar:async empty=>{reinicio=empty;return true;}};
  try{
  w.eval(read('publicacion.js'));w.eval(read('publicar-ganadores.js'));
  // Alimenta el índice por el método real de consulta, sin exponer datos personales al módulo público.
@@ -21,7 +21,7 @@ test('DOM: vista previa, confirmación, datos cambiados, error, reintento e hist
  fail=false;await w.confirmarGanadores();assert.match(w.document.getElementById('publicarEstado').textContent,/Publicado y confirmado/);assert.equal(w.document.getElementById('dialogoPublicacion').open,false);
  assert.ok(!JSON.stringify(saved).includes('PRIVADO'));assert.equal(calls[1].name,'publicar_resultados_v1');
  await w.document.querySelector('#historialPublicaciones button').onclick();w.document.getElementById('buscarFechaPublicada').value='2026-10-19';await w.verFechaPublicada();assert.match(w.document.getElementById('resultadoHistorico').textContent,/Cartón lleno final/);
- const before=JSON.stringify(saved),count=calls.length;w.confirm=()=>true;await w.nuevoSorteo();assert.equal(JSON.stringify(saved),before);assert.equal(calls.length,count);
+ const before=JSON.stringify(saved),count=calls.length;w.confirm=()=>true;await w.nuevoSorteo();assert.equal(JSON.stringify(saved),before);assert.equal(calls.length,count);assert.ok(reinicio);assert.ok(reinicio.form.rondas.every(r=>r.car===''));assert.equal(calls.filter(c=>c.name==='publicar_resultados_v1').length,2);
  }finally{w.close()}
 });
 
