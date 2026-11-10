@@ -64,7 +64,7 @@ test('Pago Móvil 2 queda cerrado y copia solamente los datos del registro, tamb
    assert.match(opcion.textContent,/no una cuenta de Pago Móvil confirmada/);
    opcion.querySelector('summary').click();assert.equal(opcion.open,true);
    await opcion.querySelector('button').onclick();assert.equal(copies.at(-1),expected);
-   await w.document.querySelector('#'+id+' > button.copy').onclick();
+   await w.document.querySelector('#'+id+' .cp-ganador-contenido > button.copy').onclick();
    assert.equal(copies.at(-1),[w.fmt(100),cliente.telefono,cliente.cedula,'0105'].join('\n'));
   }
   // La transformación de las compras para Top debe conservar el teléfono del registro.

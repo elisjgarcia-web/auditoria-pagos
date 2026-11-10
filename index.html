@@ -29,7 +29,7 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 @media(max-width:520px){.row2,.row3{grid-template-columns:1fr}}
 </style>
 <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon-192.png" type="image/png"><link rel="stylesheet" href="publicacion.css?v=1"><link rel="stylesheet" href="comprobantes-pagos.css?v=2">
-<link rel="stylesheet" href="recibir-en-vivo.css?v=2"><link rel="stylesheet" href="compacto-pagos.css?v=9"></head>
+<link rel="stylesheet" href="recibir-en-vivo.css?v=2"><link rel="stylesheet" href="compacto-pagos.css?v=10"></head>
 <body>
 <h1>🎰 Bingo Andino 75</h1>
 <div class="sub">PDF + pagos + conversión $/Bs + Top + doble verificación</div>
@@ -191,7 +191,7 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
   <button class="wa" onclick="wa('msgTop')">WhatsApp anuncio del Top</button>
   <div id="topResultados" class="msg"></div>
   <div id="msgTop" class="msg"></div>
-  <div id="pagTop" class="msg"></div>
+  <div id="pagTop" class="msg" hidden aria-hidden="true"></div>
   <div id="pagosBtnsTop"></div>
   <div id="okTop" class="ok">Copiado ✅</div>
 </div>
@@ -206,7 +206,7 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
   <button class="copy" onclick="copiar('msgPozo','okPozo')">Copiar anuncio</button>
   <button class="wa" onclick="wa('msgPozo')">WhatsApp anuncio</button>
   <div id="msgPozo" class="msg"></div>
-  <div id="pagPozo" class="msg"></div>
+  <div id="pagPozo" class="msg" hidden aria-hidden="true"></div>
   <div id="pagosBtnsPozo"></div>
   <div id="okPozo" class="ok">Copiado ✅</div>
 </div>
@@ -218,7 +218,7 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
   <button class="gen" onclick="generarCon()">Generar consolación</button>
   <button class="copy" onclick="copiar('msgCon','okCon')">Copiar anuncio</button>
   <button class="wa" onclick="wa('msgCon')">WhatsApp anuncio</button>
-  <div id="msgCon" class="msg"></div><div id="pagCon" class="msg"></div><div id="pagosBtnsCon"></div><div id="okCon" class="ok">Copiado ✅</div>
+  <div id="msgCon" class="msg"></div><div id="pagCon" class="msg" hidden aria-hidden="true"></div><div id="pagosBtnsCon"></div><div id="okCon" class="ok">Copiado ✅</div>
 </div>
 
 <div class="card">
@@ -1132,13 +1132,13 @@ function renderPagosTop(pagos){
        let pagadoBtn=agregarBotonPagado(caja,"TOP",p,true);
        let b1=document.createElement("button");
        b1.className="copy";
-       b1.innerText=`Usar cédula del registro: ${ec.registro||"NO DISPONIBLE"}`;
+       b1.innerText=`Copiar pago de ${x.nombre||p.nombre} · cédula del registro: ${ec.registro||"NO DISPONIBLE"}`;
        b1.onclick=async()=>{if(ec.registro){await copiarTexto(textoPagoConCedula(x,p.monto,ec.registro),"okTop");habilitarBotonPagado(pagadoBtn)}};
        caja.appendChild(b1);
 
        let b2=document.createElement("button");
        b2.className=ec.pagoOk?"copy":"clear";
-       b2.innerText=`Usar cédula Pago Móvil: ${ec.pago||"NO DISPONIBLE"}${ec.pagoOk?"":" ⚠️"}`;
+       b2.innerText=`Copiar pago de ${x.nombre||p.nombre} · cédula Pago Móvil: ${ec.pago||"NO DISPONIBLE"}${ec.pagoOk?"":" ⚠️"}`;
        b2.onclick=async()=>{if(ec.pago){await copiarTexto(textoPagoConCedula(x,p.monto,ec.pago),"okTop");habilitarBotonPagado(pagadoBtn)}};
        caja.appendChild(b2);
 
@@ -1168,7 +1168,7 @@ function renderPagosTop(pagos){
 
        let btn=document.createElement("button");
        btn.className="copy";
-       btn.innerText=`✅ Usar opción ${j+1}`;
+       btn.innerText=`📋 Copiar Pago Móvil de ${x.nombre||p.nombre} · opción ${j+1}`;
        btn.onclick=async()=>{
          if(!x.telefono||!x.bancoCodigo){
            alert("⚠️ Esta opción tiene banco o teléfono incompletos. Se copiarán los datos detectados para que los revises manualmente.");
@@ -1937,7 +1937,7 @@ function agregarOpcionPagoRegistro(cont,x,m,ok){
   if(!supaValidTel(telefono)||!supaValidCed(cedula)){
    const incompleto=document.createElement("p");incompleto.textContent="⚠️ Datos del registro incompletos o con formato inusual. Revisa los datos antes de usarlos.";opcion.append(incompleto);
   }
-  const copiar=document.createElement("button");copiar.className="copy";copiar.textContent="📋 Copiar Pago Móvil 2 · "+String(x.nombre||"Sin nombre").trim();
+  const copiar=document.createElement("button");copiar.className="copy";copiar.textContent="📋 Copiar Pago Móvil 2 de "+String(x.nombre||"Sin nombre").trim();
   copiar.onclick=()=>copiarTexto([fmt(m),telefono,cedula].join("\n"),ok);opcion.append(copiar);
  }else{
   const vacio=document.createElement("p");vacio.textContent="No hay teléfono ni cédula del registro disponibles para copiar.";opcion.append(vacio);
@@ -1973,7 +1973,7 @@ function crearBotonesPago(id,pagos,ok){
    const original=document.createElement("pre");original.textContent="Teléfono original: "+x.telefono+"\nCédula original: "+x.cedula;details.append(original);cont.append(details);
   }
   if(valid){
-   const copy=document.createElement("button");copy.className="copy";copy.textContent=sw?"🔄 Copiar pago (verificar)":"📋 Copiar Pago Móvil";
+   const copy=document.createElement("button");copy.className="copy";copy.textContent=(sw?"🔄 Copiar pago (verificar) de ":"📋 Copiar Pago Móvil de ")+String(x.nombre||"Sin nombre").trim();
    copy.onclick=()=>copiarTexto([fmt(m),tel,ci,...(x.bancoCodigo?[x.bancoCodigo]:[])].join("\n"),ok);cont.append(copy);
   }else{
    const w=document.createElement("div");w.className="warnbox";w.textContent="⚠️ Datos de Pago Móvil incompletos o incompatibles. Copia bloqueada.";cont.append(w);
@@ -2255,7 +2255,7 @@ window.pagosRestauracionLista=new Promise(resolve=>setTimeout(async()=>{try{if(!
 <script src="publicar-ganadores.js?v=2"></script>
 <script src="rondas-ruleta.js?v=3"></script>
 <script src="sincronizacion.js?v=8"></script>
-<script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=5"></script><script src="publicar-comprobantes.js?v=20261106-anuncio"></script><script src="rondas-en-vivo-comun.js?v=3"></script><script src="avisos-presentadora.js?v=1"></script><script src="push-presentadora.js?v=1"></script><script src="recibir-en-vivo.js?v=19"></script><script src="compacto-pagos.js?v=5"></script><script src="ruleta-consolacion-pagos.js?v=4"></script></body>
+<script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=5"></script><script src="publicar-comprobantes.js?v=20261106-anuncio"></script><script src="rondas-en-vivo-comun.js?v=3"></script><script src="avisos-presentadora.js?v=1"></script><script src="push-presentadora.js?v=1"></script><script src="recibir-en-vivo.js?v=20"></script><script src="compacto-pagos.js?v=6"></script><script src="ruleta-consolacion-pagos.js?v=5"></script></body>
 </html>
 
 

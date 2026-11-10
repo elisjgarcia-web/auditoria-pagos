@@ -76,7 +76,14 @@ function abrirRonda(i,scroll=false){
  const target=$('cp-acordeon-'+i);if(!target)return;
  d.querySelectorAll('#rondas .cp-acordeon').forEach(node=>{node.open=node===target;});
  abierto=i;
- if(scroll)target.scrollIntoView({behavior:'smooth',block:'start'});
+ if(scroll){
+  // Wait for both details panels to settle before measuring the new heading.
+  const mover=()=>{if(!target.open)return;const sum=target.querySelector(':scope > summary');
+   const menu=d.querySelector('.cp-nav');const margen=(menu?.getBoundingClientRect().height||0)+8;
+   root.scrollTo({top:Math.max(0,root.scrollY+sum.getBoundingClientRect().top-margen),behavior:'smooth'});
+  };
+  if(root.requestAnimationFrame)root.requestAnimationFrame(()=>root.requestAnimationFrame(mover));else mover();
+ }
 }
 function abrirPremio(tipo){
  const campoId=tipo==='pozo'?'premioPozo':'premioCon';
@@ -106,14 +113,15 @@ function reconstruirRondas(){
   const icon=el('span','cp-ronda-chevron','⌄');
   const text=el('span','cp-ronda-texto');text.append(nombre,meta);
   sum.append(text,icon);
+  sum.addEventListener('click',event=>{event.preventDefault();if(acc.open){acc.open=false;return;}abrirRonda(i,true);});
   const body=el('div','cp-cuerpo');body.append(...original);
   const fields=el('div','cp-entradas');
-  const pre=campo($('pre'+i)),car=campo($('car'+i));
+  const pre=campo(body.querySelector('#pre'+i)),car=campo(body.querySelector('#car'+i));
   if(pre)fields.append(pre);if(car)fields.append(car);
   body.insertBefore(fields,body.firstChild);
-  const nom=campo($('nom'+i));
-  if(nom){const edit=details('✎ Cambiar nombre de la ronda','cp-nombre-editar');edit.append(nom);body.insertBefore(edit,fields.nextSibling);}
-  const anuncio=$('msg'+i);
+  const nom=campo(body.querySelector('#nom'+i));
+  if(nom){const edit=details('⚙ Ajustes de la ronda','cp-nombre-editar');edit.append(nom);body.insertBefore(edit,fields.nextSibling);}
+  const anuncio=body.querySelector('#msg'+i);
   if(anuncio){
    const plegable=details('📣 Ver anuncio generado','cp-anuncio');
    anuncio.insertAdjacentElement('beforebegin',plegable);
@@ -177,7 +185,7 @@ function ordenar(){
  summary.setAttribute('role','status');summary.setAttribute('aria-live','polite');
  host.append(summary);
  const rounds=$('rondas');if(rounds)host.append(rounds);
- host.append(publicacion,premios,herramientas);
+ host.append(premios,publicacion,herramientas);
  const selection=[
   [publicacion,['res','publicarEstado','publicarComprobantesTitulo','compartirRondasCard']],
   [premios,['premioPozo','premioCon','topCard']],

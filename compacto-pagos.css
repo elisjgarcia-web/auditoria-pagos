@@ -213,3 +213,23 @@ body.cp-modo{background:linear-gradient(160deg,#290b3c,#1d0829 58%,#110719);colo
  .cp-modo .cp-rondas-nav{gap:3px}
  .cp-modo .cp-rondas-nav .cp-nav-btn{font-size:11px;padding:5px 0}
 }
+
+/* Rondas compactas: mantener el encabezado estable al cambiar de panel. */
+.cp-modo #rondas{overflow-anchor:none}
+.cp-modo .cp-contenedor #rondas .cp-acordeon>.cp-ronda-resumen{min-height:44px;scroll-margin-top:65px}
+.cp-modo .cp-contenedor #rondas .cp-cuerpo{padding:7px;gap:6px;align-items:start}
+.cp-modo .cp-contenedor #rondas .cp-cuerpo>.cp-entradas{order:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:7px}
+.cp-modo .cp-contenedor #rondas .cp-entradas label{margin:0;font-size:12px}
+.cp-modo .cp-contenedor #rondas .cp-entradas input{min-height:42px}
+.cp-modo .cp-contenedor #rondas .cp-cuerpo>.cp-nombre-editar{order:1;padding:0;margin:0;border:0}
+.cp-modo .cp-contenedor #rondas .cp-nombre-editar>summary{padding:5px 2px;font-size:12px}
+.cp-modo .cp-contenedor #rondas .cp-cuerpo>button{order:2;min-height:44px;flex:1 1 130px}
+.cp-modo .cp-contenedor #rondas .cp-cuerpo>.cp-anuncio{order:3;margin:0}
+.cp-modo .cp-contenedor #rondas .cp-cuerpo>[data-ruleta-auto]{order:4;margin:0}
+.cp-modo .cp-contenedor #rondas .cp-cuerpo>[id^="pagosBtns"]{order:5}
+.cp-modo .cp-contenedor #rondas .cp-cuerpo>.ok{order:6}
+.cp-modo .cp-contenedor #rondas .cp-cuerpo>.cp-recepcion{order:-1;padding:6px;gap:4px}
+.cp-modo .cp-contenedor #rondas .cp-recepcion button{flex:1 1 155px;min-height:44px;font-size:13px}
+.cp-modo .cp-contenedor #rondas .cp-recepcion .cp-recibo-estado{flex:1 1 125px;font-size:11px}
+.cp-modo .cp-contenedor .cp-ganador-contenido>button.copy{width:100%;white-space:normal;overflow-wrap:anywhere;min-height:44px}
+.cp-modo #pagCon,.cp-modo #pagPozo,.cp-modo #pagTop{display:none!important}

@@ -65,9 +65,19 @@ function listaCash(rows,fecha,tasa){
   if(parsed.clase==='pendiente'){pendientes.push({...row,motivo:parsed.motivo});continue;}
   const ticket=String(row.ticket||'').trim();
   if(!/^[1-9]\d{0,3}$/.test(ticket)){pendientes.push({...row,motivo:'Cartón fuera de rango'});continue;}
-  cash.push({carton:ticket,monto:parsed.monto,drawId:row.drawId,premio:row.prize});
+  cash.push({carton:ticket,monto:parsed.monto,drawId:row.drawId,premio:row.prize,tipo:row.prizeType});
  }
  return{cash,pendientes,regalos};
+}
+function convertirConsolacion(cash,usd,tasa){
+ const hayConsolacion=cash.some(w=>w.tipo==='consolation');
+ if(!hayConsolacion||!Number.isFinite(usd)||usd<=0)return{cash,nota:''};
+ if(!Number.isFinite(tasa)||tasa<=0)throw Error('Coloca la tasa Bs/$ en Preparar para calcular la consolación.');
+ const esperado=Math.round(usd*tasa);
+ if(!Number.isSafeInteger(esperado)||esperado<=0||esperado>1000000000)throw Error('Revisa el monto en USD y la tasa de consolación.');
+ const diferentes=cash.filter(w=>w.tipo==='consolation'&&w.monto!==esperado);
+ return{cash:cash.map(w=>w.tipo==='consolation'?{...w,monto:esperado}:w),
+  nota:diferentes.length?' · Se usó '+usd+' USD × '+tasa+' Bs/$ = '+esperado+' Bs; el monto fijo de la ruleta era diferente.':''};
 }
 async function revisar(forzado=false){
  montar();
@@ -89,7 +99,8 @@ async function revisar(forzado=false){
   }
   let fecha;
   try{fecha=ResultadosPublicos.fechaISO($('fechaSorteo').value);}catch{texto('Configura la fecha del sorteo para recibir premios de la ruleta.');return;}
-  const tasa=monto($('tasaCambio')?.value||''),{cash,pendientes,regalos}=listaCash(data.winners,fecha,tasa);
+  const tasa=monto($('tasaCambio')?.value||''),{cash:recibidos,pendientes,regalos}=listaCash(data.winners,fecha,tasa);
+  const {cash,nota}=convertirConsolacion(recibidos,Number(String($('usdConsol')?.value||'').replace(',','.')),tasa);
   actualizarBadge(cash.length);
   const invalid=pendientes.filter(w=>w.prizeType==='consolation');
   if(invalid.length){
@@ -119,7 +130,7 @@ async function revisar(forzado=false){
   }
   const missing=expected.filter(ticket=>!old.includes(ticket));
   if(!missing.length){
-   texto('✓ '+cash.length+' ganador(es) de consola recibidos · '+fmt(amount)+' Bs por ganador. Cartones gratis excluidos.');
+   texto('✓ '+cash.length+' ganador(es) de consola recibidos · '+fmt(amount)+' Bs por ganador. Cartones gratis excluidos.'+nota);
    return;
   }
   if(!root.PagosCompartidos?.conectado||!root.PagosCompartidos?.puedeEditar){
@@ -149,7 +160,7 @@ async function revisar(forzado=false){
    d.dispatchEvent(new Event('ronda-anuncio-generado'));
   },{vigente:()=>String(SLOT_APPROVED_SOURCE)===String(data.source)&&ResultadosPublicos.fechaISO($('fechaSorteo').value)===fecha});
   anterior=firma;
-  texto('✓ '+cash.length+' ganador(es) de la ruleta cargados en Consolación · '+fmt(amount)+' Bs c/u. Revisa antes de transferir.');
+  texto('✓ '+cash.length+' ganador(es) de la ruleta cargados en Consolación · '+fmt(amount)+' Bs c/u. Revisa antes de transferir.'+nota);
  }catch(e){texto('⚠️ '+(e?.message||'No se pudo sincronizar la consola.'));
  }
  finally{
@@ -157,6 +168,6 @@ async function revisar(forzado=false){
   if(boton){boton.disabled=false;boton.textContent='↓ Traer ganadores';}
  }
 }
-root.RuletaConsolacionPagos=Object.freeze({interpretar,dineroEnBs,dineroEnUsd,listaCash,revisar});
+root.RuletaConsolacionPagos=Object.freeze({interpretar,dineroEnBs,dineroEnUsd,listaCash,convertirConsolacion,revisar});
 montar();
 })(typeof window!=='undefined'?window:globalThis);

@@ -229,7 +229,7 @@ function actualizarRondas(data=context){
   if(parcial&&parcial.envio!==actual?.id)pendientesImagenes.delete(i);
   if(!actual){
    btn.textContent='📥 Traer capturas de esta ronda';
-   info.textContent=!data?'Sin consultar. Pulsa «Traer capturas» para buscar en Supabase.':data?.cortes?.[String(i)]?'Sin capturas nuevas desde el reinicio. Las anteriores quedaron archivadas.':'No hay capturas nuevas en la última consulta. Pulsa para volver a buscar.';
+   info.textContent=!data?'Pulsa «Traer capturas» para consultar esta ronda.':data?.cortes?.[String(i)]?'Sin capturas nuevas desde el reinicio. Las anteriores quedaron archivadas.':'No hay capturas nuevas en la última consulta. Pulsa para volver a buscar.';
   }else{
    let cantidad=0;try{cantidad=C.numeros(actual).length;}catch{}
    const estado=estadoPara(actual);
