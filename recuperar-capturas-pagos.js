@@ -161,6 +161,7 @@ async function consultar(){
    option.textContent='Jornada '+source+' · '+rondas.size+' ronda(s)';
    origenInput.append(option);
   }
+  origenInput.value=grupos.keys().next().value;
   origenWrap.hidden=grupos.size===1;
   pintar();
  } catch(e) { informar('⚠️ '+(e?.message||'Error consultando el historial.')); }
