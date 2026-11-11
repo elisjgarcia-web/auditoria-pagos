@@ -45,6 +45,60 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 </div>
 <section class="card" aria-labelledby="envivoTitulo"><h2 id="envivoTitulo" class="title">🎙️ Ganadores del en vivo</h2><p id="envivoAutoEstado" class="small" role="status" aria-live="polite">Las rondas se preparan automáticamente al iniciar los pagos del día.</p><p id="envivoEstado" class="small" role="status" aria-live="polite">Verifica tu acceso para recibir las capturas.</p><div class="ev-acciones"><button id="envivoActualizar" class="sec">🔎 Buscar capturas y enlace</button><button id="envivoAvisos" class="sec">🔔 Activar avisos</button><button id="envivoProbarAviso" class="sec">🔔 Probar notificación</button></div><p class="small">Activa los avisos para saber cuándo llegan capturas, el enlace de YouTube o ganadores de consolación desde la ruleta. El permiso push permite recibir avisos aunque Pagos no esté en pantalla. Las capturas se incorporan a cada ronda al pulsar «Traer capturas».</p><p id="envivoAvisosEstado" class="small" role="status" aria-live="polite">Avisos sin activar.</p><div id="envivoAvisoNuevo" class="ev-alerta-ganador" role="alert" aria-live="assertive" hidden></div><button id="envivoCerrarAviso" type="button" class="ev-cerrar-alerta">✓ Aviso visto</button><div id="envivoLista"></div><details><summary>Acceso y ajustes de Presentadora (opcional)</summary><p class="small">Las rondas se preparan automáticamente al iniciar Pagos. Aquí puedes autorizar una vez el correo de la presentadora o cambiar la configuración cuando sea necesario.</p><label for="envivoCorreo">Correo de la presentadora</label><input id="envivoCorreo" type="email" autocomplete="off" placeholder="correo@ejemplo.com"><button id="envivoPreparar" class="gen">Preparar rondas y autorizar correo</button><button id="envivoCopiar" class="copy">Copiar enlace de la presentadora</button><div class="ev-links"><a id="envivoEnlace" href="presentadora/" target="_blank" rel="noopener">Abrir app del en vivo</a></div><button id="envivoRevocar" class="clear">Retirar acceso de este correo</button></details></section><dialog id="envivoProcesando"><p>Recibiendo las capturas y preparando la ronda…</p></dialog>
 <section class="card" aria-labelledby="publicarComprobantesTitulo"><h2 id="publicarComprobantesTitulo" class="title">🏆 Premios pagados</h2><p class="small">Reúne los resultados del bingo y los comprobantes de cada ganador para publicarlos por fecha. El público verá solamente las imágenes de la vista previa, con sus datos parcialmente cubiertos.</p><button class="gen" onclick="vistaPreviaComprobantes()">Publicar comprobantes del día</button><p id="publicarComprobantesEstado" class="small" role="status" aria-live="polite"></p><a id="enlaceComprobantes" hidden target="_blank" rel="noopener"></a><details><summary>Consultar o retirar publicación de esta fecha</summary><button class="sec" onclick="consultarComprobantes()">Consultar fecha del sorteo</button><div id="estadoPublicacionComprobantes"></div></details></section>
+<style>
+#histPubRaiz{background:linear-gradient(165deg,#341442,#230a32);border:1px solid #c6a46f;border-radius:18px;padding:15px;margin:15px 0;color:#fff8e6}
+#histPubRaiz summary{font-weight:800;font-size:19px;color:#e9c978;cursor:pointer;padding:8px 2px}
+#histPubRaiz .hist-pub-msg{font-size:14px;line-height:1.5;color:#ffefca}
+#histPubRaiz button{min-height:42px;background:#f0d58b;color:#32123f;border:0;border-radius:11px;font-weight:700}
+#histPubRaiz button:disabled{opacity:.5}
+#histPubRaiz input[type=date],#histPubRaiz input[type=file]{max-width:100%;font-size:15px}
+#histPubRaiz label{margin:10px 0 5px;display:block;color:#f2d480}
+#histPubRaiz .hist-pub-grupo{border:1px solid #8d668d;border-radius:13px;padding:10px;margin:13px 0}
+#histPubRaiz .hist-pub-grupo h3{font-size:18px;margin:7px 0 10px;color:#f2d480}
+#histPubRaiz .hist-pub-persona{background:#41204e;border-radius:12px;padding:12px;margin:9px 0}
+#histPubRaiz .hist-pub-persona strong{display:block;font-size:15px;line-height:1.5}
+#histPubRaiz .hist-pub-persona p{margin:7px 0;font-size:14px}
+#histPubRaiz .hist-pub-persona input{background:#fff4dc;color:#32123f}
+#histPubRaiz .hist-pub-vista{border:1px solid #9d819f;padding:10px;margin:14px 0;border-radius:10px}
+#histPubRaiz .hist-pub-vista strong{display:block;margin-bottom:8px}
+#histPubDialogo,#histPubEditor{max-width:95vw;width:min(95vw,840px);max-height:88dvh;overflow:auto;background:#241032;color:#fff8e6;border:2px solid #e9c978;border-radius:14px;padding:15px}
+#histPubLienzo{display:block;max-width:100%;height:auto;margin:10px auto;touch-action:none;border:1px solid #c5a46f}
+#histPubDialogo button,#histPubEditor button{width:100%;border-radius:10px;min-height:44px;background:#f0d58b;color:#32123f;font-weight:800;margin:5px 0}
+#histPubDialogo button:disabled,#histPubEditor button:disabled{opacity:.5}
+</style>
+<details id="histPubRaiz">
+<summary>🏆 Publicar premios de sorteos anteriores</summary>
+<p class="hist-pub-msg">Para un sorteo ya reiniciado: recupera los cartones ganadores y sus premios. Adjunta los comprobantes bancarios desde tu galería y revisa la cobertura antes de publicar. No modifica las rondas ni los aprobados activos.</p>
+<label for="histPubFecha">Fecha del sorteo anterior</label>
+<input type="date" id="histPubFecha" value="2026-11-10">
+<button type="button" id="histPubBuscar">🔎 Recuperar ganadores y premios</button>
+<p id="histPubEstado" class="hist-pub-msg" role="status" aria-live="polite">Selecciona una fecha para comenzar.</p>
+<div id="histPubLista"></div>
+<div id="histPubAcciones" hidden>
+<p id="histPubProgreso" class="hist-pub-msg"></p>
+<button type="button" id="histPubPreparar">👁 Preparar vista previa para publicar</button>
+<div id="histPubPublicacion" hidden>
+<p class="hist-pub-msg">Vista previa exacta de las imágenes que verán los jugadores. Amplía cada una y comprueba que no se vean teléfonos, cédulas ni otros datos privados.</p>
+<div id="histPubPrevia"></div>
+<label style="display:flex!important;align-items:flex-start;gap:10px">
+<input type="checkbox" id="histPubConfirmacion" style="flex:none;width:23px;height:23px;margin-top:3px">
+<span>Verifiqué todos los ganadores, montos, comprobantes y la cobertura de datos privados. Autorizo su publicación pública para la fecha seleccionada.</span>
+</label>
+<button type="button" id="histPubConfirmar" disabled>🏆 Confirmar y publicar premios anteriores</button>
+</div>
+<a id="histPubEnlace" hidden target="_blank" rel="noopener noreferrer"></a>
+</div>
+</details>
+<dialog id="histPubEditor" aria-label="Cubrir datos privados del comprobante bancario">
+<h3>🔒 Revisar comprobante antes de publicar</h3>
+<p>Los bloques morados ocultan datos. <strong>Arrastra el dedo sobre cada número</strong> que quieras cubrir: cédula, teléfono y otros datos personales. Los originales quedan solamente en tu dispositivo.</p>
+<canvas id="histPubLienzo" aria-label="Imagen del comprobante con datos ocultos"></canvas>
+<p id="histPubEditEstado" role="status"></p>
+<button type="button" id="histPubDeshacer">↶ Deshacer último bloque</button>
+<button type="button" id="histPubLimpiar">Limpiar bloques y volver a cubrir</button>
+<button type="button" id="histPubEditorAceptar" disabled>✅ Revisé la cobertura y guardar</button>
+<button type="button" id="histPubEditorCerrar">Cerrar sin confirmar</button>
+</dialog>
 <section class="card" aria-labelledby="historicoCapturasTitulo">
 <h2 class="title" id="historicoCapturasTitulo">🗂️ Recuperar capturas de sorteos anteriores</h2>
 <p class="small">Consulta las capturas originales que envió la presentadora, incluso después de reiniciar un sorteo. Solo permite ver y descargar imágenes; no modifica los resultados, compras ni pagos del sorteo activo.</p>
@@ -2273,7 +2327,7 @@ window.pagosRestauracionLista=new Promise(resolve=>setTimeout(async()=>{try{if(!
 <script src="publicar-ganadores.js?v=2"></script>
 <script src="rondas-ruleta.js?v=3"></script>
 <script src="sincronizacion.js?v=8"></script>
-<script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=5"></script><script src="publicar-comprobantes.js?v=20261106-anuncio"></script><script src="presentadora/zip-capturas.js?v=1"></script><script src="recuperar-capturas-pagos.js?v=4"></script><script src="rondas-en-vivo-comun.js?v=3"></script><script src="avisos-presentadora.js?v=1"></script><script src="push-presentadora.js?v=1"></script><script src="recibir-en-vivo.js?v=20"></script><script src="compacto-pagos.js?v=6"></script><script src="ruleta-consolacion-pagos.js?v=5"></script></body>
+<script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=5"></script><script src="publicar-comprobantes.js?v=20261106-anuncio"></script><script src="presentadora/zip-capturas.js?v=1"></script><script src="recuperar-capturas-pagos.js?v=4"></script><script src="rondas-en-vivo-comun.js?v=3"></script><script src="avisos-presentadora.js?v=1"></script><script src="push-presentadora.js?v=1"></script><script src="recibir-en-vivo.js?v=20"></script><script src="compacto-pagos.js?v=6"></script><script src="ruleta-consolacion-pagos.js?v=5"></script><script src="publicar-comprobantes-historicos.js?v=1"></script></body>
 </html>
 
 
