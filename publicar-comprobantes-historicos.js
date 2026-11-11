@@ -42,9 +42,24 @@ const premio=n=>'Bs '+(Number(n||0)/100).toLocaleString('es-VE',{maximumFraction
 const aviso=t=>{estado.textContent=t;};
 const avisoEditor=t=>{editStatus.textContent=t;};
 function fechaOk(f){return /^20\d{2}-\d{2}-\d{2}$/.test(f)&&new Date(f+'T12:00:00Z').toISOString().slice(0,10)===f;}
-function bloquear(b){ocupado=b;for(const e of [buscar,dia,$('histPubPreparar'),confirmar])if(e)e.disabled=b;for(const e of lista.querySelectorAll('button,input'))e.disabled=b;}
+function bloquear(b){
+ ocupado=b;
+ buscar.disabled=dia.disabled=b;
+ const listos=personas.length>0&&personas.every(p=>{const s=comprobantes.get(p.carton);return s?.image&&s.reviewed&&s.masks.length>=2;});
+ $('histPubPreparar').disabled=b||!listos;
+ confirmar.disabled=b||!intacto()||!$('histPubConfirmacion').checked;
+ for(const e of lista.querySelectorAll('button,input'))e.disabled=b;
+}
 function soltarObjetos(){for(const u of objetos)URL.revokeObjectURL(u);objetos=[];}
-function limpiar(){grupos=[];personas=[];resultados.clear();comprobantes.clear();preparadas=null;lista.replaceChildren();acciones.hidden=true;previa.replaceChildren();soltarObjetos();$('histPubConfirmacion').checked=false;}
+function invalidarPrevia(){
+ preparadas=null;
+ $('histPubPublicacion').hidden=true;
+ $('histPubConfirmacion').checked=false;
+ confirmar.disabled=true;
+ previa.replaceChildren();
+ soltarObjetos();
+}
+function limpiar(){grupos=[];personas=[];resultados.clear();comprobantes.clear();invalidarPrevia();lista.replaceChildren();acciones.hidden=true;}
 async function sesion(){
  const {data,error}=await supa.auth.getSession();
  if(error||!data?.session?.access_token)throw Error('Primero inicia sesión en la app de Pagos con tu correo autorizado.');
@@ -69,7 +84,7 @@ async function idb(accion,key,dato){
  });
 }
 function validMasks(m){
- return Array.isArray(m)?m.filter(o=>o&&['x','y','w','h'].every(k=>Number.isFinite(o[k]))&&o.x>=0&&o.y>=0&&o.w>=.006&&o.h>=.006&&o.x+o.w<=1.001&&o.y+o.h<=1.001).slice(0,14):[];
+ return Array.isArray(m)?m.filter(o=>o&&['x','y','w','h'].every(k=>Number.isFinite(o[k]))&&o.x>=0&&o.y>=0&&o.w>=.04&&o.h>=.012&&o.x+o.w<=1.001&&o.y+o.h<=1.001).slice(0,14):[];
 }
 async function imagen(blob,maxW=1500,maxH=2800){
  if(!blob||!['image/jpeg','image/png','image/webp'].includes(blob.type)||blob.size>20*1024*1024)throw Error('Usa una imagen JPG, PNG o WebP de hasta 20 MB.');
@@ -141,7 +156,8 @@ function punto(e){
 function aplicarMarca(a,b){
  const s=comprobantes.get(editando);if(!s)return;
  const x=Math.min(a.x,b.x),y=Math.min(a.y,b.y),w=Math.max(.008,Math.abs(b.x-a.x)),h=Math.max(.008,Math.abs(b.y-a.y));
- s.masks.push({x:Math.min(x,1-w),y:Math.min(y,1-h),w,h});s.masks=s.masks.slice(-14);s.reviewed=false;preparadas=null;
+ if(w<.04||h<.012){avisoEditor('Arrastra un bloque más grande que tape los números completos.');return;}
+ s.masks.push({x:Math.min(x,1-w),y:Math.min(y,1-h),w,h});s.masks=s.masks.slice(-14);s.reviewed=false;invalidarPrevia();
  refrescarEditor();
 }
 lienzo.addEventListener('pointerdown',e=>{
@@ -151,8 +167,8 @@ lienzo.addEventListener('pointerup',e=>{
  if(!inicio)return;const b=punto(e),a=inicio;inicio=null;aplicarMarca(a,b);e.preventDefault();
 });
 lienzo.addEventListener('pointercancel',()=>{inicio=null;});
-$('histPubDeshacer').onclick=()=>{const s=comprobantes.get(editando);if(!s)return;s.masks.pop();s.reviewed=false;preparadas=null;refrescarEditor();};
-$('histPubLimpiar').onclick=()=>{const s=comprobantes.get(editando);if(!s)return;s.masks=[];s.reviewed=false;preparadas=null;refrescarEditor();};
+$('histPubDeshacer').onclick=()=>{const s=comprobantes.get(editando);if(!s)return;s.masks.pop();s.reviewed=false;invalidarPrevia();refrescarEditor();};
+$('histPubLimpiar').onclick=()=>{const s=comprobantes.get(editando);if(!s)return;s.masks=[];s.reviewed=false;invalidarPrevia();refrescarEditor();};
 $('histPubEditorCerrar').onclick=()=>{editor.close();editando=null;};
 $('histPubEditorAceptar').onclick=async()=>{
  const k=editando,s=comprobantes.get(k);
@@ -160,8 +176,8 @@ $('histPubEditorAceptar').onclick=async()=>{
  if(!confirm('¿Comprobaste que el teléfono, la cédula y otros datos privados quedaron cubiertos en esta foto?'))return;
  s.reviewed=true;
  try{await idb('put',fechaActual+':'+k,{blob:s.blob,masks:s.masks,reviewed:true});}
- catch(e){avisoEditor('No se pudo guardar en el teléfono: '+e.message);return;}
- editor.close();editando=null;preparadas=null;pintarGanadores();
+ catch(e){s.reviewed=false;avisoEditor('No se pudo guardar en el teléfono: '+e.message);return;}
+ editor.close();editando=null;invalidarPrevia();pintarGanadores();
 };
 function abrirEditor(carton){
  const s=comprobantes.get(carton);
@@ -176,7 +192,7 @@ async function cargarComprobante(persona,archivo){
   aviso('Preparando comprobante del cartón '+persona.carton+'…');
   const base=await imagen(archivo,1200,2500),blob=await jpegear(base,.87),masks=autoCubrir(base);
   const s={blob,image:base,masks,reviewed:false};
-  comprobantes.set(persona.carton,s);preparadas=null;
+  comprobantes.set(persona.carton,s);invalidarPrevia();
   await idb('put',fechaActual+':'+persona.carton,{blob,masks,reviewed:false});
   pintarGanadores();abrirEditor(persona.carton);
   aviso('Comprueba y ajusta la cobertura del cartón '+persona.carton+'.');
@@ -242,6 +258,7 @@ function agregarImagenesRespaldo(map){
 }
 async function referenciasCapturas(){
  const map=new Map();
+ if(fechaActual===FALLBACK.fecha){agregarImagenesRespaldo(map);return map;}
  try{
   const {data,error}=await supa.from('en_vivo_envios')
    .select('fecha,source,ronda,revision,capturas,creado_por').eq('fecha',fechaActual).order('revision',{ascending:false}).limit(200);
@@ -271,12 +288,12 @@ async function cargarHistorial(){
  token++;limpiar();bloquear(true);fechaActual=f;
  try{
   await sesion();aviso('Consultando resultados y ganadores guardados del '+f+'…');
-  const consulta=await Promise.allSettled([
+  const consulta = f===FALLBACK.fecha?[]:await Promise.allSettled([
    supa.from('resultados_publicados').select('resultado').eq('fecha',f).maybeSingle(),
    supa.from('nombres_resultados_publicados').select('carton,nombre').eq('fecha',f).limit(200)
   ]);
   let resultadosFuente, nombresFuente, origen='';
-  if(consulta.every(r=>r.status==='fulfilled'&&!r.value.error)&&consulta[0].value.data?.resultado){
+  if(consulta.length===2&&consulta.every(r=>r.status==='fulfilled'&&!r.value.error)&&consulta[0].value.data?.resultado){
    resultadosFuente=consulta[0].value.data.resultado;
    nombresFuente=consulta[1].value.data||[];origen='Historial público confirmado';
   } else if(f===FALLBACK.fecha){
