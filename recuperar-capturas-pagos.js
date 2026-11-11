@@ -78,7 +78,13 @@ async function autorizar(){
 async function leerFoto(foto){
  if (!rutaValida(foto)) throw Error('Una captura tiene una ruta no válida. No se descargará.');
  if (cache.has(foto.ruta)) return cache.get(foto.ruta);
- const {data,error} = await supa.storage.from(BUCKET).download(foto.ruta);
+ let temporizador;
+ const {data,error} = await Promise.race([
+  supa.storage.from(BUCKET).download(foto.ruta),
+  new Promise((_,reject)=>{temporizador=setTimeout(
+   ()=>reject(Error('Supabase Storage está tardando demasiado. Las capturas siguen guardadas; vuelve a intentar cuando mejore la conexión.')),16000);
+  })
+ ]).finally(()=>clearTimeout(temporizador));
  if (error || !data || data.size < 1 || data.size > 8388608 ||
    (data.type && data.type !== 'image/jpeg')) {
    throw Error('No se pudo descargar la captura de la ronda '+foto.ronda+'. Comprueba tu conexión y el acceso de Pagos.');
