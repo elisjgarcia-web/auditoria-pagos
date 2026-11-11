@@ -39,7 +39,7 @@ let fechaActual='',grupos=[],personas=[],resultados=new Map(),comprobantes=new M
 const titulo=g=>g.tipo==='ronda'?g.orden+'ª RONDA':g.tipo==='final'?'CARTÓN LLENO FINAL':g.tipo==='consolacion'?'CONSOLACIÓN':g.tipo==='pozo'?'POZO ACUMULADO':'PREMIO ESPECIAL';
 const claveGrupo=g=>g.tipo==='ronda'?'ronda'+g.orden:g.tipo;
 const premio=n=>'Bs '+(Number(n||0)/100).toLocaleString('es-VE',{maximumFractionDigits:2});
-const aviso=t=>{estado.textContent=t;};
+const aviso=t=>{estado.textContent=t;const abajo=$('histPubEstadoAccion');if(abajo)abajo.textContent=t;};
 const avisoEditor=t=>{editStatus.textContent=t;};
 function fechaOk(f){return /^20\d{2}-\d{2}-\d{2}$/.test(f)&&new Date(f+'T12:00:00Z').toISOString().slice(0,10)===f;}
 function bloquear(b){
