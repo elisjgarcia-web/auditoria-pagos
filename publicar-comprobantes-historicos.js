@@ -354,7 +354,12 @@ async function crearComposicion(g){
   const ruta=resultados.get(p.carton);
   if(ruta){
    let b;
-   try{const {data,error}=await supa.storage.from(CAPTURAS).download(ruta);
+   try{
+    let timer;
+    const {data,error}=await Promise.race([
+     supa.storage.from(CAPTURAS).download(ruta),
+     new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Storage no respondió en 18 segundos. Reintenta cuando vuelva la conexión.')),18000);})
+    ]).finally(()=>clearTimeout(timer));
     if(error||!data)throw Error(error?.message||'No disponible');b=data;
    }catch(e){throw Error('No pude recuperar la captura del cartón '+p.carton+': '+e.message);}
    const img=await imagen(b,1600,2400);
@@ -381,19 +386,28 @@ async function crearComposicion(g){
  return {ronda:claveGrupo(g),titulo:titulo(g),ancho:W,alto:H,ganadores:ganadores.map(p=>({nombre:p.nombre,carton:String(p.carton)})),blob,miniatura};
 }
 async function consultarPublicacion(){
- const {data,error}=await supa.from('premios_pagados').select('fecha,revision,publicado').eq('fecha',fechaActual).maybeSingle();
- if(error)throw Error('No se pudo verificar si ya está publicado: '+error.message);
- return data;
+ // Solo para publicar, nunca durante la preparación local de la vista previa.
+ // Evita que el error 504 de PostgREST congele toda la pantalla.
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),14000);
+ try{
+  const {data,error}=await supa.from('premios_pagados').select('fecha,revision,publicado')
+    .eq('fecha',fechaActual).abortSignal(controller.signal).maybeSingle();
+  if(error)throw Error('No se pudo verificar si ya está publicado: '+error.message);
+  return data;
+ }catch(e){
+  if(controller.signal.aborted)throw Error('Supabase no responde para confirmar la publicación. Tus comprobantes siguen guardados; podrás preparar la vista previa, pero no publicar hasta que vuelva la conexión.');
+  throw e;
+ }finally{clearTimeout(timer);}
 }
 function urlPublico(f){return 'https://bingoandino75.com/premios/?premios='+encodeURIComponent(f);}
 async function preparar(){
  if(ocupado||!personas.length)return;
- bloquear(true);preparadas=null;previa.replaceChildren();soltarObjetos();
+ bloquear(true);invalidarPrevia();
  try{
   await sesion();
   if(personas.some(p=>{const s=comprobantes.get(p.carton);return !s?.reviewed||s.masks.length<2;}))throw Error('Debes cargar y revisar los comprobantes bancarios de todos los ganadores.');
-  aviso('Preparando vista previa pública, sin subir originales…');
-  const revision=await consultarPublicacion(),imagenes=[];
+  aviso('Preparando vista previa local, sin consultar la publicación ni subir los originales…');
+  const imagenes=[];
   for(let i=0;i<grupos.length;i++){
    aviso('Preparando '+titulo(grupos[i])+' ('+(i+1)+' de '+grupos.length+')…');
    imagenes.push(await crearComposicion(grupos[i]));
@@ -407,10 +421,10 @@ async function preparar(){
    card.append(label,photo);fragment.append(card);
   }
   previa.replaceChildren(fragment);
-  preparadas={fecha:fechaActual,revision:revision?.revision||0,imagenes,marcas:personas.map(p=>({carton:p.carton,blob:comprobantes.get(p.carton).blob,masks:JSON.stringify(comprobantes.get(p.carton).masks)}))};
+  preparadas={fecha:fechaActual,revision:null,imagenes,marcas:personas.map(p=>({carton:p.carton,blob:comprobantes.get(p.carton).blob,masks:JSON.stringify(comprobantes.get(p.carton).masks)}))};
   $('histPubPublicacion').hidden=false;
   $('histPubConfirmacion').checked=false;confirmar.disabled=true;
-  aviso('✓ Vista previa preparada. Revisa las '+imagenes.length+' imágenes completas, especialmente teléfonos y cédulas cubiertos. Nada está publicado todavía.');
+  aviso('✓ Vista previa lista sin consultar PostgREST. Revisa las '+imagenes.length+' imágenes, especialmente teléfonos y cédulas cubiertos. Nada está publicado. Para confirmar la publicación sí se necesitará conexión con Supabase.');
  }catch(e){preparadas=null;$('histPubPublicacion').hidden=true;aviso('⚠️ '+(e.message||'No se pudo preparar la vista previa.'));}
  finally{bloquear(false);}
 }
@@ -426,6 +440,14 @@ async function publicar(){
  bloquear(true);const subidos=[];let llamado=false;
  try{
   await sesion();
+  // Verificación obligatoria antes de subir cualquier imagen, nunca se asume
+  // que la fecha está sin publicar. La RPC valida también la revisión.
+  aviso('Verificando que no exista otra publicación de esta fecha…');
+  const anterior=await consultarPublicacion();
+  if(!intacto())throw Error('La vista previa cambió. Vuelve a prepararla.');
+  if(anterior?.publicado&&!confirm('Esta fecha ya tiene comprobantes publicados. ¿Quieres reemplazarlos? Revisa la versión existente antes de continuar.'))
+   throw Error('Publicación cancelada. No se reemplazó nada.');
+  preparadas.revision=anterior?.revision||0;
   const prefijo=preparadas.fecha+'/'+crypto.randomUUID(),datos=[];
   for(let i=0;i<preparadas.imagenes.length;i++){
    if(!intacto())throw Error('Cambió un comprobante. Genera de nuevo la vista previa.');
