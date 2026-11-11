@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#32123f">
+<title>Recuperar capturas · Bingo Andino 75</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:system-ui,Arial,sans-serif;background:linear-gradient(135deg,#270d32,#45185b);color:#fffaf0;margin:0;min-height:100vh;padding:16px}
+main{max-width:750px;margin:auto}
+h1{color:#f5d381;font-size:clamp(22px,5vw,32px)}
+p{line-height:1.5}
+section{background:#351542;border:1px solid #9e7d9e;border-radius:18px;padding:18px;margin:16px 0}
+label{display:block;margin:12px 0 6px;font-weight:650}
+input{display:block;width:100%;padding:12px;border:1px solid #af95b7;background:#fef2d8;color:#32123f;border-radius:10px;font-size:16px}
+button{border:0;border-radius:10px;background:#f5d381;color:#32123f;font-size:16px;font-weight:700;padding:12px;margin:8px 8px 6px 0;cursor:pointer;max-width:100%}
+button:disabled{opacity:.55;cursor:wait}
+button.ghost{background:#fef2d8}
+.status{white-space:pre-wrap;font-weight:600;min-height:1.5em}
+.small{font-size:14px;opacity:.92}
+.item{padding:10px 0;border-bottom:1px solid #785b84}
+.item:last-child{border-bottom:0}
+#login,#archivos{display:none}
+</style>
+</head>
+<body>
+<main>
+<h1>🏆 Recuperar capturas de la presentadora</h1>
+<p><strong>Bingo Andino 75 · Martes 10 de noviembre de 2026</strong></p>
+<p>Esta herramienta solo descarga las imágenes enviadas por la presentadora. No modifica rondas, pagos, publicaciones, ni el sorteo activo.</p>
+<section id="login">
+<h2>Acceso privado</h2>
+<p>Usa el mismo correo autorizado con el que entras a la aplicación de Pagos.</p>
+<label for="correo">Correo de Pagos</label><input id="correo" type="email" autocomplete="email">
+<button id="enviar" type="button">Enviar código al correo</button>
+<label for="codigo">Código recibido</label><input id="codigo" inputmode="numeric" autocomplete="one-time-code">
+<button id="entrar" type="button">Verificar código</button>
+</section>
+<section>
+<p class="status" id="estado" role="status" aria-live="polite">Comprobando acceso…</p>
+<div id="archivos">
+<p id="resumen"></p>
+<button id="descargarTodo" type="button">⬇ Descargar las 7 capturas en ZIP</button>
+<div id="lista"></div>
+</div>
+</section>
+<p class="small">Las imágenes permanecen en el almacenamiento privado de Bingo Andino 75. No son publicadas ni compartidas automáticamente. Si Supabase está saturado, puedes volver a consultar cuando la conexión funcione.</p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="presentadora/zip-capturas.js?v=1"></script>
+<script>
+(function(){
+'use strict';
+const FECHA='2026-11-10',ORIGEN='119691',BUCKET='ganadores-en-vivo';
+const cliente=window.supabase.createClient("https://dbkixcpwirjwjvjintkr.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRia2l4Y3B3aXJqd2p2amludGtyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYwNjYxNDksImV4cCI6MjA2MTY0MjE0OX0.QJmWLWSe-pRYwxWeel8df7JLhNUvMKaTpL0MCDorgho");
+const $=id=>document.getElementById(id);
+let capturas=[],ocupado=false;
+function estado(t){$('estado').textContent=t;}
+function bloq(v){ocupado=v;for(const id of ['descargarTodo','enviar','entrar'])$(id).disabled=v;document.querySelectorAll('button[data-imagen]').forEach(b=>b.disabled=v);}
+function archivoNombre(i){const nums=Array.isArray(i.cartones)?i.cartones.filter(x=>/^[1-9][0-9]{0,3}$/.test(String(x))).map(String):[];return 'Ronda_'+String(i.ronda).padStart(2,'0')+'_Imagen_'+String(i.indice).padStart(2,'0')+(nums.length?'_Carton_'+nums.join('-'):'')+'.jpg';}
+function rutaValida(r,uid){return typeof r==='string'&&new RegExp('^[a-f0-9-]{36}/'+FECHA+'/[a-f0-9-]{36}\\.jpg$','i').test(r)&&r.toLowerCase().startsWith(String(uid).toLowerCase()+'/'+FECHA+'/');}
+async function identidad(){const {data,error}=await cliente.auth.getUser();if(error||!data?.user)return null;return data.user;}
+function mostrarLogin(){ $('login').style.display='block';$('archivos').style.display='none';estado('Inicia sesión con tu correo autorizado de Pagos.');}
+async function cargar(){
+const user=await identidad();if(!user){mostrarLogin();return;}
+$('login').style.display='none';estado('Consultando los archivos originales del 10 de noviembre…');
+const {data,error}=await cliente.from('en_vivo_envios').select('fecha,source,ronda,revision,capturas,creado_por').eq('fecha',FECHA).eq('source',ORIGEN).order('revision',{ascending:false}).limit(80);
+if(error)throw Error('No se pudo consultar el archivo privado: '+error.message);
+const ultimas=new Map();
+for(const e of data||[]){const ronda=Number(e.ronda);if(!Number.isInteger(ronda)||ronda<1||ronda>6||ultimas.has(ronda))continue;ultimas.set(ronda,e);}
+const fotos=[];
+for(const [ronda,e] of [...ultimas].sort((a,b)=>a[0]-b[0])){
+for(const c of e.capturas||[]){
+if(!rutaValida(c.ruta,e.creado_por))throw Error('Una ruta no coincide con la presentadora o la fecha. No se descargará.');
+fotos.push({ronda,indice:(fotos.filter(f=>f.ronda===ronda).length+1),ruta:c.ruta,cartones:c.cartones||[]});
+}
+}
+if(!fotos.length)throw Error('No se encontraron imágenes para ese día en esta cuenta.');
+capturas=fotos;const lista=$('lista');lista.replaceChildren();
+for(const foto of fotos){
+const f=document.createElement('div');f.className='item';
+const descripcion=document.createElement('span');descripcion.textContent='Ronda '+foto.ronda+' · imagen '+foto.indice+' · cartón '+(foto.cartones.join(', ')||'sin número');
+const boton=document.createElement('button');boton.className='ghost';boton.type='button';boton.dataset.imagen='1';boton.textContent='Descargar JPG';boton.onclick=()=>descargarUna(foto);
+f.append(descripcion,document.createElement('br'),boton);lista.append(f);
+}
+$('resumen').textContent='Encontradas '+fotos.length+' capturas originales. Puedes bajar cada JPG o todas juntas.';
+$('descargarTodo').textContent='⬇ Descargar '+fotos.length+' capturas en ZIP';
+$('archivos').style.display='block';
+estado('✓ Archivos localizados. Solo se descargarán a tu dispositivo.');
+}
+async function blobDe(foto){
+const {data,error}=await cliente.storage.from(BUCKET).download(foto.ruta);
+if(error||!data||data.size<1||data.size>8388608||data.type!=='image/jpeg')throw Error('No se pudo descargar la imagen de la ronda '+foto.ronda+'. Comprueba la sesión y la conexión.');
+return data;
+}
+function guardar(blob,nombre){
+const link=document.createElement('a'),obj=URL.createObjectURL(blob);link.href=obj;link.download=nombre;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(obj),60000);
+}
+async function descargarUna(foto){
+if(ocupado)return;bloq(true);
+try{estado('Descargando ronda '+foto.ronda+', imagen '+foto.indice+'…');guardar(await blobDe(foto),archivoNombre(foto));estado('✓ Descarga solicitada: '+archivoNombre(foto));}
+catch(e){estado('⚠️ '+e.message);}finally{bloq(false);}
+}
+async function descargarTodas(){
+if(ocupado)return;bloq(true);
+try{
+if(!window.ZipCapturasBingo?.crearZip)throw Error('No cargó el generador ZIP.');
+const entradas=[];let total=0;
+for(let i=0;i<capturas.length;i++){
+const foto=capturas[i];estado('Descargando imagen '+(i+1)+' de '+capturas.length+'…');const b=await blobDe(foto);total+=b.size;
+if(total>600*1024*1024)throw Error('El ZIP sería demasiado grande.');
+entradas.push({name:archivoNombre(foto),blob:b});
+}
+estado('Preparando ZIP…');
+guardar(await ZipCapturasBingo.crearZip(entradas),'BingoAndino75_Capturas_2026-11-10.zip');
+estado('✓ Descarga del ZIP solicitada con '+entradas.length+' capturas. Busca el archivo en Descargas.');
+}catch(e){estado('⚠️ '+e.message);}finally{bloq(false);}
+}
+$('descargarTodo').onclick=descargarTodas;
+$('enviar').onclick=async()=>{if(ocupado)return;bloq(true);try{const correo=$('correo').value.trim();if(!correo)throw Error('Escribe el correo.');const {error}=await cliente.auth.signInWithOtp({email:correo});if(error)throw error;estado('Código enviado a tu correo.');}catch(e){estado('⚠️ '+e.message);}finally{bloq(false);}};
+$('entrar').onclick=async()=>{if(ocupado)return;bloq(true);try{const email=$('correo').value.trim(),token=$('codigo').value.trim();if(!email||!token)throw Error('Indica el correo y el código.');const {error}=await cliente.auth.verifyOtp({email,token,type:'email'});if(error)throw error;await cargar();}catch(e){estado('⚠️ '+e.message);}finally{bloq(false);}};
+cargar().catch(e=>{estado('⚠️ '+e.message);});
+})();
+</script>
+</body>
+</html>
