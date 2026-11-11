@@ -100,24 +100,7 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 <button type="button" id="histPubEditorAceptar" disabled>✅ Revisé la cobertura y guardar</button>
 <button type="button" id="histPubEditorCerrar">Cerrar sin confirmar</button>
 </dialog>
-<section class="card" aria-labelledby="historicoCapturasTitulo">
-<h2 class="title" id="historicoCapturasTitulo">🗂️ Recuperar capturas de sorteos anteriores</h2>
-<p class="small">Consulta las capturas originales que envió la presentadora, incluso después de reiniciar un sorteo. Solo permite ver y descargar imágenes; no modifica los resultados, compras ni pagos del sorteo activo.</p>
-<label for="historicoCapturasFecha">Fecha del sorteo anterior</label>
-<input type="date" id="historicoCapturasFecha" value="2026-11-10">
-<button class="sec" type="button" id="historicoCapturasBuscar">🔎 Recuperar capturas de esta fecha</button>
-<div id="historicoCapturasOrigenWrap" hidden>
-<label for="historicoCapturasOrigen">Seleccionar jornada archivada</label>
-<select id="historicoCapturasOrigen"></select>
-</div>
-<p class="small" id="historicoCapturasEstado" role="status" aria-live="polite">Elige la fecha y pulsa recuperar. Las imágenes antiguas no se mezclan con la ronda actual.</p>
-<button class="gen" type="button" id="historicoCapturasZip" hidden>⬇ Descargar capturas en ZIP</button>
-<div id="historicoCapturasLista"></div>
-</section>
-<dialog id="historicoCapturasDialogo" aria-label="Vista de captura histórica" style="width:min(94vw,850px);max-height:88vh;overflow:auto;background:#130020;color:#fffaf0;border:2px solid #c49b4b;border-radius:16px">
-<div id="historicoCapturasVista"></div>
-<button type="button" class="sec" id="historicoCapturasCerrar">Cerrar imagen</button>
-</dialog>
+
 <dialog id="dialogoComprobantes" aria-labelledby="dialogoComprobantesTitulo" style="width:min(95vw,760px);max-height:90dvh;overflow:auto;background:#130020;color:white;border:2px solid #c49b4b;border-radius:16px"><h2 id="dialogoComprobantesTitulo">Revisa los comprobantes públicos</h2><div id="vistaComprobantes"></div><label style="display:flex;gap:10px;align-items:flex-start;margin:16px 0"><input type="checkbox" id="confirmoComprobantes" style="width:22px;flex:none">Revisé los resultados del bingo, sus pagos y la cobertura de los datos. Autorizo publicar estas imágenes.</label><button id="confirmarComprobantes" class="gen" onclick="confirmarComprobantes()" disabled>Confirmar y publicar comprobantes</button><button id="cancelarComprobantes" class="sec" onclick="cancelarComprobantes()">Cancelar</button></dialog>
 <dialog id="dialogoPublicacion" aria-labelledby="tituloPublicacion" style="width:min(95vw,650px);max-height:90vh;overflow:auto;background:#130020;color:white;border:2px solid #00d084;border-radius:16px">
   <h2 id="tituloPublicacion">Confirmar publicación</h2>
@@ -2328,7 +2311,7 @@ window.pagosRestauracionLista=new Promise(resolve=>setTimeout(async()=>{try{if(!
 <script src="publicar-ganadores.js?v=2"></script>
 <script src="rondas-ruleta.js?v=3"></script>
 <script src="sincronizacion.js?v=8"></script>
-<script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=5"></script><script src="publicar-comprobantes.js?v=20261106-anuncio"></script><script src="presentadora/zip-capturas.js?v=1"></script><script src="recuperar-capturas-pagos.js?v=4"></script><script src="rondas-en-vivo-comun.js?v=3"></script><script src="avisos-presentadora.js?v=1"></script><script src="push-presentadora.js?v=1"></script><script src="recibir-en-vivo.js?v=20"></script><script src="compacto-pagos.js?v=6"></script><script src="ruleta-consolacion-pagos.js?v=5"></script><script src="publicar-comprobantes-historicos.js?v=2"></script></body>
+<script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=5"></script><script src="publicar-comprobantes.js?v=20261106-anuncio"></script><script src="presentadora/zip-capturas.js?v=1"></script><script src="rondas-en-vivo-comun.js?v=3"></script><script src="avisos-presentadora.js?v=1"></script><script src="push-presentadora.js?v=1"></script><script src="recibir-en-vivo.js?v=20"></script><script src="compacto-pagos.js?v=6"></script><script src="ruleta-consolacion-pagos.js?v=5"></script><script src="publicar-comprobantes-historicos.js?v=2"></script></body>
 </html>
 
 
