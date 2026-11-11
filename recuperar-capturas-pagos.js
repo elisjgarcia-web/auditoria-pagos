@@ -12,6 +12,23 @@ const mensaje = $('historicoCapturasEstado');
 const lista = $('historicoCapturasLista');
 const zipBtn = $('historicoCapturasZip');
 const BUCKET = 'ganadores-en-vivo';
+/* Respaldo verificado del 10/11/2026. Son referencias privadas del bucket,
+   NO imágenes públicas ni datos de pagos. Supabase Storage aplica RLS al descargar.
+   Evita depender de PostgREST cuando su pool está saturado (error PGRST003). */
+const RESPALDO_10NOV = Object.freeze({
+ fecha:'2026-11-10',
+ source:'119691',
+ presentadora:'5121c2ba-c8f1-40f8-8b3e-130a75f60ac5',
+ filas:[
+  [1,'96a84d3f-54e4-4028-b99e-83aaaa1c1aae',[735]],
+  [2,'6b2f5f7f-2d65-4aa4-9a9b-e29019659f3b',[192]],
+  [2,'bcdfdea5-6d1e-4382-bd4d-c099b2c2c6cb',[872]],
+  [3,'7626d845-ed26-4f41-855c-f627b9dc6866',[49]],
+  [4,'d6a0f128-088e-467d-8f5f-5f4357e8e5a9',[998]],
+  [5,'2aa39121-ae5f-4735-82e0-7b6d0720b393',[275]],
+  [5,'319e9092-9b38-4030-9a30-e817042fc862',[769]]
+ ]
+});
 let grupos = new Map(), fotos = [], ocupado = false, cache = new Map(), vistas = [];
 let solicitud = 0;
 
@@ -52,9 +69,11 @@ function descargarBlob(blob,nombre){
  setTimeout(()=>URL.revokeObjectURL(u),60000);
 }
 async function autorizar(){
- const {data,error} = await supa.auth.getUser();
- if (error || !data?.user) throw Error('Debes iniciar sesión con el correo autorizado de la app de Pagos.');
- return data.user;
+ // La descarga se valida en el servidor por RLS. Evita una petición de
+ // autenticación extra cuando la base de datos o el API está saturado.
+ const {data,error} = await supa.auth.getSession();
+ if (error || !data?.session?.access_token) throw Error('Debes iniciar sesión con el correo autorizado de la app de Pagos.');
+ return data.session.user;
 }
 async function leerFoto(foto){
  if (!rutaValida(foto)) throw Error('Una captura tiene una ruta no válida. No se descargará.');
@@ -139,11 +158,43 @@ async function consultar(){
  const token=++solicitud;
  try {
   await autorizar();
+  if (fecha===RESPALDO_10NOV.fecha) {
+   const respaldo=RESPALDO_10NOV;
+   const rondas=new Map();
+   for (const [ronda,archivo,cartones] of respaldo.filas) {
+    if (!rondas.has(ronda)) rondas.set(ronda,{
+     fecha:respaldo.fecha,source:respaldo.source,ronda,revision:1,
+     creado_por:respaldo.presentadora,capturas:[]
+    });
+    rondas.get(ronda).capturas.push({
+     ruta:respaldo.presentadora+'/'+respaldo.fecha+'/'+archivo+'.jpg',
+     cartones
+    });
+   }
+   grupos.set(respaldo.source,rondas);
+   origenInput.replaceChildren();
+   const opcion=document.createElement('option');
+   opcion.value=respaldo.source;
+   opcion.textContent='Jornada '+respaldo.source+' · '+rondas.size+' rondas';
+   origenInput.append(opcion);
+   origenInput.value=respaldo.source;
+   origenWrap.hidden=true;
+   pintar();
+   informar('✓ Encontré '+fotos.length+' capturas del 10/11/2026 en el respaldo. Puedes verlas o descargarlas. La descarga requiere conexión a Storage.');
+   return;
+  }
   informar('Buscando capturas del '+fecha+' en el historial privado…');
-  const {data,error} = await supa.from('en_vivo_envios')
+  const abortador=new AbortController();
+  const limite=setTimeout(()=>abortador.abort(),13000);
+  let data,error;
+  try {
+   const respuesta = await supa.from('en_vivo_envios')
     .select('fecha,source,ronda,revision,capturas,creado_por,creado_en')
-    .eq('fecha',fecha).order('revision',{ascending:false}).limit(200);
-  if (error) throw Error('No pude consultar los envíos antiguos: '+error.message);
+    .eq('fecha',fecha).order('revision',{ascending:false}).limit(200)
+    .abortSignal(abortador.signal);
+   data=respuesta.data;error=respuesta.error;
+  } finally { clearTimeout(limite); }
+  if (error) throw Error('Supabase no respondió al consultar los envíos antiguos: '+error.message);
   if (token !== solicitud) return;
   if ((data||[]).length === 200) throw Error('Hay más de 200 envíos. Consulta este historial con soporte antes de descargar.');
   for (const fila of data||[]) {
@@ -164,7 +215,7 @@ async function consultar(){
   origenInput.value=grupos.keys().next().value;
   origenWrap.hidden=grupos.size===1;
   pintar();
- } catch(e) { informar('⚠️ '+(e?.message||'Error consultando el historial.')); }
+ } catch(e) { informar('⚠️ '+((e?.name==='AbortError')?'La consulta tardó demasiado por saturación de Supabase. Intenta nuevamente cuando se restablezca la conexión.':(e?.message||'Error consultando el historial.'))); }
  finally { bloquear(false); }
 }
 async function descargarTodo(){
