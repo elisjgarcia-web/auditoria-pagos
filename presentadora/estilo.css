@@ -167,3 +167,12 @@ button:focus-visible,input:focus-visible{outline:3px solid #dcae54;outline-offse
  #trabajo .acciones-config{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
  #trabajo .acciones-config .descargar-capturas{grid-column:1/-1;grid-row:1;min-width:0;width:100%;font-size:13px}
 }
+
+/* Controles de jornada, junto a la fecha y el enlace. */
+#trabajo .campo-rondas{grid-column:1/-1;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+#trabajo .campo-rondas label{margin:0}
+#trabajo .rondas-controles{display:flex;gap:6px}
+#trabajo .rondas-controles select{min-height:38px;padding:6px 10px;border:1px solid #c3a9cc;border-radius:8px;background:#fff6e3;color:#43194e;font:inherit}
+#trabajo .rondas-controles button{width:auto;margin:0;padding:6px 12px;font-size:13px}
+#cantidadEstado{font-size:12px;color:#f5deaa;flex:1 1 180px}
+@media(max-width:700px){#trabajo .campo-rondas{grid-row:3}#trabajo .acciones-config{grid-row:4}}

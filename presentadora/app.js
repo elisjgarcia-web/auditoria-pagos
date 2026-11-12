@@ -53,10 +53,10 @@ const notice=t=>{$('estado').textContent=t;},status=t=>{
  if(!bottom){bottom=document.createElement('p');bottom.id='resultadoEnvio';bottom.setAttribute('role','status');bottom.setAttribute('aria-live','polite');bottom.style.cssText='font-size:14px;font-weight:650;line-height:1.5;color:#43194e;white-space:pre-wrap';$('enviar').insertAdjacentElement('afterend',bottom);}
  bottom.textContent=t;
 };
-function controls(){document.querySelectorAll('button,input').forEach(n=>{n.disabled=busy&&!(cargandoFecha&&(n.id==='fecha'||n.id==='fechaHoy'));});$('descargarCapturas').disabled=busy||exportando||!config||!user;$('enviar').disabled=busy||!draft||draft.sent||draft.cards.some(c=>preparando.has(c));$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if($('youtubeEnviar'))$('youtubeEnviar').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
+function controls(){document.querySelectorAll('button,input,select').forEach(n=>{n.disabled=busy&&!(cargandoFecha&&(n.id==='fecha'||n.id==='fechaHoy'));});$('descargarCapturas').disabled=busy||exportando||!config||!user;$('enviar').disabled=busy||!draft||draft.sent||draft.cards.some(c=>preparando.has(c));$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if($('youtubeEnviar'))$('youtubeEnviar').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if($('guardarRondas'))$('guardarRondas').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if($('cantidadRondas'))$('cantidadRondas').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
 function claveEpocaLocal(fecha,source){return 'envivo-epoca-borrador-v1:'+user.id+':'+fecha+':'+source;}
-function key(){
- const partes=[user.id,config.fecha,config.source,selected];
+function key(ronda=selected){
+ const partes=[user.id,config.fecha,config.source,ronda];
  // Antes del primer reinicio conserva las claves antiguas y no pierde borradores
  // actuales. Tras un reinicio, cada jornada lógica usa un espacio separado.
  if(config.maestroId)partes.push(String(config.maestroId));
@@ -93,8 +93,8 @@ function registrarCierre(fecha,source,envios){
 }
 async function rpc(name,args){const {data,error}=await client.rpc(name,args);if(error)throw Error(error.message);return data;}
 
-// La presentadora NO tiene permiso para reiniciar Pagos: solo obedece una
-// señal maestra emitida en el servidor por un usuario autorizado de Pagos.
+// Los reinicios del en vivo se comparten entre los equipos autorizados.
+// Archivan capturas sin borrar compras, comprobantes ni el formulario de Pagos.
 function claveMaestro(fecha,source){return 'envivo-maestro-v1:'+user.id+':'+fecha+':'+source;}
 async function atenderReinicioMaestro(corte,fecha,{forzado=false}={}){
  const source=String(corte?.source||''),id=String(corte?.maestro_id||'');
@@ -115,7 +115,7 @@ async function atenderReinicioMaestro(corte,fecha,{forzado=false}={}){
  $('rondas').replaceChildren();$('capturas').replaceChildren();
  $('fecha').value='';$('youtube').value='';if($('youtubeEstado'))$('youtubeEstado').textContent='Elige la fecha del próximo sorteo para enviar otro enlace.';
  paint();informarFecha();
- notice('♻️ Pagos ordenó un reinicio maestro. La presentadora quedó limpia. Elige la fecha del próximo sorteo.');
+ notice('♻️ Se reinició el en vivo desde otro equipo. La presentadora quedó limpia. Elige la fecha del próximo sorteo.');
  status('✓ Borradores anteriores limpiados en esta laptop. Las capturas históricas siguen archivadas.');
  return true;
 }
@@ -340,6 +340,8 @@ async function loadDate(){
  if(String(corte?.source||'')!==String(data.source||''))throw Error('El sorteo cambió. Actualiza antes de pegar capturas.');
  if(await atenderReinicioMaestro(corte,f,{forzado:true}))return;
  config={...data.jornada,cortes:corte?.revisiones||{},maestroId:corte?.maestro_id||null};rows=data.envios||[];
+ if($('cantidadRondas'))$('cantidadRondas').value=String(config.rondas.length);
+ if($('cantidadEstado'))$('cantidadEstado').textContent='✓ '+config.rondas.length+' rondas confirmadas.';
  const envioVigente=rows.find(e=>!capturaAnterior(e));
  const enlaceLocal=localStorage.getItem('envivo-youtube:'+user.id+':'+f+':'+config.source)||'';
   const enlaceServidor=String(config.youtube||'').trim();
@@ -440,37 +442,51 @@ async function descargarTodasCapturas(){
 }
 $('descargarCapturas').onclick=descargarTodasCapturas;
 
-$('nuevoSorteoPresentadora').onclick=async()=>{
- if(!user||busy)return;
- if(draft?.uncertain){status('Confirma el envio pendiente antes de comenzar otro sorteo.');return;}
- let fecha;try{fecha=config?.fecha||C.fecha($('fecha').value);}catch{status('Selecciona la fecha que deseas cerrar.');return;}
- if(!confirm('Nuevo sorteo: se limpiaran los borradores y capturas locales de esta fecha. También se vaciará la lista de ganadores excluidos en la ruleta. Los pagos e historial se mantienen. ¿Continuar?'))return;
- busy=true;controls();let registro=null;
+$('guardarRondas').onclick=async()=>{
+ if(!user||busy||!config||esperandoNuevoSorteo)return;
+ const cantidad=Number($('cantidadRondas').value),anterior=config.rondas.length;
+ if(![5,6].includes(cantidad))return;
+ if(cantidad===anterior){$('cantidadEstado').textContent='✓ Ya están configuradas '+cantidad+' rondas.';return;}
+ if(draft?.uncertain||draft?.cards.some(c=>preparando.has(c))){status('Espera a que termine el envío o la preparación de la captura.');return;}
+ if(!confirm('¿Cambiar a '+cantidad+' rondas en Presentadora y Pagos? El lleno final será la última ronda. Las capturas enviadas se conservan.'))return;
+ busy=true;controls();let ok=false;
  try{
-  // Consultar la última revisión antes de ocultarla; no borrar archivos ni filas remotas.
-  const consulta=await rpc('en_vivo_contexto',{p_fecha:fecha});
-  if(!consulta)throw Error('No se pudo consultar la jornada. Revisa tu conexión.');
-  const source=config?.source||consulta.jornada?.source||consulta.source||'';
-  const recientes=source&&consulta.source===source?(consulta.envios||[]):rows;
-  const limpieza=await rpc('slot_reiniciar_rondas',{p_source:String(source)});
-  if(String(limpieza?.source)!==String(source)||limpieza.sent!==false)throw Error('No se pudo confirmar la limpieza de ganadores en la ruleta.');
-  registro=registrarCierre(fecha,source,recientes);
-  revisionReinicioLocal++;
-  await C.borrarBorradores(user.id+':'+fecha+':');
-  // Cambiar también el espacio de borradores: una imagen que termine de
-  // procesarse tarde no podrá reaparecer en la nueva jornada.
-  if(source)localStorage.setItem(claveEpocaLocal(fecha,source),C.uuid());
-  localStorage.removeItem('envivo-youtube:'+user.id+':'+fecha+':'+source);
-  localStorage.setItem('envivo-esperando-fecha:'+user.id,fecha);
-  esperandoNuevoSorteo=true;autoFecha=false;++turno;
-  selected=0;draft=null;config=null;rows=[];activeCard=null;release();
-  $('rondas').replaceChildren();$('capturas').replaceChildren();$('fecha').value='';$('youtube').value='';
-  paint();notice('La presentadora quedó limpia. Pulsa 📅 Hoy o elige la fecha del nuevo sorteo.');informarFecha();
-  status('Presentadora y lista de excluidos reiniciadas. Los pagos e historial siguen guardados.');
- }catch(e){
-  if(registro){try{if(registro.previous===null)localStorage.removeItem(registro.key);else localStorage.setItem(registro.key,registro.previous);}catch{}}
-  status('No se pudo completar el reinicio: '+e.message);
- }finally{busy=false;controls();}
+  await save();
+  for(const ronda of [5,6]){
+   const local=await C.local(key(ronda));
+   if(local&&!local.sent&&local.cards?.some(c=>c.blob||String(c.numeros||'').trim()))
+    throw Error('Hay capturas pendientes en la quinta ronda o el lleno final. Consérvalas y termina o reinicia antes de cambiar las rondas.');
+  }
+  const resultado=await rpc('en_vivo_cambiar_cantidad',{
+   p_fecha:config.fecha,p_source:String(config.source),p_cantidad:cantidad,
+   p_rondas_anteriores:config.rondas,p_maestro_id:config.maestroId||null
+  });
+  if(resultado?.source!==String(config.source)||resultado?.rondas?.length!==cantidad)throw Error('No se confirmó la cantidad. Pulsa Actualizar para comprobarla.');
+  ok=true;$('cantidadEstado').textContent='✓ '+cantidad+' rondas guardadas. Pagos las cargará al actualizar.';
+ }catch(e){$('cantidadRondas').value=String(anterior);$('cantidadEstado').textContent='⚠️ '+e.message;status(e.message);}
+ finally{busy=false;controls();}
+ if(ok)await loadDate();
+};
+$('nuevoSorteoPresentadora').onclick=async()=>{
+ if(!user||busy||!config)return;
+ if(draft?.uncertain){status('Confirma el envío pendiente antes de reiniciar.');return;}
+ const fecha=config.fecha,source=String(config.source);
+ if(!confirm('¿Reiniciar Presentadora? Se limpiarán los borradores de esta fecha y se archivarán los envíos anteriores. También se vaciarán los excluidos de la ruleta. Los comprobantes, pagos e historial se conservan.'))return;
+ busy=true;controls();
+ try{
+  const pendiente='envivo-reinicio-pendiente:'+user.id+':'+fecha+':'+source;
+  let operacion=localStorage.getItem(pendiente);
+  if(!operacion){operacion=C.uuid();localStorage.setItem(pendiente,operacion);}
+  const corte=await rpc('en_vivo_reiniciar_presentadora',{
+   p_fecha:fecha,p_source:source,p_maestro_id:config.maestroId||null,p_reinicio:operacion
+  });
+  if(String(corte?.source)!==source||corte?.maestro_id!==operacion)throw Error('No se confirmó el reinicio. Pulsa de nuevo para comprobarlo.');
+  await atenderReinicioMaestro(corte,fecha,{forzado:true});
+  localStorage.removeItem(pendiente);
+  notice('✓ Presentadora reiniciada. Pulsa 📅 Hoy o elige la fecha del próximo sorteo.');
+  status('Los envíos anteriores quedaron archivados. Los comprobantes, pagos e historial se conservaron.');
+ }catch(e){status('No se pudo completar el reinicio: '+e.message);}
+ finally{busy=false;controls();}
 };
 $('actualizarRondas').onclick=loadDate;
 setInterval(()=>{if(user&&!config&&!busy&&!esperandoNuevoSorteo&&!document.hidden)loadDate();},12000);
