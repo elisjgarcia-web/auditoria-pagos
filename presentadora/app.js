@@ -349,7 +349,7 @@ async function enterRound(n){if(busy||!config)return;busy=true;controls();const 
  }catch(e){draft=null;paint();status(e.message);}finally{busy=false;controls();}
 }
 async function loadDate(){
- if($('ruletaEstado'))$('ruletaEstado').textContent='Incluye todas las rondas enviadas a Pagos. Pulsa Enviar ganadores a la ruleta para actualizar la lista.';
+ if($('ruletaEstado'))$('ruletaEstado').textContent='Cada captura enviada a Pagos actualiza automáticamente los ganadores excluidos de la ruleta.';
  if(busy){if(cargandoFecha)fechaPendiente=true;return;}
  if(!user||esperandoNuevoSorteo)return;
  let f;
@@ -531,18 +531,24 @@ $('fechaHoy').onclick=()=>{
  $('fecha').value=hoyCaracas();
  elegirFecha();
 };
-if($('enviarRuleta'))$('enviarRuleta').onclick=async()=>{
- if(busy||!user||!config||esperandoNuevoSorteo||draft?.uncertain)return;
- busy=true;controls();const ctx=config,estado=$('ruletaEstado');
- estado.textContent='Enviando ganadores de todas las rondas a la ruleta…';
+async function actualizarRuleta(ctx){
+ const estado=$('ruletaEstado');
+ if(estado)estado.textContent='Actualizando ganadores en la ruleta…';
  try{
   const data=await rpc('en_vivo_enviar_ruleta',{p_fecha:ctx.fecha,p_source:ctx.source,p_maestro_id:ctx.maestroId||null,p_cantidad:ctx.rondas.length});
-  if(config!==ctx)return;
+  if(config!==ctx)return false;
   if(!data?.sent||String(data.source)!==String(ctx.source))throw Error('No se confirmó el envío del sorteo actual.');
-  estado.textContent='✓ '+data.people+' persona(s) excluida(s) de consolación · '+data.rondasEnviadas+'/'+data.rondasTotal+' rondas.'+
-   (data.rondasPendientes?.length?' ⚠️ Faltan las rondas '+data.rondasPendientes.join(', ')+'. Al enviarlas a Pagos, pulsa de nuevo este botón.':' Todas las rondas enviadas.');
- }catch(e){estado.textContent='⚠️ No se confirmó el envío a la ruleta: '+e.message+' Puedes reintentar.';}
- finally{busy=false;controls();}
+  if(estado)estado.textContent='✓ Ruleta actualizada · '+data.people+' persona(s) excluida(s) de consolación · '+data.rondasEnviadas+'/'+data.rondasTotal+' rondas.'+
+   (data.rondasPendientes?.length?' Pendientes: '+data.rondasPendientes.join(', ')+'. Se agregarán al enviar sus capturas.':' Todas las rondas enviadas.');
+  return true;
+ }catch(e){
+  if(config===ctx&&estado)estado.textContent='⚠️ No se confirmó el envío a la ruleta: '+e.message+' Las capturas enviadas a Pagos se conservan. Pulsa Reintentar envío a la ruleta.';
+  return false;
+ }
+}
+if($('enviarRuleta'))$('enviarRuleta').onclick=async()=>{
+ if(busy||!user||!config||esperandoNuevoSorteo||draft?.uncertain)return;
+ busy=true;controls();try{await actualizarRuleta(config);}finally{busy=false;controls();}
 };
 $('youtube').oninput=()=>{
  if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);
@@ -661,8 +667,8 @@ $('enviar').onclick=async()=>{
  if(String(maestroFinal?.source||'')!==String(config.source))throw Error('Cambió el sorteo. No se enviaron estos ganadores.');
  if(await atenderReinicioMaestro(maestroFinal,config.fecha,{forzado:true}))return;
  if((maestroFinal?.maestro_id||null)!==(config.maestroId||null))throw Error('El reinicio maestro cambió. Actualiza la ronda antes de enviar.');
- status('Enviando ganadores a pagos…');draft.uncertain=true;draft.youtube=youtube;await save();const row=await rpc('en_vivo_enviar_activo',{p_id:draft.id,p_fecha:config.fecha,p_source:config.source,p_ronda:selected,p_revision:draft.baseRevision,p_youtube:youtube,p_capturas:capturas,p_maestro_id:config.maestroId||null});if(row.id!==draft.id)throw Error('No se confirmó el envío. Reintenta sin cambiar las capturas.');draft.sent=true;draft.uncertain=false;draft.baseRevision=row.revision;rows=rows.filter(e=>e.ronda!==selected).concat(row);if($('ruletaEstado'))$('ruletaEstado').textContent='⚠️ Hay ganadores actualizados. Pulsa Enviar ganadores a la ruleta para aplicar la lista actual.';await save();paint();status(row.revision>1?'✓ Capturas nuevas enviadas. Reemplazan la versión anterior de esta ronda en Pagos.':'✓ Capturas enviadas a Pagos.');
- }catch(e){if(draft?.uncertain){try{const data=await rpc('en_vivo_contexto',{p_fecha:config.fecha}),r=data?.envios?.find(e=>e.id===draft.id);if(r){draft.sent=true;draft.uncertain=false;draft.baseRevision=r.revision;rows=rows.filter(e=>e.ronda!==selected).concat(r);await save();paint();status('Enviado ✓ · Confirmado al consultar pagos.');return;}}catch{}}status((e.message||'No se confirmó el envío.')+' Las capturas quedan guardadas; reintenta sin cambiarlas.');}finally{busy=false;controls();}};
+ status('Enviando ganadores a pagos…');draft.uncertain=true;draft.youtube=youtube;await save();const row=await rpc('en_vivo_enviar_activo',{p_id:draft.id,p_fecha:config.fecha,p_source:config.source,p_ronda:selected,p_revision:draft.baseRevision,p_youtube:youtube,p_capturas:capturas,p_maestro_id:config.maestroId||null});if(row.id!==draft.id)throw Error('No se confirmó el envío. Reintenta sin cambiar las capturas.');draft.sent=true;draft.uncertain=false;draft.baseRevision=row.revision;rows=rows.filter(e=>e.ronda!==selected).concat(row);await save();paint();status(row.revision>1?'✓ Capturas nuevas enviadas. Reemplazan la versión anterior de esta ronda en Pagos.':'✓ Capturas enviadas a Pagos.');await actualizarRuleta(config);
+ }catch(e){if(draft?.uncertain){try{const data=await rpc('en_vivo_contexto',{p_fecha:config.fecha}),r=data?.envios?.find(e=>e.id===draft.id);if(r){draft.sent=true;draft.uncertain=false;draft.baseRevision=r.revision;rows=rows.filter(e=>e.ronda!==selected).concat(r);await save();paint();status('Enviado ✓ · Confirmado al consultar pagos.');await actualizarRuleta(config);return;}}catch{}}status((e.message||'No se confirmó el envío.')+' Las capturas quedan guardadas; reintenta sin cambiarlas.');}finally{busy=false;controls();}};
 document.addEventListener('paste',async e=>{
  if(busy||!draft||draft.sent||!config)return;
  const item=[...(e.clipboardData?.items||[])].find(x=>/^image\/(png|jpeg|webp)$/.test(x.type));
