@@ -356,6 +356,7 @@ async function aplicar(e,{automatico=false}={}){
   // El enlace se confirma aparte: no sobrescribir sin preguntar el campo de Pagos.
   status('✓ Ronda '+i+': '+resultado.correctos.length+' imagen(es) guardadas. Verifica cada cartón antes de transferir.');
   completo=true;
+  if(root.PozoCapturas?.revisar)root.PozoCapturas.revisar(e,preparados);
  }catch(err){
   status('⚠️ No se pudo completar la recepción: '+(err.message||'Error inesperado.')+'. Puedes continuar con las demás rondas.');
  }finally{

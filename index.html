@@ -254,7 +254,7 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 
 <div class="card">
   <div class="title">💰 Pozo acumulado</div>
-  <div class="small">Úsalo solo el día que se lleven el pozo acumulado. Puede haber uno o varios cartones ganadores.</div>
+  <p id="pozoAutoEstado" class="small" role="status" aria-live="polite">Al traer las capturas de cualquier ronda se revisa el contador «N de 75». El pozo se prepara con 52 bolitas o menos. Si la lectura no es clara, revísalo manualmente.</p>
   <label>Premio del pozo Bs</label><input id="premioPozo" inputmode="decimal" placeholder="Ej: 147440" oninput="limpiarPozo();programarGuardado()">
   <label>Cartón(es) ganador(es)</label><input id="cartonPozo" placeholder="Ej: 399 o 399, 512" oninput="limpiarPozo();programarGuardado()" inputmode="numeric" pattern="[0-9, ]*" autocomplete="off">
   <div class="small">Si hay varios ganadores, sepáralos con coma. El pozo se divide automáticamente y el total pagado siempre coincide con el premio.</div>
@@ -2311,7 +2311,7 @@ window.pagosRestauracionLista=new Promise(resolve=>setTimeout(async()=>{try{if(!
 <script src="publicar-ganadores.js?v=2"></script>
 <script src="rondas-ruleta.js?v=3"></script>
 <script src="sincronizacion.js?v=8"></script>
-<script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=5"></script><script src="publicar-comprobantes.js?v=20261106-anuncio"></script><script src="presentadora/zip-capturas.js?v=1"></script><script src="rondas-en-vivo-comun.js?v=3"></script><script src="avisos-presentadora.js?v=1"></script><script src="push-presentadora.js?v=1"></script><script src="recibir-en-vivo.js?v=20"></script><script src="compacto-pagos.js?v=6"></script><script src="ruleta-consolacion-pagos.js?v=6"></script><script src="publicar-comprobantes-historicos.js?v=2"></script></body>
+<script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=5"></script><script src="publicar-comprobantes.js?v=20261106-anuncio"></script><script src="presentadora/zip-capturas.js?v=1"></script><script src="rondas-en-vivo-comun.js?v=3"></script><script src="avisos-presentadora.js?v=1"></script><script src="push-presentadora.js?v=1"></script><script src="pozo-capturas.js?v=1"></script><script src="recibir-en-vivo.js?v=21"></script><script src="compacto-pagos.js?v=6"></script><script src="ruleta-consolacion-pagos.js?v=6"></script><script src="publicar-comprobantes-historicos.js?v=2"></script></body>
 </html>
 
 
