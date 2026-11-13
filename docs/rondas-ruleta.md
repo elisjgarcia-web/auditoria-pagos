@@ -13,3 +13,5 @@ Backend: SQL slot-rondas.sql en bingoandino/bingoandino75; RPC slot_estado_ronda
 Debajo del panel de la ronda está **🎰 Enviar ganadores a la ruleta**. Primero envía las capturas de las rondas a Pagos; luego pulsa este botón antes de sacar la consolación. Incluye todos los cartones de las capturas vigentes de cada ronda, aunque haya varios ganadores, sin esperar a que Pagos los haya recibido en su formulario. Confirma personas excluidas y rondas enviadas; si faltan rondas o corriges un ganador, vuelve a pulsarlo después de enviar las capturas.
 
 El servidor deriva la lista desde los envíos actuales, valida los dueños aprobados y reemplaza la lista de exclusión del sorteo. No incluye borradores ni capturas archivadas por un reinicio, y rechaza solicitudes de una jornada anterior. Mantiene los permisos de la presentadora y la regla existente: excluir a la persona de consolación, sin quitarla de los cartones gratis.
+
+Si no aparece el botón nuevo, actualiza la app de Presentadora antes de continuar.
