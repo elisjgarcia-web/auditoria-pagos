@@ -74,14 +74,34 @@ test('ronda con pozo genera un solo pago combinado por ganador y reparte todos l
  w.PozoCapturas.resumenActual=()=>({ronda:1,premio_ronda:1000,premio_pozo:501,total:1501,cartones:[1,2],bolitas:49});
  w.document.getElementById('premioPozo').value='501';
  const originalContexto=w.HTMLCanvasElement.prototype.getContext;
- w.HTMLCanvasElement.prototype.getContext=function(){const c=originalContexto.call(this);c.createRadialGradient=()=>({addColorStop(){}});return c;};
+ w.HTMLCanvasElement.prototype.getContext=function(){const c=originalContexto.call(this);c.createRadialGradient=c.createLinearGradient=()=>({addColorStop(){}});return c;};
  w.HTMLCanvasElement.prototype.toDataURL=()=> 'data:image/png;base64,cHJ1ZWJh';
  const inicio=t.calls.length;assert.equal(w.generarImagen(),true);await tick();
  const textos=t.calls.slice(inicio).filter(c=>c.k==='fillText').map(c=>String(c.args[0]));
- assert.ok(textos.includes('💰 POZO ACUMULADO · 501 Bs'));assert.ok(textos.includes('500 Bs c/u'));
+ assert.ok(textos.includes('POZO ACUMULADO GANADO'));assert.ok(textos.includes('501 Bs'));assert.ok(textos.includes('500 Bs por ganador'));
  assert.ok(!textos.some(t=>t.includes('751 Bs')||t.includes('750 Bs')));
  assert.equal(w.document.getElementById('pre1').value,'1501');assert.equal(w.document.getElementById('cartonPozo').value,'');
- assert.ok(w.document.getElementById('canvasImg').height>1080);assert.equal(w.document.getElementById('pagosBtnsPozo').children.length,0);
+ const altoConPozo=w.document.getElementById('canvasImg').height;w.PozoCapturas.resumenActual=()=>null;assert.equal(w.generarImagen(),true);assert.ok(altoConPozo>w.document.getElementById('canvasImg').height);assert.equal(w.document.getElementById('pagosBtnsPozo').children.length,0);
 
+ }finally{w.close();}
+});
+
+test('resumen conserva todos los ganadores, crece con nombres largos y separa los premios sin datos bancarios',async()=>{
+ const t=setup(),{w}=t;try{
+ w.generarTodos=()=>true;
+ w.HTMLCanvasElement.prototype.getContext=function(){return new Proxy({measureText:t=>({width:String(t).length*22}),createLinearGradient:()=>({addColorStop(){}})},{get(o,k){return k in o?o[k]:(...args)=>t.calls.push({k,args});},set(o,k,v){o[k]=v;return true;}});};
+ w.HTMLCanvasElement.prototype.toDataURL=()=> 'data:image/png;base64,cHJ1ZWJh';
+ w.document.getElementById('cant').value='6';w.actualizarEtiquetasRondas();
+ w.buscar=c=>({nombre:'Ganadora de prueba '+c,cedula:'12345678',telefono:'04121234567'});
+ w.document.getElementById('car6').value='1';w.document.getElementById('pre6').value='180000';
+ assert.equal(w.generarImagen(),true);const altoInicial=w.document.getElementById('canvasImg').height;
+ w.document.getElementById('car6').value='1,2,3,4,5,6,7,8,9,10';
+ w.document.getElementById('cartonesCon').value='11,12,13,14,15,16,17,18,19,20';
+ const inicio=t.calls.length;assert.equal(w.generarImagen(),true);
+ const texto=t.calls.slice(inicio).filter(c=>c.k==='fillText').map(c=>String(c.args[0])).join('\n');
+ for(let i=1;i<=20;i++)assert.match(texto,new RegExp('Cartón '+i+'(?:\\n|$)'));
+ assert.ok(w.document.getElementById('canvasImg').height>altoInicial);
+ assert.ok(!texto.includes('12345678')&&!texto.includes('04121234567'));
+ assert.equal(w.document.getElementById('pre6').value,'180000');
  }finally{w.close();}
 });

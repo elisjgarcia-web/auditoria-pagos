@@ -2263,36 +2263,109 @@ function resumen(){
  return true;
 }
 
+// El arte se carga desde el mismo origen y queda disponible también sin conexión.
+const arteResumen=new Image();
+const arteResumenListo=new Promise(resolve=>{arteResumen.onload=()=>resolve(true);arteResumen.onerror=()=>resolve(false);});
+arteResumen.src='./assets/resumen-copa.png';
+const estiloResumen=new Image();
+const estiloResumenListo=new Promise(resolve=>{estiloResumen.onload=()=>resolve(true);estiloResumen.onerror=()=>resolve(false);});
+estiloResumen.src='./assets/resumen-estilo.png';
+estiloResumenListo.then(ok=>{if(ok&&typeof previewImg!=='undefined'&&previewImg.style.display==='block')generarImagen();});
+arteResumenListo.then(ok=>{if(ok&&typeof previewImg!=='undefined'&&previewImg.style.display==='block')generarImagen();});
 function generarImagen(){
  if(!generarTodos())return false;
  const registrado=window.PozoCapturas?.resumenActual?.();
  const pozo=registrado&&window.PozoCapturas?.resumenRonda?.(registrado.ronda)?registrado:null;
- const filasPozo=pozo?Math.ceil(pozo.cartones.length/2):0,altoPozo=pozo?92+filasPozo*34:0,desplazamiento=pozo?altoPozo+25:0;
- const premioImagen=(i,p)=>pozo?.ronda===i?pozo.premio_ronda:p;
- const repartoImagen=(i,p,cs)=>pozo?.ronda===i?cs.map((_,j)=>Math.floor(p/cs.length)+(j<p%cs.length?1:0)):repartirPremio(Math.round(p),cs.length,i);
- const canvas=canvasImg,ctx=canvas.getContext("2d");canvas.width=1080;canvas.height=1080+desplazamiento;
- let bg=ctx.createRadialGradient(540,300,40,540,540,820);bg.addColorStop(0,"#3b005d");bg.addColorStop(.5,"#12001d");bg.addColorStop(1,"#020004");ctx.fillStyle=bg;ctx.fillRect(0,0,1080,canvas.height);
- function fit(text,x,y,w,s,color="#fff"){ctx.textAlign="center";ctx.textBaseline="middle";do{ctx.font="bold "+s+"px Arial";s--}while(ctx.measureText(text).width>w&&s>12);ctx.lineWidth=4;ctx.strokeStyle="#000";if(color!=="#111")ctx.strokeText(text,x,y);ctx.fillStyle=color;ctx.fillText(text,x,y)}
- fit("¡FELICITACIONES!",540,65,1000,62,"#ffd700");fit("BingoAndino75",540,135,850,52,"#fff");fit(fechaSorteo.value||"",540,190,700,28,"#fff");
- let n=+cant.value,y=250,colors=["#b000ff","#0084ff","#00b936","#ff7b00","#e60070"];
- for(let i=1;i<n;i++){let cs=carts(document.getElementById(`car${i}`).value);if(!cs.length)continue;let p=premioImagen(i,monto(document.getElementById(`pre${i}`).value)),ms=repartoImagen(i,p,cs),ig=ms.every(m=>m===ms[0]);ctx.fillStyle="rgba(0,0,0,.75)";ctx.strokeStyle=colors[(i-1)%5];ctx.lineWidth=4;ctx.strokeRect(45,y,585,80);ctx.fillRect(45,y,585,80);fit(document.getElementById(`nom${i}`).value,125,y+40,150,28,"#fff");fit(cs.map((c,idx)=>{let x=buscar(c);return c+" "+(x?x.nombre:"NO")+(ig?"":" "+fmt(ms[idx])+" Bs")}).join(" | "),365,y+35,360,23,"#fff");fit(ig?(fmt(ms[0])+" Bs"+(cs.length>1?" c/u":"")):"Reparto exacto",540,y+63,160,22,"#ffd700");y+=95}
- let fcs=carts(document.getElementById(`car${n}`).value),fp=premioImagen(n,monto(document.getElementById(`pre${n}`).value)),fms=fcs.length?repartoImagen(n,fp,fcs):[],fig=fms.length?fms.every(m=>m===fms[0]):true;
- ctx.fillStyle="rgba(0,0,0,.82)";ctx.strokeStyle="#ffd700";ctx.lineWidth=5;ctx.strokeRect(660,250,370,455);ctx.fillRect(660,250,370,455);
- fit("CARTÓN LLENO FINAL",845,305,330,34,"#ffd700");fit("Premio: "+fmt(fp)+" Bs",845,370,320,30,"#ffd700");if(fcs.length>1)fit(fig?(fmt(fms[0])+" Bs c/u"):"Reparto exacto",845,425,310,34,"#ffd700");let fy=480;fcs.slice(0,5).forEach((c,idx)=>{let x=buscar(c);fit("🔥 "+c+" "+(x?x.nombre:"NO")+(fig?"":" "+fmt(fms[idx])+" Bs"),845,fy,330,26,"#fff");fy+=45});
- if(pozo){
-  ctx.fillStyle="rgba(0,0,0,.82)";ctx.strokeStyle="#e4c585";ctx.lineWidth=4;
-  ctx.fillRect(45,730,985,altoPozo);ctx.strokeRect(45,730,985,altoPozo);
-  fit("💰 POZO ACUMULADO · "+fmt(pozo.premio_pozo)+" Bs",540,762,930,32,"#ffd700");
-  pozo.cartones.forEach((c,idx)=>{const g=buscar(String(c)),columnas=pozo.cartones.length===1?1:2,x=columnas===1?540:idx%2?785:295;
-   fit(c+" "+(g?g.nombre:"NO ENCONTRADO"),x,805+Math.floor(idx/2)*34,columnas===1?920:455,25,"#fff");
-  });
-  fit("Ronda "+pozo.ronda+(pozo.bolitas?" · "+pozo.bolitas+" bolitas":""),540,730+altoPozo-18,920,20,"#e4c585");
+ const n=+cant.value,canvas=canvasImg,ctx=canvas.getContext('2d');
+ const purple='#390044',ivory='#fffaf0',gold='#d6a636';
+ const nombre=c=>buscar(String(c))?.nombre||'Nombre no encontrado';
+ const fuente=(s,bold=true)=>`${bold?'bold ':''}${s}px Georgia, 'Times New Roman', serif`;
+ function lineas(t,w,s){
+  ctx.font=fuente(s);const out=[];let line='';
+  for(const word of String(t).split(/\s+/)){const next=line?line+' '+word:word;
+   if(ctx.measureText(next).width<=w){line=next;continue;}
+   if(line){out.push(line);line='';}
+   let part='';for(const ch of word){if(part&&ctx.measureText(part+ch).width>w){out.push(part);part='';}part+=ch;}line=part;
+  }if(line)out.push(line);return out.length?out:[''];
  }
- let co=carts(cartonesCon.value),pc=monto(premioCon.value);fit("🎁 PREMIOS DE CONSOLACIÓN 🎁",540,765+desplazamiento,850,34,"#ffd700");co.slice(0,8).forEach((c,idx)=>{let x=idx%2?585:80,yy=820+desplazamiento+Math.floor(idx/2)*50,g=buscar(c);ctx.fillStyle="#fff";ctx.fillRect(x,yy,420,36);fit(c+" "+(g?g.nombre:"NO")+" "+(pc?fmt(pc)+" Bs":""),x+210,yy+18,390,20,"#111")});fit("💜 Gracias a todos por participar 💜",540,1040+desplazamiento,850,34,"#fff");
- previewImg.src=canvas.toDataURL("image/png");previewImg.style.display="block";
- return true;
+ function text(t,x,y,s=36,color=purple,align='left',w=1000){
+  ctx.font=fuente(s);while(ctx.measureText(String(t)).width>w&&s>24)ctx.font=fuente(--s);
+  ctx.fillStyle=color;ctx.textAlign=align;ctx.textBaseline='middle';ctx.fillText(String(t),x,y);
+ }
+ function bloque(t,x,y,w,s,color=purple,align='left'){
+  const ls=lineas(t,w,s);ls.forEach((l,i)=>text(l,x,y+i*(s+5),s,color,align,w));return ls.length*(s+5);
+ }
+ function fondo(y,h,stops){const g=ctx.createLinearGradient(0,y,1080,y+h);stops.forEach(([p,c])=>g.addColorStop(p,c));ctx.fillStyle=g;ctx.fillRect(0,y,1080,h);}
+ function regla(y){ctx.strokeStyle=gold;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(30,y);ctx.lineTo(1050,y);ctx.stroke();}
+ function brillo(x,y,r){ctx.fillStyle='#ffe798';ctx.beginPath();ctx.moveTo(x,y-r);ctx.lineTo(x+2,y-2);ctx.lineTo(x+r,y);ctx.lineTo(x+2,y+2);ctx.lineTo(x,y+r);ctx.lineTo(x-2,y+2);ctx.lineTo(x-r,y);ctx.lineTo(x-2,y-2);ctx.closePath();ctx.fill();}
+ const rondas=[];for(let i=1;i<=n;i++){
+  const cs=carts(document.getElementById(`car${i}`).value),valor=monto(document.getElementById(`pre${i}`).value);
+  const p=pozo?.ronda===i?pozo.premio_ronda:valor;
+  const ms=cs.length?(pozo?.ronda===i?cs.map((_,j)=>Math.floor(p/cs.length)+(j<p%cs.length?1:0)):repartirPremio(Math.round(p),cs.length,i)):[];
+  const winners=cs.map((c,j)=>({c,nombre:nombre(c),monto:ms[j]}));
+  rondas.push({i,p,winners,ig:ms.every(m=>m===ms[0])});
+ }
+ const normales=rondas.slice(0,-1).filter(r=>r.winners.length),final=rondas[n-1];
+ const altoFila=g=>lineas(g.nombre,490,38).length*43+32;
+ normales.forEach(r=>{r.h=Math.max(100,r.winners.reduce((h,g)=>h+altoFila(g),0)+18)+(r.winners.length>1?35:0);});
+ const finalFilas=final.winners.map(g=>({g,h:lineas(g.nombre,690,52).length*57+42+(final.winners.length>1?38:0)}));
+ const altoFinal=Math.max(310,110+finalFilas.reduce((h,f)=>h+f.h,0)+65);
+ const ganPozo=pozo?.cartones.map(c=>({c,nombre:nombre(c)}))||[];
+ const altoPozo=pozo?100+ganPozo.reduce((h,g)=>h+lineas(g.nombre+' · Cartón '+g.c,660,33).length*38,0):0;
+ const co=carts(cartonesCon.value),pc=monto(premioCon.value),cons=[];
+ for(let i=0;i<co.length;i+=2){const gs=co.slice(i,i+2).map(c=>({c,nombre:nombre(c)}));cons.push({gs,h:Math.max(...gs.map(g=>lineas(g.nombre,465,38).length))*43+48});}
+ const altoCon=co.length?115+cons.reduce((h,r)=>h+r.h,0)+20:0;
+ canvas.width=1080;canvas.height=235+normales.reduce((h,r)=>h+r.h,0)+altoFinal+altoPozo+altoCon+115;
+ fondo(0,canvas.height,[[0,ivory],[.5,'#fffdf6'],[1,'#f9ecd2']]);
+ fondo(0,220,[[0,'#4f075b'],[.6,'#2c0038'],[1,'#400449']]);
+ if(estiloResumen.complete&&estiloResumen.naturalWidth)ctx.drawImage(estiloResumen,0,0,1024,143,0,0,1080,151);
+ else{ text('BingoAndino75',540,51,67,'#f7d574','center');text('NUESTROS GANADORES',540,118,53,'#fffaf0','center');}
+ let fecha=fechaSorteo.value||'';const m=fecha.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+ if(m){const d=new Date(+m[3],+m[2]-1,+m[1]);fecha=d.toLocaleDateString('es-VE',{day:'numeric',month:'long',year:'numeric'});}
+ text(fecha,540,176,30,'#f7d574','center');
+ [55,100,985,1025].forEach((x,i)=>brillo(x,45+i%2*90,9));regla(220);
+ let y=235;
+ normales.forEach(r=>{
+  text(r.i+'ª ronda',48,y+r.h/2,35,purple,'left',165);
+  text(fmt(r.p)+' Bs',1035,y+36,43,purple,'right',310);
+  if(r.winners.length>1)text('Premio total',1035,y+72,25,purple,'right',310);
+  let gy=y+30;
+  r.winners.forEach(g=>{const h=bloque(g.nombre,248,gy,490,38);text('Cartón '+g.c+(r.winners.length>1&&!r.ig?' · '+fmt(g.monto)+' Bs':''),248,gy+h,28,purple,'left',490);gy+=h+32;});
+  if(r.winners.length>1&&r.ig)text(fmt(r.winners[0].monto)+' Bs por ganador',1035,y+r.h-19,25,purple,'right',780);
+  y+=r.h;regla(y);
+ });
+ fondo(y,altoFinal,[[0,'#dcae3b'],[.25,'#ffe999'],[.55,'#fff1b5'],[1,'#e0af39']]);
+ regla(y+4);text('CARTÓN LLENO FINAL',670,y+38,40,purple,'center',730);
+ // Copa y confeti son el mismo recurso en todos los resúmenes.
+ if(arteResumen.complete&&arteResumen.naturalWidth)ctx.drawImage(arteResumen,0,y+(altoFinal-300)/2,320,300);
+ else text('🏆',155,y+altoFinal/2,130,purple,'center',280);
+ ctx.fillStyle='rgba(255,253,240,.66)';ctx.beginPath();ctx.roundRect(332,y+74,710,altoFinal-95,38);ctx.fill();
+ let fy=y+115;
+ if(!finalFilas.length)text('Por anunciar',687,fy,45,purple,'center',665);
+ finalFilas.forEach(({g,h})=>{const used=bloque(g.nombre,687,fy,670,52,purple,'center');text('Cartón '+g.c,687,fy+used,31,purple,'center',670);
+  if(finalFilas.length>1)text(fmt(g.monto)+' Bs'+(final.ig?' c/u':''),687,fy+used+37,32,purple,'center',670);fy+=h;
+ });
+ text(fmt(final.p)+' Bs'+(finalFilas.length>1?' en total':''),687,y+altoFinal-38,48,purple,'center',670);
+ y+=altoFinal;regla(y-3);
+ if(pozo){
+  fondo(y,altoPozo,[[0,'#4e0756'],[.5,'#2c0038'],[1,'#45064e']]);
+  text('POZO ACUMULADO GANADO',540,y+30,39,'#f7d574','center');
+  let py=y+76;ganPozo.forEach(g=>{py+=bloque(g.nombre+' · Cartón '+g.c,365,py,660,33,'#fffaf0','center');});
+  text(fmt(pozo.premio_pozo)+' Bs',1032,y+altoPozo/2+15,46,'#f7d574','right',330);
+  text(pozo.ronda+'ª ronda'+(pozo.bolitas?' · '+pozo.bolitas+' bolitas':''),365,y+altoPozo-17,25,'#fffaf0','center',650);
+  y+=altoPozo;regla(y);
+ }
+ if(co.length){
+  text('CONSOLACIÓN',540,y+39,46,purple,'center');text(fmt(pc)+' Bs por ganador',540,y+82,31,'#956713','center');y+=115;
+  cons.forEach(row=>{row.gs.forEach((g,j)=>{const x=j?810:270,h=bloque(g.nombre,x,y+16,465,38,purple,'center');text('Cartón '+g.c,x,y+16+h,29,purple,'center',465);});y+=row.h;});y+=20;
+ }
+ fondo(y,115,[[0,'#4f075b'],[.6,'#2c0038'],[1,'#400449']]);regla(y);
+ if(estiloResumen.complete&&estiloResumen.naturalWidth)ctx.drawImage(estiloResumen,0,1420,1024,116,0,y,1080,115);
+ else{text('¡Felicidades a nuestros ganadores!',540,y+36,36,'#fffaf0','center');text('bingoandino75.com',540,y+82,34,'#f7d574','center');}brillo(45,y+65,10);brillo(1035,y+65,10);
+ previewImg.src=canvas.toDataURL('image/png');previewImg.style.display='block';return true;
 }
-function descargarImagen(){if(!generarImagen())return;let a=document.createElement("a");a.href=canvasImg.toDataURL("image/png");a.download="ganadores_bingo_andino75.png";a.click()}
+async function descargarImagen(){await Promise.all([arteResumenListo,estiloResumenListo]);if(!generarImagen())return;let a=document.createElement('a');a.href=canvasImg.toDataURL('image/png');a.download='ganadores_bingo_andino75.png';a.click();}
+
 function limpiarTodo(){nuevoSorteo()}
 
 // Guardado automático de cualquier cambio de formulario.
