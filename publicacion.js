@@ -26,15 +26,16 @@ function dinero(raw){
 function preparar(form,validarCarton){
  const fecha=fechaISO(form.fecha);const grupos=[];
  if(!Array.isArray(form.rondas)||form.rondas.length<2||form.rondas.length>6)throw Error('Cantidad de rondas inválida.');
- function agregar(tipo,orden,raw,monto,individual){
+ function agregar(tipo,orden,raw,monto,individual,exacto=false){
   const cs=cartones(raw),p=dinero(monto);
   cs.forEach(c=>{if(!validarCarton(c))throw Error(`El cartón ${c} no tiene una compra aprobada única. Actualiza los aprobados.`)});
   // Coincide con los pagos existentes: premio compartido redondeado hacia abajo a Bs enteros.
   const premio=individual?Math.round(p*100):Math.round((cs.length===1?Math.round(p):Math.floor(p/cs.length))*100);
   if(premio<1)throw Error('Premio individual insuficiente.');
-  grupos.push({tipo,orden,ganadores:cs.map(carton=>({carton,premio_centimos:premio}))});
+  const resto=exacto?Math.round(p)%cs.length:0;
+  grupos.push({tipo,orden,ganadores:cs.map((carton,i)=>({carton,premio_centimos:premio+(i<resto?100:0)}))});
  }
- form.rondas.forEach((r,i)=>agregar(i===form.rondas.length-1?'final':'ronda',i+1,r.cartones,r.premio,false));
+ form.rondas.forEach((r,i)=>agregar(i===form.rondas.length-1?'final':'ronda',i+1,r.cartones,r.premio,false,!!r.repartoExacto));
  for(const [key,tipo] of [['consolacion','consolacion'],['pozo','pozo']]){
   const g=form[key];if(g&&String(g.cartones).trim())agregar(tipo,0,g.cartones,g.premio,tipo==='consolacion');
  }

@@ -8,3 +8,8 @@ test('rechaza cartones repetidos, mezclados y sin compra única',()=>{for(const 
 test('fechas exactas y años bisiestos',()=>{assert.equal(P.fechaISO('29/2/2024'),'2024-02-29');for(const f of ['29/2/2026','31/4/2026','2026-13-01','19 octubre','1/1/1900'])assert.throws(()=>P.fechaISO(f))});
 test('importes locales estrictos y redondeo igual a pagos existentes',()=>{assert.equal(P.dinero('35.080,50'),35080.5);for(const n of ['0','-1','1e3','1,234','1.2','NaN'])assert.throws(()=>P.dinero(n));let f=fixture();f.rondas[0]={cartones:'1,2,3',premio:'100'};assert.deepEqual(P.preparar(f,()=>true).grupos[0].ganadores.map(w=>w.premio_centimos),[3300,3300,3300])});
 test('permite mismo cartón en distintas categorías',()=>{let f=fixture();f.pozo.cartones='3';assert.equal(P.preparar(f,()=>true).grupos[3].ganadores[0].carton,3)});
+test('publicación del premio combinado mantiene el reparto exacto sin añadir otro grupo de pozo',()=>{
+ const R=require('../publicacion.js');
+ const data=R.preparar({fecha:'13/11/2026',rondas:[{cartones:'1,2',premio:'1501',repartoExacto:true},{cartones:'3',premio:'500'}],pozo:{cartones:'',premio:'501'}},()=>true);
+ assert.deepEqual(data.grupos[0].ganadores.map(g=>g.premio_centimos),[75100,75000]);assert.equal(data.grupos.filter(g=>g.tipo==='pozo').length,0);
+});

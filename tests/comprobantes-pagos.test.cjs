@@ -1,7 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {JSDOM,VirtualConsole}=require('jsdom');const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 const tick=async()=>{for(let i=0;i<6;i++)await new Promise(r=>setImmediate(r));};
-function mockDB(map){const db={createObjectStore(){},transaction(){const tx={objectStore(){const request=fn=>{const r={};queueMicrotask(()=>{r.result=fn();r.onsuccess?.();tx.oncomplete?.();});return r;};return {get:k=>request(()=>map.get(k)),put:v=>request(()=>map.set(v.key,v)),clear:()=>request(()=>map.clear())};}};return tx;}};return {open(){const r={};queueMicrotask(()=>{r.result=db;r.onupgradeneeded?.();r.onsuccess?.();});return r;}};}
+function mockDB(map){const db={objectStoreNames:{contains:()=>true},close(){},createObjectStore(){},transaction(){const tx={objectStore(){const request=fn=>{const r={};queueMicrotask(()=>{r.result=fn();r.onsuccess?.();tx.oncomplete?.();});return r;};return {get:k=>request(()=>map.get(k)),put:v=>request(()=>map.set(v.key,v)),clear:()=>request(()=>map.clear())};}};return tx;}};return {open(){const r={};queueMicrotask(()=>{r.result=db;r.onupgradeneeded?.();r.onsuccess?.();});return r;}};}
 function setup(map=new Map()){
  const calls=[],shares=[],copies=[];let clipError=false;
  const dom=new JSDOM(read('index.html').replace(/<script[^>]*src=[^>]*><\/script>/g,''),{runScripts:'dangerously',url:'https://local.test',virtualConsole:new VirtualConsole(),beforeParse(w){
@@ -61,3 +61,15 @@ test('vista diaria une resultado y pago, invalida cambios y no exige resultado p
 });
 
 test('recibe resultados desde el en vivo solo para el ganador, fecha y sorteo correctos',async()=>{const t=setup(),{w}=t;try{w.eval(read('publicacion.js'));w.document.getElementById('fechaSorteo').value='31/10/2026';w.crearBotonesPago('pagosBtns1',[pagos()[0]],'ok1');const a={tipo:'pagosBtns1',carton:1,fecha:'2026-10-31',source:null,blob:new w.Blob(['capture'],{type:'image/png'})};await assert.rejects(w.ComprobantesPagos.recibirResultado({...a,carton:2}),/único/);await assert.rejects(w.ComprobantesPagos.recibirResultado({...a,source:'otro-sorteo'}),/único/);await w.ComprobantesPagos.recibirResultado(a);assert.equal(w.document.querySelector('.recibo-resultado-vista').hidden,false);await assert.rejects(w.ComprobantesPagos.recibirResultado({...a,reemplazar:false}),/Ya hay/);assert.equal(w.document.querySelector('.recibo-pago-vista').hidden,true);}finally{w.close();}});
+test('ronda con pozo genera un solo pago combinado por ganador y reparte todos los bolívares sin pago separado',async()=>{
+ const t=setup(),{w}=t;try{
+ w.datosPozoTest=pagos().map(p=>({...p.x,cartones:[String(p.carton)]}));w.eval('REGISTROS=window.datosPozoTest;construirIndice();');
+ w.PozoCapturas={resumenRonda:i=>Number(i)===1?{premio_ronda:1000,premio_pozo:501,total:1501}:null};
+ w.document.getElementById('pre1').value='1501';w.document.getElementById('car1').value='1,2';
+ assert.equal(w.genR(1),true);await tick();
+ const botones=[...w.document.querySelectorAll('#pagosBtns1 button.copy')].filter(b=>b.textContent.includes('Copiar Pago Móvil de '));
+ assert.equal(botones.length,2);for(const b of botones)await b.onclick();
+ const montos=t.copies.map(s=>Number(s.split('\n')[0].replace(/\./g,'')));assert.deepEqual(montos,[751,750]);assert.equal(montos.reduce((a,b)=>a+b,0),1501);
+ assert.match(w.document.getElementById('msg1').innerText,/Ronda: 1.000 Bs \+ Pozo: 501 Bs/);assert.equal(w.document.getElementById('pagosBtnsPozo').children.length,0);
+ }finally{w.close();}
+});

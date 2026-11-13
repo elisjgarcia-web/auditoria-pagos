@@ -12,11 +12,12 @@ function evaluar(capturas,lecturas){
  if(!cartones.length||new Set(cartones).size!==cartones.length||cartones.some(n=>!Number.isInteger(n)||n<1||n>9999))return{tipo:'revisar'};
  return{tipo:bolitas<=52?'califica':'no_califica',bolitas,cartones};
 }
-function crear({leer,vigente,aplicar,aviso}){
+function crear({leer,vigente,aplicar,aviso,ganado=()=>null}){
  const jornadas=new Map();let cola=Promise.resolve();
  function revisar(e,capturas){
   const tarea=async()=>{
    if(!await vigente(e))return;
+   const consumido=ganado();if(consumido){aviso('💰 El pozo ya se ganó hoy en la ronda '+consumido.ronda+(consumido.bolitas?' · '+consumido.bolitas+' bolitas':'')+'. No hay otro premio de pozo este día.',e);return;}
    const key=JSON.stringify([e.fecha,String(e.source)]);
    if(!jornadas.has(key)){if(jornadas.size>3)jornadas.clear();jornadas.set(key,new Map());}
    const rondas=jornadas.get(key),previa=rondas.get(e.ronda);
@@ -91,27 +92,51 @@ function aviso(texto,e){
   if(m)m.textContent=texto;
  }
 }
-const detector=crear({leer,vigente,aviso,aplicar:async({e,capturas,resultado})=>{
- const editar=root.PagosCompartidos?.editarCuandoLibre||root.PagosCompartidos?.editar;
- if(!editar||root.PagosCompartidos?.puedeEditar===false)throw Error('Espera la sincronización de Pagos y vuelve a traer las capturas.');
- const cartones=resultado.cartones.slice().sort((a,b)=>a-b);
- await editar(async()=>{
-  if(!await vigente(e))throw Error('Cambió el sorteo o la ronda.');
-  const campo=$('cartonPozo'),antes=campo.value,previo=$('premioPozo').value,premio=root.monto(previo);
-  if(antes.trim()){
-   const mismos=root.EnVivoComun.cartones(antes).slice().sort((a,b)=>a-b).join(',')===cartones.join(',');
-   aviso(mismos?'✓ Pozo ya preparado para estos cartones. No se modificaron sus pagos.':'⚠️ El pozo ya tiene otros ganadores. Se conservó; revisa las rondas antes de cambiarlo.',e);return;
-  }
-  if(!Number.isFinite(premio)||premio<=0)throw Error('Configura el monto del pozo en Bs y vuelve a traer las capturas.');
-  if(cartones.some(n=>root.estadoCarton(String(n))!=='OK'))throw Error('Hay cartones sin aprobación.');
-  campo.value=cartones.join(', ');
-  try{if(!root.generarPozo())throw Error('No se pudo preparar el pozo.');}
-  catch(err){campo.value=antes;throw err;}
-  const fallos=[];
-  for(const c of capturas)for(const n of c.cartones){try{await root.ComprobantesPagos.recibirResultado({tipo:'pagosBtnsPozo',carton:n,fecha:e.fecha,source:e.source,blob:c.blob,reemplazar:false});}catch{fallos.push(n);}}
-  root.guardarEstadoAhora();
-  aviso('💰 POZO DETECTADO · Ronda '+e.ronda+' · '+resultado.bolitas+' bolitas · Cartón(es) '+cartones.join(', ')+'. Premio preparado; revisa antes de transferir.'+(fallos.length?' Falta adjuntar la captura del pozo para '+fallos.join(', ')+'.':''),e);
- },{vigente:()=>localVigente(e)});
-}});
-root.PozoCapturas.revisar=detector.revisar;
+let pozoDia=null;
+function mismoDia(p){try{return p?.fecha===root.ResultadosPublicos.fechaISO($('fechaSorteo').value);}catch{return false;}}
+function resumenActual(){return mismoDia(pozoDia)?pozoDia:null;}
+function resumenRonda(i){
+ const p=resumenActual();if(!p||String(p.source)!==String(SLOT_APPROVED_SOURCE)||p.ronda!==Number(i))return null;
+ try{if(root.monto($('pre'+i).value)!==p.total||root.EnVivoComun.cartones($('car'+i).value).sort((a,b)=>a-b).join(',')!==p.cartones.slice().sort((a,b)=>a-b).join(','))return null;}catch{return null;}
+ return p;
+}
+function actualizarEstado(p,fechaNueva){
+ pozoDia=p;
+ let agotado=mismoDia(p);try{if(fechaNueva)agotado=p?.fecha===root.ResultadosPublicos.fechaISO(fechaNueva);}catch{}
+ if($('cartonPozo'))$('cartonPozo').disabled=!!agotado;if($('pozoSumarManual'))$('pozoSumarManual').disabled=!!agotado;
+ if(!agotado)return;
+ const texto='💰 Pozo ya ganado este día en la ronda '+p.ronda+(p.bolitas?' · '+p.bolitas+' bolitas':'')+'. Incluido en el premio de esa ronda: '+root.fmt(p.premio_ronda)+' + '+root.fmt(p.premio_pozo)+' = '+root.fmt(p.total)+' Bs. Un solo pago. No hay otro pozo hoy.';
+ aviso(texto,{ronda:p.ronda});
+ $('pagosBtnsPozo')?.replaceChildren();if($('pagPozo'))$('pagPozo').innerText='';if($('msgPozo'))$('msgPozo').innerText=texto;
+}
+async function sumar({e,capturas=[],resultado,manual=false}){
+ const ganado=resumenActual();
+ if(ganado){actualizarEstado(ganado);return;}
+ if(root.ComprobantesPagos?.tieneComprobanteRonda?.(e.ronda))throw Error('La ronda ya tiene un comprobante bancario. Revisa el pago antes de combinar el pozo.');
+ if(!manual&&$('cartonPozo').value.trim())throw Error('Ya hay un pozo manual. Revísalo antes de sumar otro premio.');
+ if(!manual&&!await vigente(e))throw Error('Cambió el sorteo o la ronda.');
+ const premioRonda=$('pre'+e.ronda)?.value,premioPozo=$('premioPozo')?.value;
+ if(!root.monto(premioRonda)||!root.monto(premioPozo))throw Error('Configura el premio de la ronda y del pozo en Bs.');
+ const ok=await root.PagosCompartidos?.sumarPozo?.({fecha:e.fecha,ronda:e.ronda,envio:manual?null:e.id,bolitas:manual?null:resultado.bolitas,manual,premioRonda,premioPozo});
+ if(!ok)throw Error('No se confirmó la suma del pozo. Revisa el estado de sincronización y vuelve a intentarlo.');
+ const p=resumenRonda(e.ronda);
+ if(!p)throw Error('El pozo quedó registrado. Actualiza para cargar el premio combinado; no lo sumes manualmente otra vez.');
+ const fallos=[];
+ for(const c of capturas)for(const n of c.cartones){try{await root.ComprobantesPagos.recibirResultado({tipo:'pagosBtns'+e.ronda,carton:n,fecha:e.fecha,source:e.source,blob:c.blob,reemplazar:false});}catch{fallos.push(n);}}
+ root.guardarEstadoAhora();
+ aviso('💰 POZO GANADO · Ronda '+e.ronda+(manual?' · Confirmado manualmente':' · '+resultado.bolitas+' bolitas')+' · Ronda '+root.fmt(p.premio_ronda)+' + Pozo '+root.fmt(p.premio_pozo)+' = '+root.fmt(p.total)+' Bs. Un solo pago por ganador. El pozo de hoy ya fue entregado.'+(fallos.length?' Revisa las capturas de '+fallos.join(', ')+'.':''),e);
+}
+async function prepararManual(){
+ try{
+  if(resumenActual()){actualizarEstado(pozoDia);return;}
+  const ns=root.EnVivoComun.cartones($('cartonPozo').value).sort((a,b)=>a-b).join(','),rondas=[];
+  for(let i=1;i<=Number($('cant').value);i++){try{if(root.EnVivoComun.cartones($('car'+i)?.value).sort((a,b)=>a-b).join(',')===ns)rondas.push(i);}catch{}}
+  if(rondas.length!==1)throw Error('Registra estos cartones en una única ronda ganadora antes de sumar el pozo.');
+  const ronda=rondas[0];
+  if(!confirm('¿Confirmas que la ronda '+ronda+' ganó con 52 bolitas o menos? El pozo se sumará a esa ronda para un solo pago y quedará agotado por hoy.'))return;
+  await sumar({e:{fecha:root.ResultadosPublicos.fechaISO($('fechaSorteo').value),source:String(SLOT_APPROVED_SOURCE),ronda},manual:true});
+ }catch(e){aviso('⚠️ '+e.message);}
+}
+const detector=crear({leer,vigente,aviso,aplicar:sumar,ganado:resumenActual});
+Object.assign(root.PozoCapturas,{revisar:detector.revisar,actualizarEstado,resumenActual,resumenRonda,prepararManual});
 })(typeof window==='object'?window:globalThis);

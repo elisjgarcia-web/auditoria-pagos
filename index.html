@@ -254,11 +254,11 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
 
 <div class="card">
   <div class="title">💰 Pozo acumulado</div>
-  <p id="pozoAutoEstado" class="small" role="status" aria-live="polite">Al traer las capturas de cualquier ronda se revisa el contador «N de 75». El pozo se prepara con 52 bolitas o menos. Si la lectura no es clara, revísalo manualmente.</p>
+  <p id="pozoAutoEstado" class="small" role="status" aria-live="polite">Al traer las capturas de cualquier ronda se revisa el contador «N de 75». El pozo se suma al premio de la ronda con 52 bolitas o menos, una sola vez por día. Si la lectura no es clara, revísalo manualmente.</p>
   <label>Premio del pozo Bs</label><input id="premioPozo" inputmode="decimal" placeholder="Ej: 147440" oninput="limpiarPozo();programarGuardado()">
   <label>Cartón(es) ganador(es)</label><input id="cartonPozo" placeholder="Ej: 399 o 399, 512" oninput="limpiarPozo();programarGuardado()" inputmode="numeric" pattern="[0-9, ]*" autocomplete="off">
   <div class="small">Si hay varios ganadores, sepáralos con coma. El pozo se divide automáticamente y el total pagado siempre coincide con el premio.</div>
-  <button class="gen" onclick="generarPozo()">Generar ganador y pago del pozo</button>
+  <button id="pozoSumarManual" class="gen" onclick="PozoCapturas.prepararManual()">Sumar pozo a la ronda ganadora</button>
   <button class="copy" onclick="copiar('msgPozo','okPozo')">Copiar anuncio</button>
   <button class="wa" onclick="wa('msgPozo')">WhatsApp anuncio</button>
   <div id="msgPozo" class="msg"></div>
@@ -295,7 +295,7 @@ button{width:100%;border:0;border-radius:13px;padding:12px;margin-top:8px;font-s
   <div id="res" class="msg"></div><div id="okRes" class="ok">Copiado ✅</div>
 </div>
 
-<script src="comprobantes-pagos.js?v=10"></script>
+<script src="comprobantes-pagos.js?v=11"></script>
 <script>
 
 
@@ -521,20 +521,20 @@ async function descargarInformePDF(){
   const cantidad=Number(document.getElementById("cant").value);
   const lineas=[];
   let total=0,ganadores=0;
-  const agregar=(titulo,premio,entrada)=>{
+  const agregar=(titulo,premio,entrada,ronda=0)=>{
    const cartones=carts(entrada);
    if(!cartones.length){lineas.push({titulo,detalle:["Sin ganador registrado"],monto:0});return}
-   const montoTotal=num(premio),por=Math.floor(montoTotal/cartones.length);
-   const detalles=cartones.map(c=>{
+   const montoTotal=num(premio),importes=repartirPremio(Math.round(montoTotal),cartones.length,ronda);
+   const detalles=cartones.map((c,i)=>{
     const persona=buscar(c);
-    return detallePago(c,persona,por);
+    return detallePago(c,persona,importes[i]);
    });
    lineas.push({titulo,detalle:detalles,monto:montoTotal});
    total+=montoTotal;ganadores+=cartones.length;
   };
   for(let i=1;i<=cantidad;i++){
    const p=document.getElementById("pre"+i),c=document.getElementById("car"+i);
-   agregar(i===cantidad?"CARTÓN LLENO FINAL":"RONDA "+i,p?p.value:"",c?c.value:"");
+   agregar(i===cantidad?"CARTÓN LLENO FINAL":"RONDA "+i,p?p.value:"",c?c.value:"",i);
   }
   const pozo=carts(document.getElementById("cartonPozo").value);
   if(pozo.length)agregar("POZO ACUMULADO",document.getElementById("premioPozo").value,document.getElementById("cartonPozo").value);
@@ -1957,9 +1957,10 @@ function warn(x){
  if(ec.mismatch)w.push("Cédulas no coinciden");
  return w;
 }
-function repartirPremio(total,cantidad){
+function repartirPremio(total,cantidad,ronda=0){
+ const exacto=!!window.PozoCapturas?.resumenRonda?.(ronda),resto=Math.round(total)%Math.max(1,cantidad);
  let por=Math.floor(Number(total||0)/Math.max(1,cantidad));
- return Array.from({length:cantidad},()=>por);
+ return Array.from({length:cantidad},(_,i)=>por+(exacto&&i<resto?1:0));
 }
 function textoPagoConCedula(x,m,cedElegida){
  let w=[];if(!x.telefono)w.push("Teléfono dudoso");
@@ -2125,12 +2126,14 @@ function genR(i){
  let p=monto(document.getElementById(`pre${i}`).value),cs=carts(document.getElementById(`car${i}`).value),nm=document.getElementById(`nom${i}`).value;
  if(!p||!cs.length){alert("Coloca premio y cartón");return false}
  if(!validarGanadoresAntesDePagar(cs))return false;
+ const pozoIncluido=window.PozoCapturas?.resumenRonda?.(i);
+ const importes=repartirPremio(Math.round(p),cs.length,i),iguales=importes.every(n=>n===importes[0]);
  let por=cs.length===1?Math.round(p):Math.floor(p/cs.length),gs=[],ps=[],ind=[];
- cs.forEach(c=>{
+ cs.forEach((c,idx)=>{
    let x=buscar(c);
-   gs.push(`🔥 🎟️ ${c} ${x.nombre} 🎉`);
-   ps.push(detallePago(c,x,por));
-   ind.push({nombre:x.nombre,carton:c,x,monto:por});
+   gs.push(`🔥 🎟️ ${c} ${x.nombre} 🎉${!iguales?` · ${fmt(importes[idx])} Bs`:""}`);
+   ps.push(detallePago(c,x,importes[idx]));
+   ind.push({nombre:x.nombre,carton:c,x,monto:importes[idx]});
  });
  let titulo;
  if(/CARTÓN LLENO FINAL/i.test(nm)){
@@ -2139,7 +2142,8 @@ function genR(i){
    titulo=cs.length>1?`GANADORES DE LA ${nm}`:`GANADOR DE LA ${nm}`;
  }
  let msg=`🥳✨ ${titulo} ✨🥳\n🎰 BingoAndino75\n🏆 Premio: ${fmt(p)} Bs`;
- if(cs.length>1)msg+=`\n💰 ${fmt(por)} Bs c/u`;
+ if(pozoIncluido)msg+=`\n💰 Ronda: ${fmt(pozoIncluido.premio_ronda)} Bs + Pozo: ${fmt(pozoIncluido.premio_pozo)} Bs · Un solo pago`;
+ if(cs.length>1)msg+=iguales?`\n💰 ${fmt(importes[0])} Bs c/u`:`\n💰 Reparto exacto del total entre los ganadores`;
  msg+=`\n${gs.join("\n")}\n🙌💜 ¡Felicidades! 🎊`;
  document.getElementById(`msg${i}`).innerText=msg;
  document.getElementById(`pag${i}`).innerText="📲 DATOS PARA PAGO MÓVIL\n"+ps.join("\n\n");
@@ -2155,24 +2159,9 @@ function genR(i){
 
 function generarPozo(){
  limpiarPozo();
- let p=monto(premioPozo.value),cs=carts(cartonPozo.value);
- if(!p||!cs.length){alert("Coloca el premio del pozo y el/los cartón(es) ganador(es)");return false}
- if(!validarGanadoresAntesDePagar(cs))return false;
- let por=cs.length===1?Math.round(p):Math.floor(p/cs.length),gs=[],ps=[],ind=[];
- cs.forEach(c=>{
-   let x=buscar(c);
-   gs.push(`🔥 🎟️ ${c} ${x.nombre} 🎉`);
-   ps.push(detallePago(c,x,por));
-   ind.push({nombre:x.nombre,carton:c,x,monto:por});
- });
- let msg=`💰🔥 ¡POZO ACUMULADO GANADO! 🔥💰\n🎰 BingoAndino75\n🏆 Premio del pozo: ${fmt(p)} Bs`;
- if(cs.length>1)msg+=`\n💰 ${fmt(por)} Bs c/u`;
- msg+=`\n${gs.join("\n")}\n🙌💜 ¡Felicidades! 🎊`;
- msgPozo.innerText=msg;
- pagPozo.innerText=`📲 DATOS PARA PAGO MÓVIL\n${ps.join("\n\n")}`;
- crearBotonesPago("pagosBtnsPozo",ind,"okPozo");
- guardarEstadoAhora();
- return true;
+ const p=window.PozoCapturas?.resumenActual?.();
+ msgPozo.innerText=p?'💰 El pozo ya está incluido en el premio de la ronda '+p.ronda+'. Se realiza un solo pago. No hay otro pozo hoy.':'El pozo se suma a la ronda ganadora. Coloca sus cartones y pulsa «Sumar pozo a la ronda ganadora».';
+ return !!p;
 }
 
 function generarCon(){
@@ -2250,10 +2239,10 @@ function resumen(){
  for(let i=1;i<=+cant.value;i++){
   let cs=carts(document.getElementById(`car${i}`).value);
   if(cs.length){
-    let p=monto(document.getElementById(`pre${i}`).value),por=cs.length===1?Math.round(p):Math.floor(p/cs.length);
+    let p=monto(document.getElementById(`pre${i}`).value),importes=repartirPremio(Math.round(p),cs.length,i),iguales=importes.every(n=>n===importes[0]),por=importes[0];
     r+=`\n\n${document.getElementById(`nom${i}`).value}\n🏆 Premio: ${fmt(p)} Bs`;
-    if(cs.length>1)r+=`\n💰 ${fmt(por)} Bs c/u`;
-    cs.forEach(c=>{let x=buscar(c);r+=`\n🔥 🎟️ ${c} ${x?x.nombre:"NO ENCONTRADO"}${cs.length>1?` - ${fmt(por)} Bs`:""}`});
+    if(cs.length>1&&iguales)r+=`\n💰 ${fmt(por)} Bs c/u`;
+    cs.forEach((c,idx)=>{let x=buscar(c);r+=`\n🔥 🎟️ ${c} ${x?x.nombre:"NO ENCONTRADO"}${cs.length>1?` - ${fmt(importes[idx])} Bs`:""}`});
   }
  }
  let cps=carts(cartonPozo.value),pp=monto(premioPozo.value);
@@ -2281,8 +2270,8 @@ function generarImagen(){
  function fit(text,x,y,w,s,color="#fff"){ctx.textAlign="center";ctx.textBaseline="middle";do{ctx.font="bold "+s+"px Arial";s--}while(ctx.measureText(text).width>w&&s>12);ctx.lineWidth=4;ctx.strokeStyle="#000";ctx.strokeText(text,x,y);ctx.fillStyle=color;ctx.fillText(text,x,y)}
  fit("¡FELICITACIONES!",540,65,1000,62,"#ffd700");fit("BingoAndino75",540,135,850,52,"#fff");fit(fechaSorteo.value||"",540,190,700,28,"#fff");
  let n=+cant.value,y=250,colors=["#b000ff","#0084ff","#00b936","#ff7b00","#e60070"];
- for(let i=1;i<n;i++){let cs=carts(document.getElementById(`car${i}`).value);if(!cs.length)continue;let p=monto(document.getElementById(`pre${i}`).value),ms=repartirPremio(Math.round(p),cs.length),ig=ms.every(m=>m===ms[0]);ctx.fillStyle="rgba(0,0,0,.75)";ctx.strokeStyle=colors[(i-1)%5];ctx.lineWidth=4;ctx.strokeRect(45,y,585,80);ctx.fillRect(45,y,585,80);fit(document.getElementById(`nom${i}`).value,125,y+40,150,28,"#fff");fit(cs.map((c,idx)=>{let x=buscar(c);return c+" "+(x?x.nombre:"NO")+(ig?"":" "+fmt(ms[idx])+" Bs")}).join(" | "),365,y+35,360,23,"#fff");fit(ig?(fmt(ms[0])+" Bs"+(cs.length>1?" c/u":"")):"Reparto exacto",540,y+63,160,22,"#ffd700");y+=95}
- let fcs=carts(document.getElementById(`car${n}`).value),fp=monto(document.getElementById(`pre${n}`).value),fms=fcs.length?repartirPremio(Math.round(fp),fcs.length):[],fig=fms.length?fms.every(m=>m===fms[0]):true;
+ for(let i=1;i<n;i++){let cs=carts(document.getElementById(`car${i}`).value);if(!cs.length)continue;let p=monto(document.getElementById(`pre${i}`).value),ms=repartirPremio(Math.round(p),cs.length,i),ig=ms.every(m=>m===ms[0]);ctx.fillStyle="rgba(0,0,0,.75)";ctx.strokeStyle=colors[(i-1)%5];ctx.lineWidth=4;ctx.strokeRect(45,y,585,80);ctx.fillRect(45,y,585,80);fit(document.getElementById(`nom${i}`).value,125,y+40,150,28,"#fff");fit(cs.map((c,idx)=>{let x=buscar(c);return c+" "+(x?x.nombre:"NO")+(ig?"":" "+fmt(ms[idx])+" Bs")}).join(" | "),365,y+35,360,23,"#fff");fit(ig?(fmt(ms[0])+" Bs"+(cs.length>1?" c/u":"")):"Reparto exacto",540,y+63,160,22,"#ffd700");y+=95}
+ let fcs=carts(document.getElementById(`car${n}`).value),fp=monto(document.getElementById(`pre${n}`).value),fms=fcs.length?repartirPremio(Math.round(fp),fcs.length,n):[],fig=fms.length?fms.every(m=>m===fms[0]):true;
  ctx.fillStyle="rgba(0,0,0,.82)";ctx.strokeStyle="#ffd700";ctx.lineWidth=5;ctx.strokeRect(660,250,370,455);ctx.fillRect(660,250,370,455);
  fit("CARTÓN LLENO FINAL",845,305,330,34,"#ffd700");fit("Premio: "+fmt(fp)+" Bs",845,370,320,30,"#ffd700");if(fcs.length>1)fit(fig?(fmt(fms[0])+" Bs c/u"):"Reparto exacto",845,425,310,34,"#ffd700");let fy=480;fcs.slice(0,5).forEach((c,idx)=>{let x=buscar(c);fit("🔥 "+c+" "+(x?x.nombre:"NO")+(fig?"":" "+fmt(fms[idx])+" Bs"),845,fy,330,26,"#fff");fy+=45});
  let co=carts(cartonesCon.value),pc=monto(premioCon.value);fit("🎁 PREMIOS DE CONSOLACIÓN 🎁",540,765,850,34,"#ffd700");co.slice(0,8).forEach((c,idx)=>{let x=idx%2?585:80,yy=820+Math.floor(idx/2)*50,g=buscar(c);ctx.fillStyle="#fff";ctx.fillRect(x,yy,420,36);fit(c+" "+(g?g.nombre:"NO")+" "+(pc?fmt(pc)+" Bs":""),x+210,yy+18,390,20,"#111")});fit("💜 Gracias a todos por participar 💜",540,1040,850,34,"#fff");
@@ -2307,11 +2296,11 @@ actualizarEtiquetasRondas();
 window.pagosRestauracionLista=new Promise(resolve=>setTimeout(async()=>{try{if(!(await restaurarEstado()))guardarEstadoAhora();}finally{resolve();}},0));
 </script>
 
-<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script><script src="publicacion.js?v=3"></script>
-<script src="publicar-ganadores.js?v=2"></script>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script><script src="publicacion.js?v=4"></script>
+<script src="publicar-ganadores.js?v=3"></script>
 <script src="rondas-ruleta.js?v=3"></script>
-<script src="sincronizacion.js?v=8"></script>
-<script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=5"></script><script src="publicar-comprobantes.js?v=20261106-anuncio"></script><script src="presentadora/zip-capturas.js?v=1"></script><script src="rondas-en-vivo-comun.js?v=3"></script><script src="avisos-presentadora.js?v=1"></script><script src="push-presentadora.js?v=1"></script><script src="pozo-capturas.js?v=1"></script><script src="recibir-en-vivo.js?v=21"></script><script src="compacto-pagos.js?v=6"></script><script src="ruleta-consolacion-pagos.js?v=6"></script><script src="publicar-comprobantes-historicos.js?v=2"></script></body>
+<script src="rondas-en-vivo-comun.js?v=3"></script><script src="pozo-capturas.js?v=2"></script><script src="sincronizacion.js?v=9"></script>
+<script src="shared/youtube.js?v=1"></script><script src="transmision.js?v=5"></script><script src="publicar-comprobantes.js?v=20261106-anuncio"></script><script src="presentadora/zip-capturas.js?v=1"></script><script src="avisos-presentadora.js?v=1"></script><script src="push-presentadora.js?v=1"></script><script src="recibir-en-vivo.js?v=21"></script><script src="compacto-pagos.js?v=6"></script><script src="ruleta-consolacion-pagos.js?v=6"></script><script src="publicar-comprobantes-historicos.js?v=2"></script></body>
 </html>
 
 

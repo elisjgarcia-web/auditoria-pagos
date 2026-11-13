@@ -11,7 +11,7 @@ function crear(ad){
   if(r.error)throw Error(r.error.message||'No se pudo sincronizar');return r.data;
  }
  async function accept(data,own=false){
-  latest=data;if(data.state)paymentKeys=data.state.paymentKeys||[];online=true;controller=data.controller;revision=data.revision;
+  latest=data;ad.pozo?.(data.pozo||null,data.state?.form?.fechaSorteo);if(data.state)paymentKeys=data.state.paymentKeys||[];online=true;controller=data.controller;revision=data.revision;
   const cambioFormulario=needsReload||!Number.isSafeInteger(data.formRevision)||data.formRevision!==formRevision;
   if(data.state&&(!own||needsReload)&&cambioFormulario){
    if(dirty){ad.backup(ad.snapshot());conflictHint='Otro teléfono guardó cambios mientras editabas.';}
@@ -48,6 +48,12 @@ function crear(ad){
   // An edit made while the request was running must be sent after this one.
   if(ok){conflictHint='';lastShared=serial;if(JSON.stringify(ad.snapshot())!==serial){dirty=true;programar();}}
  }
+ async function sumarPozo(pozo){
+  if(!connected||!online||busy||applying)throw Error('Espera a que Pagos termine de sincronizar.');
+  if(dirty)await guardar();
+  if(!online||busy)return false;
+  return ejecutar('pozo',{pozo});
+ }
  async function marcar(key){
   if(dirty&&controller)await guardar();
   if(!connected||!online||busy||!paymentKeys.includes(key))return false;
@@ -66,7 +72,7 @@ function crear(ad){
   return true;
  }
  async function salir(){connected=false;online=false;controller=false;dirty=false;fuenteObsoleta=false;clearTimeout(timer);notice('Verifica tu acceso para cargar los datos compartidos.');render();return true;}
- return {conectar,leer,tomar,liberar,programar,guardar,marcar,reiniciar,salir,estado};
+ return {conectar,leer,tomar,liberar,programar,guardar,marcar,sumarPozo,reiniciar,salir,estado};
 }
 root.PagosSync={crear};if(typeof module!=='undefined')module.exports=root.PagosSync;
 if(typeof document==='undefined')return;
@@ -100,6 +106,7 @@ function semilla(){
 client=crear({device,label:()=>('Teléfono '+device.slice(0,4).toUpperCase()),uuid:()=>crypto.randomUUID(),
  rpc:a=>supa.rpc('pagos_sincronizar',{a}),snapshot:()=>capturarPagosCompartidos(),seed:semilla,apply:s=>aplicarPagosCompartidos(s),
  backup:s=>{try{localStorage.setItem('andino_pagos_borrador_v1',JSON.stringify({savedAt:new Date().toISOString(),state:s}));}catch{}},
+ pozo:(p,fecha)=>root.PozoCapturas?.actualizarEstado(p,fecha),
  payments:p=>{PAGO_ESTADOS=p;document.querySelectorAll('[data-clave-pago]').forEach(b=>actualizarBotonPagado(b,b.dataset.clavePago));},
  notice:text=>{el('syncStatus').textContent=text;},roles:bloquear,events:()=>{}
 });
@@ -113,7 +120,10 @@ async function editarCuandoLibre(fn,{vigente=()=>true,limite=10000}={}){
  if(!vigente())throw Error('El sorteo cambió mientras se esperaba la sincronización.');
  return root.PagosCompartidos.editar(fn);
 }
-root.PagosCompartidos={editarCuandoLibre,async editar(fn){if(edicionLocal||starting||client.estado().busy||client.estado().applying||!root.PagosCompartidos.puedeEditar)throw Error('Espera a que termine la sincronización e intenta de nuevo.');edicionLocal=true;try{return await fn();}finally{edicionLocal=false;client.programar();}},get aplicando(){return client.estado().applying;},get conectado(){return client.estado().connected;},get puedeEditar(){const s=client.estado();return !s.connected||s.online;},guardar:()=>client.programar(),marcar:key=>client.marcar(key),
+root.PagosCompartidos={editarCuandoLibre,async sumarPozo(pozo){
+ if(edicionLocal||starting||reiniciando||client.estado().busy||client.estado().applying)throw Error('Espera a que termine la sincronización.');
+ edicionLocal=true;try{return await client.sumarPozo(pozo);}finally{edicionLocal=false;}
+ },async editar(fn){if(edicionLocal||starting||client.estado().busy||client.estado().applying||!root.PagosCompartidos.puedeEditar)throw Error('Espera a que termine la sincronización e intenta de nuevo.');edicionLocal=true;try{return await fn();}finally{edicionLocal=false;client.programar();}},get aplicando(){return client.estado().applying;},get conectado(){return client.estado().connected;},get puedeEditar(){const s=client.estado();return !s.connected||s.online;},guardar:()=>client.programar(),marcar:key=>client.marcar(key),
  async reiniciar(state){
   if(reiniciando||edicionLocal||starting||client.estado().busy||client.estado().applying)throw Error('Espera a que termine la sincronización.');
   if(!client.estado().connected||!client.estado().online)throw Error('Inicia sesión y carga los aprobados para reiniciar también el sorteo compartido.');

@@ -14,3 +14,8 @@ test('one manual operation waits for sync, then edits once; stale request is can
  const work=c.editarCuandoLibre(()=> 'ok',{vigente:()=>valid});assert.equal(edits,0);busy=false;callbacks.shift()();assert.equal(await work,'ok');assert.equal(edits,1);
  busy=true;const obsolete=c.editarCuandoLibre(()=>assert.fail(),{vigente:()=>valid});valid=false;callbacks.shift()();await assert.rejects(obsolete,/sorteo cambió/);assert.equal(edits,1);
 });
+test('la suma de pozo pasa por la revisión compartida y aplica el total antes de permitir otro pago',async()=>{
+ let local={form:{rondas:[]}},version=1;const actions=[],order=[];
+ const e=crear({device:'d',label:()=>'',uuid:()=>crypto.randomUUID(),snapshot:()=>local,apply:s=>{order.push('apply');local=s;},pozo:p=>{if(p)order.push('pozo');},payments(){},roles(){},notice(){},events(){},backup(){},rpc:async a=>{actions.push(a.action);if(a.action==='pozo'){assert.equal(a.formRevision,1);version++;}return{data:{source:'88',revision:version,formRevision:version,controller:true,state:{form:{rondas:[{i:1,pre:version===1?'1000':'1500'}]}},pozo:version>1?{total:1500}:null,payments:{}}};}});
+ await e.conectar('88');assert.equal(await e.sumarPozo({ronda:1}),true);assert.deepEqual(actions,['join','pozo']);assert.deepEqual(order.slice(-2),['pozo','apply']);assert.equal(local.form.rondas[0].pre,'1500');await e.salir();
+});

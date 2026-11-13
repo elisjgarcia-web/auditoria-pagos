@@ -3,7 +3,7 @@
 let pendiente=null,ocupado=false;
 const el=id=>document.getElementById(id);
 function formulario(){
- return {fecha:el('fechaSorteo').value,rondas:Array.from({length:Number(el('cant').value)},(_,i)=>({cartones:el(`car${i+1}`).value,premio:el(`pre${i+1}`).value})),consolacion:{cartones:el('cartonesCon').value,premio:el('premioCon').value},pozo:{cartones:el('cartonPozo').value,premio:el('premioPozo').value}};
+ return {fecha:el('fechaSorteo').value,rondas:Array.from({length:Number(el('cant').value)},(_,i)=>({cartones:el(`car${i+1}`).value,premio:el(`pre${i+1}`).value,repartoExacto:!!window.PozoCapturas?.resumenRonda?.(i+1)})),consolacion:{cartones:el('cartonesCon').value,premio:el('premioCon').value},pozo:{cartones:el('cartonPozo').value,premio:el('premioPozo').value}};
 }
 function preparar(){return ResultadosPublicos.preparar(formulario(),c=>estadoCarton(String(c))==='OK')}
 function estado(t){el('publicarEstado').textContent=t}

@@ -194,7 +194,8 @@
  if(lista.length!==1)throw Error('No hay un único ganador listo para adjuntar el resultado del cartón '+carton+'.');
  const s=lista[0];await s.restauracion;if(s.resultBusy||s.cancelled)throw Error('Espera a que termine de cargar el resultado.');if(!reemplazar&&s.resultado)throw Error('Ya hay una captura guardada para este ganador. Revisa el envío.');const ok=await cargarResultado(s,blob,{desdePresentadora:true});if(!ok)throw Error('No se adjuntó el resultado del cartón '+carton+'.');
  }
- window.ComprobantesPagos=Object.freeze({agregarGanador,finalizarRonda,limpiar,prepararDia,firmaDia,recibirResultado});
+ function tieneComprobanteRonda(i){return [...estados.values()].some(s=>s.context.tipo==='pagosBtns'+i&&s.blob&&[...s.views].some(v=>v.wrap.isConnected));}
+ window.ComprobantesPagos=Object.freeze({tieneComprobanteRonda,agregarGanador,finalizarRonda,limpiar,prepararDia,firmaDia,recibirResultado});
 function localizarDatos(imagen){
  const w=imagen.width,h=imagen.height,p=imagen.getContext('2d').getImageData(0,0,w,h).data;
  const bands=[];let last=-100,current=null;
