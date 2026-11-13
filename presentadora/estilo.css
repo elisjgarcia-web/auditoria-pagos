@@ -176,3 +176,7 @@ button:focus-visible,input:focus-visible{outline:3px solid #dcae54;outline-offse
 #trabajo .rondas-controles button{width:auto;margin:0;padding:6px 12px;font-size:13px}
 #cantidadEstado{font-size:12px;color:#f5deaa;flex:1 1 180px}
 @media(max-width:700px){#trabajo .campo-rondas{grid-row:3}#trabajo .acciones-config{grid-row:4}}
+
+.ganador-identificado{margin:8px 0;padding:10px 12px;border-radius:8px;background:#f1e6d1;color:#43194e;font-weight:700;font-size:15px;line-height:1.45;overflow-wrap:anywhere}
+.ganador-identificado[data-estado="advertencia"]{background:#fff0cf;color:#733d0b}
+.ganador-identificado[data-estado="encontrado"]{border-left:4px solid #785387}

@@ -140,6 +140,31 @@ async function comprobarReinicioMaestro(){
 }
 
 function node(tag,text,cls){const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;}
+const nombresGanadores=window.PresentadoraGanadores.crear({rpc});
+const consultasGanadores=new WeakMap();
+function mostrarGanador(card,elemento){
+ clearTimeout(consultasGanadores.get(card));
+ const raw=String(card.numeros||'').trim(),original=draft,ctx=config;
+ elemento.replaceChildren();elemento.dataset.estado='pendiente';
+ if(!raw){elemento.textContent=card.blob?'Escribe el cartón o espera la lectura automática para ver el nombre.':'El cartón y el nombre aparecerán al pegar la captura.';return;}
+ let numeros;try{numeros=C.cartones(raw);}catch{elemento.textContent='⚠️ Revisa el número del cartón.';return;}
+ elemento.textContent='Buscando nombre entre los aprobados…';
+ const vigente=()=>elemento.isConnected&&draft===original&&config===ctx&&original?.cards.includes(card)&&String(card.numeros||'').trim()===raw;
+ consultasGanadores.set(card,setTimeout(async()=>{
+  if(!vigente())return;
+  try{
+   const ganadores=await nombresGanadores.consultar(ctx,numeros);
+   if(!vigente())return;
+   elemento.replaceChildren();let advertencia=false;
+   for(const g of ganadores){
+    const ok=g.estado==='aprobado'&&g.nombre;
+    const texto=ok?'🎟️ Cartón '+g.carton+' · '+g.nombre:g.estado==='ambiguo'?'⚠️ Cartón '+g.carton+': aparece en varias compras. Revisar en Pagos.':g.estado==='aprobado'?'⚠️ Cartón '+g.carton+': aprobado sin nombre registrado.':'⚠️ Cartón '+g.carton+': no aparece entre los aprobados del sorteo.';
+    elemento.append(node('div',texto));if(!ok)advertencia=true;
+   }
+   elemento.dataset.estado=advertencia?'advertencia':'encontrado';
+  }catch(e){if(vigente()){elemento.textContent='⚠️ No se pudo consultar el nombre. '+e.message;elemento.dataset.estado='advertencia';}}
+ },350));
+}
 function paint(){
  release();
  const galeria=$('capturas');
@@ -165,7 +190,8 @@ function paint(){
    paste=node('button',c.blob?'📋 Reemplazar imagen':'📋 Pegar imagen'),
    file=node('input'),img=node('img'),placeholder=node('div','Pega aquí con Ctrl+V o selecciona una imagen','capture-placeholder'),
    label=node('label','Cartón comprobado'),input=node('input'),
-   msg=node('p',c.msg||'Pega la captura de este ganador.','hint');
+   msg=node('p',c.msg||'Pega la captura de este ganador.','hint'),identidad=node('div',null,'ganador-identificado');
+  identidad.setAttribute('role','status');identidad.setAttribute('aria-live','polite');
   box.dataset.estado=draft.sent?'enviado':c.blob&&c.numeros?'listo':'incompleto';
   file.type='file';file.accept='image/png,image/jpeg,image/webp';file.hidden=true;
   input.value=c.numeros||'';input.inputMode='numeric';input.placeholder='Número: ej. 738';input.id='cartones-'+i;label.htmlFor=input.id;
@@ -197,7 +223,7 @@ function paint(){
   input.onfocus=()=>activeCard=c;
   input.oninput=()=>{
    c.numeros=input.value;c.userEdited=true;box.dataset.estado=c.blob&&c.numeros?'listo':'incompleto';
-   resumen();save().catch(()=>status('No se pudo guardar el borrador local.'));
+   resumen();mostrarGanador(c,identidad);save().catch(()=>status('No se pudo guardar el borrador local.'));
   };
   if(c.blob){
    const u=URL.createObjectURL(c.blob);urls.push(u);img.src=u;
@@ -217,8 +243,9 @@ function paint(){
    remove.onclick=async()=>{if(busy||!confirm('¿Quitar esta captura del borrador?'))return;draft.cards.splice(i,1);if(activeCard===c)activeCard=draft.cards[0]||null;await save();paint();};
    acciones.append(remove);
   }
-  box.append(title,acciones,file,img,placeholder,label,input,msg);
+  box.append(title,acciones,file,img,placeholder,label,input,identidad,msg);
   $('capturas').append(box);
+  mostrarGanador(c,identidad);
  });
  document.querySelectorAll('#rondas button').forEach((b,i)=>{
   b.setAttribute('aria-pressed',String(selected===i+1));
@@ -292,7 +319,7 @@ async function cargar(card,file){
    if(field&&document.activeElement!==field&&!field.value)field.value=card.numeros||'';
    if(field&&document.activeElement===field&&!field.value)field.value=card.numeros||'';
    const box=$('capturas').children[index];
-   if(box){const note=box.querySelector('.hint');if(note)note.textContent=card.msg;box.dataset.estado=card.numeros?'listo':'incompleto';}
+   if(box){const note=box.querySelector('.hint');if(note)note.textContent=card.msg;box.dataset.estado=card.numeros?'listo':'incompleto';const identidad=box.querySelector('.ganador-identificado');if(identidad)mostrarGanador(card,identidad);}
    resumen();
   });
  }catch(e){if(revisionInicio===revisionReinicioLocal){Object.assign(card,anterior);if(draft===original){paint();status('No se guardó la captura '+(indice+1)+': '+(e?.message||'Error desconocido'));}}}

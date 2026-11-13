@@ -10,6 +10,7 @@ function sender({denied=false,failOnce=false}={}){
  const client={
   auth:{getSession:async()=>({data:{session}}),onAuthStateChange(){},signOut:async()=>{}},
   rpc:async(name,a)=>{
+   if(name==='en_vivo_identificar_cartones')return {data:{fecha:a.p_fecha,source:'101',ganadores:a.p_cartones.map(carton=>({carton,nombre:'Ana Ejemplo',estado:'aprobado'}))}};
    if(name==='en_vivo_cortes')return {data:{source:'101',revisiones:{}}};
    if(name==='en_vivo_contexto')return{data:denied?null:{source:'101',jornada:{fecha:a.p_fecha,source:'101',rondas:['1','2','3','4','Final']},envios:sent?[sent]:[]}};
    writes.push(a);if(fail){fail=false;return{error:{message:'Conexión interrumpida'}};}
@@ -24,7 +25,7 @@ function sender({denied=false,failOnce=false}={}){
  w.eval(read('shared/youtube.js'));w.eval(read('presentadora/capturas-rapidas.js'));w.eval(read('rondas-en-vivo-comun.js'));
  w.EnVivoComun.local=async(k,v)=>v===undefined?stored.get(k):stored.set(k,v);
  w.EnVivoComun.preparar=async()=>({canvas:{width:1536,height:775},blob:new w.Blob(['jpeg'],{type:'image/jpeg'})});
- w.eval(read('presentadora/app.js'));return{w,writes,uploads,stored};
+ w.eval(read('presentadora/ganadores.js'));w.eval(read('presentadora/app.js'));return{w,writes,uploads,stored};
 }
 test('presentadora pega varios ganadores y reintenta el mismo envío sin crear otra ronda',async()=>{const t=sender({failOnce:true}),{w}=t;try{await tick();await w.document.querySelector('#rondas button').onclick();await tick();w.document.getElementById('youtube').value='https://youtu.be/abcdefghijk';await w.document.querySelector('.capture button').onclick();await tick();assert.equal(w.document.querySelector('.capture input:not([type=file])').value,'267');await w.document.getElementById('agregar').onclick();await w.document.querySelectorAll('.capture')[1].querySelector('button').onclick();await tick();const fields=w.document.querySelectorAll('.capture input:not([type=file])');fields[1].value='354';fields[1].oninput();await tick();await w.document.getElementById('enviar').onclick();assert.match(w.document.getElementById('envioEstado').textContent,/Conexión interrumpida/);assert.equal(w.document.getElementById('enviar').disabled,false);assert.equal(w.document.querySelector('.capture input:not([type=file])').disabled,true);await w.document.getElementById('enviar').onclick();assert.equal(t.writes.length,2);assert.equal(t.writes[0].p_id,t.writes[1].p_id);assert.deepEqual(JSON.parse(JSON.stringify(t.writes[1].p_capturas.map(c=>c.cartones))),[[267],[354]]);assert.equal(t.writes[1].p_source,'101');assert.equal(t.writes[1].p_youtube,'https://www.youtube.com/watch?v=abcdefghijk');assert.equal(new Set(t.uploads).size,2);assert.match(w.document.getElementById('envioEstado').textContent,/enviadas|Enviado/);assert.equal(w.document.querySelector('.capture input:not([type=file])').disabled,true);}finally{w.close();}});
 test('presentadora sin correo autorizado no puede abrir rondas ni subir capturas',async()=>{const t=sender({denied:true});try{await tick();assert.equal(t.w.document.querySelectorAll('#rondas button').length,0);assert.match(t.w.document.getElementById('estado').textContent,/no está autorizado/);assert.equal(t.uploads.length,0);}finally{t.w.close();}});
@@ -54,3 +55,13 @@ test('fallos de imagen conservan ganadores preparados sin confirmar recepción; 
 });
 
 test('al volver a entrar se recupera la bandeja aunque el envío no haya cambiado',async()=>{const t=receiver({car:'420'});try{await tick();await t.w.document.getElementById('envivoActualizar').onclick();assert(t.w.document.querySelector('.ev-envio'));t.w.document.dispatchEvent(new t.w.Event('pagos-sesion-cerrada'));assert.equal(t.w.document.querySelector('.ev-envio'),null);await t.w.document.getElementById('envivoActualizar').onclick();assert(t.w.document.querySelector('.ev-envio'));}finally{t.w.close();}});
+
+test('presentadora muestra cartón y nombre al leer una captura, y consulta la corrección manual',async()=>{
+ const t=sender(),{w}=t;try{
+  await tick();await w.document.querySelector('.capture button').onclick();
+  await waitFor(()=>/Cartón 267.*Ana Ejemplo/.test(w.document.querySelector('.ganador-identificado')?.textContent||''));
+  const input=w.document.querySelector('.capture input:not([type=file])');input.value='354';input.oninput();
+  await waitFor(()=>/Cartón 354.*Ana Ejemplo/.test(w.document.querySelector('.ganador-identificado')?.textContent||''));
+  assert.equal(t.writes.length,0);assert.equal(t.uploads.length,0);
+ }finally{w.close();}
+});
