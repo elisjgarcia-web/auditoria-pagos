@@ -99,7 +99,7 @@ async function revisar(forzado=false){
   }
   let fecha;
   try{fecha=ResultadosPublicos.fechaISO($('fechaSorteo').value);}catch{texto('Configura la fecha del sorteo para recibir premios de la ruleta.');return;}
-  const tasa=monto($('tasaCambio')?.value||''),{cash:recibidos,pendientes,regalos}=listaCash(data.winners,fecha,tasa);
+  const tasa=Number(String($('tasaCambio')?.value||'').trim().replace(',','.')),{cash:recibidos,pendientes,regalos}=listaCash(data.winners,fecha,tasa);
   const {cash,nota}=convertirConsolacion(recibidos,Number(String($('usdConsol')?.value||'').replace(',','.')),tasa);
   actualizarBadge(cash.length);
   const invalid=pendientes.filter(w=>w.prizeType==='consolation');

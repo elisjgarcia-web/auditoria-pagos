@@ -5,7 +5,7 @@ function fixture({prize='10 USD'}={}){
  const dom=new JSDOM('<body><section class="card"><label>Consolación</label><input id="premioCon"><input id="cartonesCon"></section><input id="fechaSorteo" value="2026-11-04"><input id="tasaCambio" value="900"><input id="usdConsol" value="10"><input id="cant" value="6">'+Array.from({length:6},(_,i)=>'<input id="car'+(i+1)+'">').join('')+'</body>',{url:'https://local.test',runScripts:'outside-only',pretendToBeVisual:true});
  const w=dom.window,el=id=>w.document.getElementById(id),timers=[],intervals=[];let reads=0,generated=0,busy=false;
  w.setTimeout=(fn,ms)=>{timers.push({fn,ms});return timers.length;};w.setInterval=(fn,ms)=>{intervals.push({fn,ms});return intervals.length;};
- w.ResultadosPublicos={fechaISO:x=>x};w.SLOT_APPROVED_SOURCE='88';w.monto=x=>Number(x);w.fmt=String;w.carts=x=>String(x).split(',').map(x=>x.trim()).filter(Boolean);w.estadoCarton=()=> 'OK';w.buscar=()=>({cedulaCompra:'123'});
+ w.ResultadosPublicos={fechaISO:x=>x};w.SLOT_APPROVED_SOURCE='88';w.monto=x=>Number(String(x||'0').replace(/\./g,'').replace(',','.').replace(/[^\d.]/g,''));w.fmt=String;w.carts=x=>String(x).split(',').map(x=>x.trim()).filter(Boolean);w.estadoCarton=()=> 'OK';w.buscar=()=>({cedulaCompra:'123'});
  w.generarCon=()=>{generated++;return true;};
  w.supa={auth:{getSession:async()=>({data:{session:{}}})},rpc:async()=>{reads++;return{data:{source:'88',winners:[{drawId:'d1',ticket:'75',prize,prizeType:'consolation',createdAt:'2026-11-04T23:00:00Z'}]}};}};
  w.PagosCompartidos={conectado:true,puedeEditar:true,aplicando:false,editar:async(fn)=>{if(busy)throw Error('Espera a que termine la sincronización e intenta de nuevo.');await fn();}};
@@ -49,4 +49,10 @@ test('sin tasa no se genera consolación aunque Ruleta haya enviado un monto fij
  f.el('tasaCambio').value='';await f.el('traerGanadoresRuleta').onclick();assert.equal(f.generated,0);
  assert.match(f.el('ruletaPagosEstado').textContent,/tasa/);assert.equal(f.el('cartonesCon').value,'');
  }finally{f.close();}
+});
+
+test('tasa decimal con punto o coma conserva los decimales al traer consolación',async()=>{
+ for(const tasa of ['904.5','904,5']){
+  const f=fixture();try{f.el('tasaCambio').value=tasa;await f.el('traerGanadoresRuleta').onclick();assert.equal(f.generated,1);assert.equal(f.el('premioCon').value,'9045');}finally{f.close();}
+ }
 });
