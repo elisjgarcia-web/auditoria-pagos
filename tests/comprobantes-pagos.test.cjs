@@ -71,5 +71,17 @@ test('ronda con pozo genera un solo pago combinado por ganador y reparte todos l
  assert.equal(botones.length,2);for(const b of botones)await b.onclick();
  const montos=t.copies.map(s=>Number(s.split('\n')[0].replace(/\./g,'')));assert.deepEqual(montos,[751,750]);assert.equal(montos.reduce((a,b)=>a+b,0),1501);
  assert.match(w.document.getElementById('msg1').innerText,/Ronda: 1.000 Bs \+ Pozo: 501 Bs/);assert.equal(w.document.getElementById('pagosBtnsPozo').children.length,0);
+ w.PozoCapturas.resumenActual=()=>({ronda:1,premio_ronda:1000,premio_pozo:501,total:1501,cartones:[1,2],bolitas:49});
+ w.document.getElementById('premioPozo').value='501';
+ const originalContexto=w.HTMLCanvasElement.prototype.getContext;
+ w.HTMLCanvasElement.prototype.getContext=function(){const c=originalContexto.call(this);c.createRadialGradient=()=>({addColorStop(){}});return c;};
+ w.HTMLCanvasElement.prototype.toDataURL=()=> 'data:image/png;base64,cHJ1ZWJh';
+ const inicio=t.calls.length;assert.equal(w.generarImagen(),true);await tick();
+ const textos=t.calls.slice(inicio).filter(c=>c.k==='fillText').map(c=>String(c.args[0]));
+ assert.ok(textos.includes('💰 POZO ACUMULADO · 501 Bs'));assert.ok(textos.includes('500 Bs c/u'));
+ assert.ok(!textos.some(t=>t.includes('751 Bs')||t.includes('750 Bs')));
+ assert.equal(w.document.getElementById('pre1').value,'1501');assert.equal(w.document.getElementById('cartonPozo').value,'');
+ assert.ok(w.document.getElementById('canvasImg').height>1080);assert.equal(w.document.getElementById('pagosBtnsPozo').children.length,0);
+
  }finally{w.close();}
 });

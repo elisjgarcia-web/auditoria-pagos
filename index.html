@@ -2187,7 +2187,7 @@ async function copiar(id,ok){let t=document.getElementById(id).innerText;if(!t){
 function wa(id){let t=document.getElementById(id).innerText;if(!t){alert("No hay anuncio");return}location.href="https://wa.me/?text="+encodeURIComponent(t)}
 function generarTodos(){
  for(let i=1;i<=+cant.value;i++){let pre=document.getElementById(`pre${i}`).value.trim(),car=document.getElementById(`car${i}`).value.trim();if(pre||car){if(!pre||!car){alert(`Completa premio y cartón(es) de la ronda ${i}`);return false}if(!genR(i))return false}}
- let pp=premioPozo.value.trim(),cp=cartonPozo.value.trim();if(pp||cp){if(!pp||!cp){alert("Completa premio y cartón del Pozo acumulado");return false}if(!generarPozo())return false}
+ let pp=premioPozo.value.trim(),cp=cartonPozo.value.trim();if(cp&&!window.PozoCapturas?.resumenActual?.()){if(!pp){alert("Completa el premio del Pozo acumulado");return false}if(!generarPozo())return false}
  let pc=premioCon.value.trim(),cc=cartonesCon.value.trim();if(pc||cc){if(!pc||!cc){alert("Completa premio y cartones de consolación");return false}if(!generarCon())return false}
  if(TOP_ACTIVO&&REGISTROS.length){if(!calcularTopCompras())return false}
  return true;
@@ -2265,16 +2265,30 @@ function resumen(){
 
 function generarImagen(){
  if(!generarTodos())return false;
- const canvas=canvasImg,ctx=canvas.getContext("2d");canvas.width=1080;canvas.height=1080;
- let bg=ctx.createRadialGradient(540,300,40,540,540,820);bg.addColorStop(0,"#3b005d");bg.addColorStop(.5,"#12001d");bg.addColorStop(1,"#020004");ctx.fillStyle=bg;ctx.fillRect(0,0,1080,1080);
+ const registrado=window.PozoCapturas?.resumenActual?.();
+ const pozo=registrado&&window.PozoCapturas?.resumenRonda?.(registrado.ronda)?registrado:null;
+ const filasPozo=pozo?Math.ceil(pozo.cartones.length/2):0,altoPozo=pozo?92+filasPozo*34:0,desplazamiento=pozo?altoPozo+25:0;
+ const premioImagen=(i,p)=>pozo?.ronda===i?pozo.premio_ronda:p;
+ const repartoImagen=(i,p,cs)=>pozo?.ronda===i?cs.map((_,j)=>Math.floor(p/cs.length)+(j<p%cs.length?1:0)):repartirPremio(Math.round(p),cs.length,i);
+ const canvas=canvasImg,ctx=canvas.getContext("2d");canvas.width=1080;canvas.height=1080+desplazamiento;
+ let bg=ctx.createRadialGradient(540,300,40,540,540,820);bg.addColorStop(0,"#3b005d");bg.addColorStop(.5,"#12001d");bg.addColorStop(1,"#020004");ctx.fillStyle=bg;ctx.fillRect(0,0,1080,canvas.height);
  function fit(text,x,y,w,s,color="#fff"){ctx.textAlign="center";ctx.textBaseline="middle";do{ctx.font="bold "+s+"px Arial";s--}while(ctx.measureText(text).width>w&&s>12);ctx.lineWidth=4;ctx.strokeStyle="#000";ctx.strokeText(text,x,y);ctx.fillStyle=color;ctx.fillText(text,x,y)}
  fit("¡FELICITACIONES!",540,65,1000,62,"#ffd700");fit("BingoAndino75",540,135,850,52,"#fff");fit(fechaSorteo.value||"",540,190,700,28,"#fff");
  let n=+cant.value,y=250,colors=["#b000ff","#0084ff","#00b936","#ff7b00","#e60070"];
- for(let i=1;i<n;i++){let cs=carts(document.getElementById(`car${i}`).value);if(!cs.length)continue;let p=monto(document.getElementById(`pre${i}`).value),ms=repartirPremio(Math.round(p),cs.length,i),ig=ms.every(m=>m===ms[0]);ctx.fillStyle="rgba(0,0,0,.75)";ctx.strokeStyle=colors[(i-1)%5];ctx.lineWidth=4;ctx.strokeRect(45,y,585,80);ctx.fillRect(45,y,585,80);fit(document.getElementById(`nom${i}`).value,125,y+40,150,28,"#fff");fit(cs.map((c,idx)=>{let x=buscar(c);return c+" "+(x?x.nombre:"NO")+(ig?"":" "+fmt(ms[idx])+" Bs")}).join(" | "),365,y+35,360,23,"#fff");fit(ig?(fmt(ms[0])+" Bs"+(cs.length>1?" c/u":"")):"Reparto exacto",540,y+63,160,22,"#ffd700");y+=95}
- let fcs=carts(document.getElementById(`car${n}`).value),fp=monto(document.getElementById(`pre${n}`).value),fms=fcs.length?repartirPremio(Math.round(fp),fcs.length,n):[],fig=fms.length?fms.every(m=>m===fms[0]):true;
+ for(let i=1;i<n;i++){let cs=carts(document.getElementById(`car${i}`).value);if(!cs.length)continue;let p=premioImagen(i,monto(document.getElementById(`pre${i}`).value)),ms=repartoImagen(i,p,cs),ig=ms.every(m=>m===ms[0]);ctx.fillStyle="rgba(0,0,0,.75)";ctx.strokeStyle=colors[(i-1)%5];ctx.lineWidth=4;ctx.strokeRect(45,y,585,80);ctx.fillRect(45,y,585,80);fit(document.getElementById(`nom${i}`).value,125,y+40,150,28,"#fff");fit(cs.map((c,idx)=>{let x=buscar(c);return c+" "+(x?x.nombre:"NO")+(ig?"":" "+fmt(ms[idx])+" Bs")}).join(" | "),365,y+35,360,23,"#fff");fit(ig?(fmt(ms[0])+" Bs"+(cs.length>1?" c/u":"")):"Reparto exacto",540,y+63,160,22,"#ffd700");y+=95}
+ let fcs=carts(document.getElementById(`car${n}`).value),fp=premioImagen(n,monto(document.getElementById(`pre${n}`).value)),fms=fcs.length?repartoImagen(n,fp,fcs):[],fig=fms.length?fms.every(m=>m===fms[0]):true;
  ctx.fillStyle="rgba(0,0,0,.82)";ctx.strokeStyle="#ffd700";ctx.lineWidth=5;ctx.strokeRect(660,250,370,455);ctx.fillRect(660,250,370,455);
  fit("CARTÓN LLENO FINAL",845,305,330,34,"#ffd700");fit("Premio: "+fmt(fp)+" Bs",845,370,320,30,"#ffd700");if(fcs.length>1)fit(fig?(fmt(fms[0])+" Bs c/u"):"Reparto exacto",845,425,310,34,"#ffd700");let fy=480;fcs.slice(0,5).forEach((c,idx)=>{let x=buscar(c);fit("🔥 "+c+" "+(x?x.nombre:"NO")+(fig?"":" "+fmt(fms[idx])+" Bs"),845,fy,330,26,"#fff");fy+=45});
- let co=carts(cartonesCon.value),pc=monto(premioCon.value);fit("🎁 PREMIOS DE CONSOLACIÓN 🎁",540,765,850,34,"#ffd700");co.slice(0,8).forEach((c,idx)=>{let x=idx%2?585:80,yy=820+Math.floor(idx/2)*50,g=buscar(c);ctx.fillStyle="#fff";ctx.fillRect(x,yy,420,36);fit(c+" "+(g?g.nombre:"NO")+" "+(pc?fmt(pc)+" Bs":""),x+210,yy+18,390,20,"#111")});fit("💜 Gracias a todos por participar 💜",540,1040,850,34,"#fff");
+ if(pozo){
+  ctx.fillStyle="rgba(0,0,0,.82)";ctx.strokeStyle="#e4c585";ctx.lineWidth=4;
+  ctx.fillRect(45,730,985,altoPozo);ctx.strokeRect(45,730,985,altoPozo);
+  fit("💰 POZO ACUMULADO · "+fmt(pozo.premio_pozo)+" Bs",540,762,930,32,"#ffd700");
+  pozo.cartones.forEach((c,idx)=>{const g=buscar(String(c)),columnas=pozo.cartones.length===1?1:2,x=columnas===1?540:idx%2?785:295;
+   fit(c+" "+(g?g.nombre:"NO ENCONTRADO"),x,805+Math.floor(idx/2)*34,columnas===1?920:455,25,"#fff");
+  });
+  fit("Ronda "+pozo.ronda+(pozo.bolitas?" · "+pozo.bolitas+" bolitas":""),540,730+altoPozo-18,920,20,"#e4c585");
+ }
+ let co=carts(cartonesCon.value),pc=monto(premioCon.value);fit("🎁 PREMIOS DE CONSOLACIÓN 🎁",540,765+desplazamiento,850,34,"#ffd700");co.slice(0,8).forEach((c,idx)=>{let x=idx%2?585:80,yy=820+desplazamiento+Math.floor(idx/2)*50,g=buscar(c);ctx.fillStyle="#fff";ctx.fillRect(x,yy,420,36);fit(c+" "+(g?g.nombre:"NO")+" "+(pc?fmt(pc)+" Bs":""),x+210,yy+18,390,20,"#111")});fit("💜 Gracias a todos por participar 💜",540,1040+desplazamiento,850,34,"#fff");
  previewImg.src=canvas.toDataURL("image/png");previewImg.style.display="block";
  return true;
 }
