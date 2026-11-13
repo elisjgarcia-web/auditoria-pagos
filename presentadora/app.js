@@ -53,7 +53,7 @@ const notice=t=>{$('estado').textContent=t;},status=t=>{
  if(!bottom){bottom=document.createElement('p');bottom.id='resultadoEnvio';bottom.setAttribute('role','status');bottom.setAttribute('aria-live','polite');bottom.style.cssText='font-size:14px;font-weight:650;line-height:1.5;color:#43194e;white-space:pre-wrap';$('enviar').insertAdjacentElement('afterend',bottom);}
  bottom.textContent=t;
 };
-function controls(){document.querySelectorAll('button,input,select').forEach(n=>{n.disabled=busy&&!(cargandoFecha&&(n.id==='fecha'||n.id==='fechaHoy'));});$('descargarCapturas').disabled=busy||exportando||!config||!user;$('enviar').disabled=busy||!draft||draft.sent||draft.cards.some(c=>preparando.has(c));$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if($('youtubeEnviar'))$('youtubeEnviar').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if($('guardarRondas'))$('guardarRondas').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if($('cantidadRondas'))$('cantidadRondas').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
+function controls(){document.querySelectorAll('button,input,select').forEach(n=>{n.disabled=busy&&!(cargandoFecha&&(n.id==='fecha'||n.id==='fechaHoy'));});if($('enviarRuleta'))$('enviarRuleta').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;$('descargarCapturas').disabled=busy||exportando||!config||!user;$('enviar').disabled=busy||!draft||draft.sent||draft.cards.some(c=>preparando.has(c));$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if($('youtubeEnviar'))$('youtubeEnviar').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if($('guardarRondas'))$('guardarRondas').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if($('cantidadRondas'))$('cantidadRondas').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
 function claveEpocaLocal(fecha,source){return 'envivo-epoca-borrador-v1:'+user.id+':'+fecha+':'+source;}
 function key(ronda=selected){
  const partes=[user.id,config.fecha,config.source,ronda];
@@ -349,6 +349,7 @@ async function enterRound(n){if(busy||!config)return;busy=true;controls();const 
  }catch(e){draft=null;paint();status(e.message);}finally{busy=false;controls();}
 }
 async function loadDate(){
+ if($('ruletaEstado'))$('ruletaEstado').textContent='Incluye todas las rondas enviadas a Pagos. Pulsa Enviar ganadores a la ruleta para actualizar la lista.';
  if(busy){if(cargandoFecha)fechaPendiente=true;return;}
  if(!user||esperandoNuevoSorteo)return;
  let f;
@@ -530,6 +531,19 @@ $('fechaHoy').onclick=()=>{
  $('fecha').value=hoyCaracas();
  elegirFecha();
 };
+if($('enviarRuleta'))$('enviarRuleta').onclick=async()=>{
+ if(busy||!user||!config||esperandoNuevoSorteo||draft?.uncertain)return;
+ busy=true;controls();const ctx=config,estado=$('ruletaEstado');
+ estado.textContent='Enviando ganadores de todas las rondas a la ruleta…';
+ try{
+  const data=await rpc('en_vivo_enviar_ruleta',{p_fecha:ctx.fecha,p_source:ctx.source,p_maestro_id:ctx.maestroId||null,p_cantidad:ctx.rondas.length});
+  if(config!==ctx)return;
+  if(!data?.sent||String(data.source)!==String(ctx.source))throw Error('No se confirmó el envío del sorteo actual.');
+  estado.textContent='✓ '+data.people+' persona(s) excluida(s) de consolación · '+data.rondasEnviadas+'/'+data.rondasTotal+' rondas.'+
+   (data.rondasPendientes?.length?' ⚠️ Faltan las rondas '+data.rondasPendientes.join(', ')+'. Al enviarlas a Pagos, pulsa de nuevo este botón.':' Todas las rondas enviadas.');
+ }catch(e){estado.textContent='⚠️ No se confirmó el envío a la ruleta: '+e.message+' Puedes reintentar.';}
+ finally{busy=false;controls();}
+};
 $('youtube').oninput=()=>{
  if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);
  $('youtubeEstado').textContent='Enlace pendiente de enviar a Pagos. Pulsa el botón para confirmarlo.';
@@ -647,7 +661,7 @@ $('enviar').onclick=async()=>{
  if(String(maestroFinal?.source||'')!==String(config.source))throw Error('Cambió el sorteo. No se enviaron estos ganadores.');
  if(await atenderReinicioMaestro(maestroFinal,config.fecha,{forzado:true}))return;
  if((maestroFinal?.maestro_id||null)!==(config.maestroId||null))throw Error('El reinicio maestro cambió. Actualiza la ronda antes de enviar.');
- status('Enviando ganadores a pagos…');draft.uncertain=true;draft.youtube=youtube;await save();const row=await rpc('en_vivo_enviar_activo',{p_id:draft.id,p_fecha:config.fecha,p_source:config.source,p_ronda:selected,p_revision:draft.baseRevision,p_youtube:youtube,p_capturas:capturas,p_maestro_id:config.maestroId||null});if(row.id!==draft.id)throw Error('No se confirmó el envío. Reintenta sin cambiar las capturas.');draft.sent=true;draft.uncertain=false;draft.baseRevision=row.revision;rows=rows.filter(e=>e.ronda!==selected).concat(row);await save();paint();status(row.revision>1?'✓ Capturas nuevas enviadas. Reemplazan la versión anterior de esta ronda en Pagos.':'✓ Capturas enviadas a Pagos.');
+ status('Enviando ganadores a pagos…');draft.uncertain=true;draft.youtube=youtube;await save();const row=await rpc('en_vivo_enviar_activo',{p_id:draft.id,p_fecha:config.fecha,p_source:config.source,p_ronda:selected,p_revision:draft.baseRevision,p_youtube:youtube,p_capturas:capturas,p_maestro_id:config.maestroId||null});if(row.id!==draft.id)throw Error('No se confirmó el envío. Reintenta sin cambiar las capturas.');draft.sent=true;draft.uncertain=false;draft.baseRevision=row.revision;rows=rows.filter(e=>e.ronda!==selected).concat(row);if($('ruletaEstado'))$('ruletaEstado').textContent='⚠️ Hay ganadores actualizados. Pulsa Enviar ganadores a la ruleta para aplicar la lista actual.';await save();paint();status(row.revision>1?'✓ Capturas nuevas enviadas. Reemplazan la versión anterior de esta ronda en Pagos.':'✓ Capturas enviadas a Pagos.');
  }catch(e){if(draft?.uncertain){try{const data=await rpc('en_vivo_contexto',{p_fecha:config.fecha}),r=data?.envios?.find(e=>e.id===draft.id);if(r){draft.sent=true;draft.uncertain=false;draft.baseRevision=r.revision;rows=rows.filter(e=>e.ronda!==selected).concat(r);await save();paint();status('Enviado ✓ · Confirmado al consultar pagos.');return;}}catch{}}status((e.message||'No se confirmó el envío.')+' Las capturas quedan guardadas; reintenta sin cambiarlas.');}finally{busy=false;controls();}};
 document.addEventListener('paste',async e=>{
  if(busy||!draft||draft.sent||!config)return;
