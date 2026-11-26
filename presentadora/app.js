@@ -53,7 +53,7 @@ const notice=t=>{$('estado').textContent=t;},status=t=>{
  if(!bottom){bottom=document.createElement('p');bottom.id='resultadoEnvio';bottom.setAttribute('role','status');bottom.setAttribute('aria-live','polite');bottom.style.cssText='font-size:14px;font-weight:650;line-height:1.5;color:#43194e;white-space:pre-wrap';$('enviar').insertAdjacentElement('afterend',bottom);}
  bottom.textContent=t;
 };
-function controls(){document.querySelectorAll('button,input,select').forEach(n=>{n.disabled=busy&&!(cargandoFecha&&(n.id==='fecha'||n.id==='fechaHoy'));});if($('enviarRuleta'))$('enviarRuleta').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;$('descargarCapturas').disabled=busy||exportando||!config||!user;$('enviar').disabled=busy||!draft||draft.sent||draft.cards.some(c=>preparando.has(c));$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if($('youtubeEnviar'))$('youtubeEnviar').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if($('guardarRondas'))$('guardarRondas').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if($('cantidadRondas'))$('cantidadRondas').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
+function controls(){document.querySelectorAll('button,input,select').forEach(n=>{n.disabled=busy&&!(cargandoFecha&&(n.id==='fecha'||n.id==='fechaHoy'));});if($('enviarRuleta'))$('enviarRuleta').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;$('descargarCapturas').disabled=busy||exportando||!config||!user;$('enviar').disabled=busy||!draft||draft.sent||draft.cards.some(c=>preparando.has(c));$('agregar').disabled=busy||!draft||draft.sent;if($('proximaRonda'))$('proximaRonda').disabled=busy;if($('youtubeEnviar'))$('youtubeEnviar').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;for(const id of ['youtubePublicar','youtubeQuitar'])if($(id))$(id).disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if($('guardarRondas'))$('guardarRondas').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if($('cantidadRondas'))$('cantidadRondas').disabled=busy||!user||!config||esperandoNuevoSorteo||!!draft?.uncertain;if(draft?.sent||draft?.uncertain)document.querySelectorAll('#capturas button,#capturas input').forEach(n=>n.disabled=true);if(draft?.uncertain){$('youtube').disabled=$('fecha').disabled=$('agregar').disabled=true;document.querySelectorAll('#rondas button').forEach(n=>n.disabled=true);$('enviar').textContent='Reintentar envío';}else if(!draft||draft.sent)$('enviar').textContent='Enviar a pagos';}
 function claveEpocaLocal(fecha,source){return 'envivo-epoca-borrador-v1:'+user.id+':'+fecha+':'+source;}
 function key(ronda=selected){
  const partes=[user.id,config.fecha,config.source,ronda];
@@ -377,8 +377,8 @@ async function loadDate(){
   $('youtubeEstado').textContent=enlaceServidor&&$('youtube').value===enlaceServidor
    ?'✓ Enlace confirmado en Pagos. Si lo cambias, pulsa Enviar enlace a Pagos.'
    : $('youtube').value
-    ?'Enlace escrito aquí. Pulsa Enviar enlace a Pagos para confirmarlo, sin esperar las capturas.'
-    :'Pega el enlace y pulsa Enviar enlace a Pagos; no necesitas capturas.';
+    ?'Enlace escrito aquí. Puedes publicarlo en la aplicación o enviarlo solo a Pagos.'
+    :'Pega el enlace y publícalo en la aplicación; no necesitas capturas.';
   config.rondas.forEach((r,i)=>{const b=node('button',r);b.type='button';b.onclick=()=>enterRound(i+1);$('rondas').append(b);});
  // Ir a la primera ronda sin envío de esta jornada.
  abrirAuto=config.rondas.findIndex((_,i)=>!rows.some(e=>e.ronda===i+1&&!capturaAnterior(e)))+1;
@@ -552,7 +552,7 @@ if($('enviarRuleta'))$('enviarRuleta').onclick=async()=>{
 };
 $('youtube').oninput=()=>{
  if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);
- $('youtubeEstado').textContent='Enlace pendiente de enviar a Pagos. Pulsa el botón para confirmarlo.';
+ $('youtubeEstado').textContent='Enlace pendiente. Pulsa Publicar en la aplicación o Enviar enlace a Pagos.';
 };
 $('youtubeEnviar').onclick=async()=>{
  if(busy||!user||!config||esperandoNuevoSorteo){
@@ -584,6 +584,44 @@ $('youtubeEnviar').onclick=async()=>{
   $('youtubeEstado').textContent='⚠️ Enlace NO confirmado: '+(e.message||'Revisa la conexión.')+' Puedes reintentar sin afectar las capturas.';
  }finally{busy=false;controls();}
 };
+
+ // Publicación directa, independiente de las capturas.
+ async function publicarYoutube(quitar){
+  if(busy||!user||!config||esperandoNuevoSorteo||draft?.uncertain){$('youtubeEstado').textContent='Primero carga las rondas del sorteo actual y confirma cualquier envío pendiente.';return;}
+  let video=null;
+  if(!quitar){try{video=TransmisionYouTube.parse($('youtube').value);}catch(e){$('youtubeEstado').textContent='⚠️ '+e.message;return;}}
+  const fecha=config.fecha,source=config.source,maestro=config.maestroId||null,uid=user.id;
+  busy=true;controls();$('youtubeEstado').textContent='Consultando la transmisión publicada…';
+  try{
+   const {data:auth,error:ae}=await client.auth.getSession();
+   if(ae||auth?.session?.user?.id!==uid)throw Error('Vuelve a verificar tu correo autorizado.');
+   const {data:actual,error}=await client.from('transmision_juego').select('video_id,revision,expira_en').eq('id',1).single();
+   if(error)throw Error('No se pudo consultar la transmisión. Reintenta.');
+   TransmisionYouTube.row(actual);
+   if(quitar&&!actual.video_id){$('youtubeEstado').textContent='✓ No hay enlace publicado en la aplicación.';return;}
+   if(quitar&&!confirm('¿Quitar el enlace publicado para todos los jugadores? No se borrarán las rondas ni capturas.')){$('youtubeEstado').textContent='No se realizaron cambios.';return;}
+   if(user?.id!==uid||config?.fecha!==fecha||config?.source!==source||(config?.maestroId||null)!==maestro)throw Error('La jornada cambió. Actualiza antes de continuar.');
+   $('youtubeEstado').textContent=quitar?'Retirando enlace anterior…':'Publicando la transmisión…';
+   const id=quitar?null:video.id;
+   const result=await rpc('en_vivo_publicar_transmision',{p_fecha:fecha,p_source:String(source),p_maestro_id:maestro,p_video_id:id,p_revision:actual.revision});
+   if(!result||result.video_id!==id||result.revision!==actual.revision+1)throw Error('El servidor no confirmó el cambio. Consulta antes de reintentar.');
+   if(!quitar&&config?.fecha===fecha&&config?.source===source){
+    config.youtube=video.url;$('youtube').value=video.url;
+    localStorage.setItem('envivo-youtube:'+uid+':'+fecha+':'+source,video.url);
+   }
+   $('youtubeEstado').textContent=quitar?'✓ Enlace retirado de la aplicación. Pega el nuevo enlace cuando esté listo. Se conserva el texto para las capturas.':'✓ Enlace publicado en Jugar con mis cartones y guardado en Pagos. Los jugadores lo verán en aproximadamente un minuto.';
+  }catch(e){$('youtubeEstado').textContent='⚠️ Cambio no confirmado: '+(e.message||'Revisa la conexión.')+' No se modificaron las capturas.';}
+  finally{busy=false;controls();}
+ }
+ if($('youtubePublicar'))$('youtubePublicar').onclick=()=>publicarYoutube(false);
+ if($('youtubeQuitar'))$('youtubeQuitar').onclick=()=>publicarYoutube(true);
+ if($('youtubeCopiar'))$('youtubeCopiar').onclick=async()=>{
+  let enlace;try{enlace=$('youtube').value.trim();TransmisionYouTube.parse(enlace);}catch(e){$('youtubeEstado').textContent='⚠️ '+e.message;return;}
+  let copiado=false;
+  try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(enlace);copiado=true;}}catch{}
+  if(!copiado){$('youtube').focus();$('youtube').select();try{copiado=!!document.execCommand('copy');}catch{}}
+  $('youtubeEstado').textContent=copiado?'✓ Enlace copiado. Ya puedes pegarlo en WhatsApp.':'Selecciona y copia el enlace manualmente.';
+ };
 async function agregarGanador(){
  if(busy||!draft||draft.sent)return false;
  if(draft.cards.length>=20){status('Máximo 20 capturas por envío.');return false;}
