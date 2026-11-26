@@ -375,10 +375,10 @@ async function loadDate(){
   const enlaceServidor=String(config.youtube||'').trim();
   $('youtube').value=enlaceLocal||enlaceServidor||envioVigente?.youtube||'';
   $('youtubeEstado').textContent=enlaceServidor&&$('youtube').value===enlaceServidor
-   ?'✓ Enlace confirmado en Pagos. Si lo cambias, pulsa Enviar enlace a Pagos.'
+   ?'✓ Enlace guardado en Pagos. Pulsa Enviar a Pagos y a la aplicación para confirmar la publicación.'
    : $('youtube').value
-    ?'Enlace escrito aquí. Puedes publicarlo en la aplicación o enviarlo solo a Pagos.'
-    :'Pega el enlace y publícalo en la aplicación; no necesitas capturas.';
+    ?'Enlace escrito aquí. Pulsa Enviar a Pagos y a la aplicación.'
+    :'Pega el enlace y envíalo a Pagos y a la aplicación; no necesitas capturas.';
   config.rondas.forEach((r,i)=>{const b=node('button',r);b.type='button';b.onclick=()=>enterRound(i+1);$('rondas').append(b);});
  // Ir a la primera ronda sin envío de esta jornada.
  abrirAuto=config.rondas.findIndex((_,i)=>!rows.some(e=>e.ronda===i+1&&!capturaAnterior(e)))+1;
@@ -552,39 +552,8 @@ if($('enviarRuleta'))$('enviarRuleta').onclick=async()=>{
 };
 $('youtube').oninput=()=>{
  if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);
- $('youtubeEstado').textContent='Enlace pendiente. Pulsa Publicar en la aplicación o Enviar enlace a Pagos.';
+ $('youtubeEstado').textContent='Enlace pendiente. Pulsa Enviar a Pagos y a la aplicación.';
 };
-$('youtubeEnviar').onclick=async()=>{
- if(busy||!user||!config||esperandoNuevoSorteo){
-  $('youtubeEstado').textContent='Primero entra y carga la fecha y las rondas preparadas en Pagos.';
-  return;
- }
- if(draft?.uncertain){
-  $('youtubeEstado').textContent='Confirma primero el envío pendiente de la ronda.';
-  return;
- }
- let youtube;
- try{youtube=TransmisionYouTube.parse($('youtube').value).url;}
- catch(e){$('youtubeEstado').textContent='⚠️ '+e.message;return;}
- const fecha=config.fecha,source=config.source,maestro=config.maestroId||null;
- busy=true;controls();$('youtubeEstado').textContent='Enviando enlace de YouTube a Pagos…';
- try{
-  const result=await rpc('en_vivo_enlace_guardar',{
-   p_fecha:fecha,p_source:source,p_youtube:youtube,p_maestro_id:maestro
-  });
-  if(result?.youtube!==youtube||String(result?.source)!==String(source))
-   throw Error('El servidor no confirmó el enlace. Reintenta.');
-  if(config?.fecha===fecha&&config?.source===source){
-   config.youtube=youtube;config.youtube_actualizado_en=result.actualizado_en;
-   $('youtube').value=youtube;
-   localStorage.setItem('envivo-youtube:'+user.id+':'+fecha+':'+source,youtube);
-   $('youtubeEstado').textContent='✓ Enlace guardado en Pagos. Allí deben pulsar «Traer enlace de Presentadora» junto al campo de YouTube.';
-  }else $('youtubeEstado').textContent='✓ Enlace guardado, pero la fecha cambió. Vuelve a consultar la jornada.';
- }catch(e){
-  $('youtubeEstado').textContent='⚠️ Enlace NO confirmado: '+(e.message||'Revisa la conexión.')+' Puedes reintentar sin afectar las capturas.';
- }finally{busy=false;controls();}
-};
-
  // Publicación directa, independiente de las capturas.
  async function publicarYoutube(quitar){
   if(busy||!user||!config||esperandoNuevoSorteo||draft?.uncertain){$('youtubeEstado').textContent='Primero carga las rondas del sorteo actual y confirma cualquier envío pendiente.';return;}
@@ -601,7 +570,7 @@ $('youtubeEnviar').onclick=async()=>{
    if(quitar&&!actual.video_id){$('youtubeEstado').textContent='✓ No hay enlace publicado en la aplicación.';return;}
    if(quitar&&!confirm('¿Quitar el enlace publicado para todos los jugadores? No se borrarán las rondas ni capturas.')){$('youtubeEstado').textContent='No se realizaron cambios.';return;}
    if(user?.id!==uid||config?.fecha!==fecha||config?.source!==source||(config?.maestroId||null)!==maestro)throw Error('La jornada cambió. Actualiza antes de continuar.');
-   $('youtubeEstado').textContent=quitar?'Retirando enlace anterior…':'Publicando la transmisión…';
+   $('youtubeEstado').textContent=quitar?'Retirando enlace anterior…':'Enviando a Pagos y a la aplicación…';
    const id=quitar?null:video.id;
    const result=await rpc('en_vivo_publicar_transmision',{p_fecha:fecha,p_source:String(source),p_maestro_id:maestro,p_video_id:id,p_revision:actual.revision});
    if(!result||result.video_id!==id||result.revision!==actual.revision+1)throw Error('El servidor no confirmó el cambio. Consulta antes de reintentar.');
@@ -609,10 +578,11 @@ $('youtubeEnviar').onclick=async()=>{
     config.youtube=video.url;$('youtube').value=video.url;
     localStorage.setItem('envivo-youtube:'+uid+':'+fecha+':'+source,video.url);
    }
-   $('youtubeEstado').textContent=quitar?'✓ Enlace retirado de la aplicación. Pega el nuevo enlace cuando esté listo. Se conserva el texto para las capturas.':'✓ Enlace publicado en Jugar con mis cartones y guardado en Pagos. Los jugadores lo verán en aproximadamente un minuto.';
+   $('youtubeEstado').textContent=quitar?'✓ Enlace retirado de la aplicación. Pega el nuevo enlace cuando esté listo. Se conserva el texto para las capturas.':'✅ Enlace enviado a Pagos y a la aplicación (Jugar con mis cartones). Los jugadores lo verán en aproximadamente un minuto.';
   }catch(e){$('youtubeEstado').textContent='⚠️ Cambio no confirmado: '+(e.message||'Revisa la conexión.')+' No se modificaron las capturas.';}
   finally{busy=false;controls();}
  }
+ if($('youtubeEnviar'))$('youtubeEnviar').onclick=()=>publicarYoutube(false);
  if($('youtubePublicar'))$('youtubePublicar').onclick=()=>publicarYoutube(false);
  if($('youtubeQuitar'))$('youtubeQuitar').onclick=()=>publicarYoutube(true);
  if($('youtubeCopiar'))$('youtubeCopiar').onclick=async()=>{
