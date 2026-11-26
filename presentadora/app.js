@@ -551,6 +551,7 @@ if($('enviarRuleta'))$('enviarRuleta').onclick=async()=>{
  busy=true;controls();try{await actualizarRuleta(config);}finally{busy=false;controls();}
 };
 $('youtube').oninput=()=>{
+ if($('youtubeAnuncio')){$('youtubeAnuncio').hidden=true;$('youtubeAnuncio').value='';}
  if(config&&user)localStorage.setItem('envivo-youtube:'+user.id+':'+config.fecha+':'+config.source,$('youtube').value);
  $('youtubeEstado').textContent='Enlace pendiente. Pulsa Enviar a Pagos y a la aplicación.';
 };
@@ -585,14 +586,25 @@ $('youtube').oninput=()=>{
  if($('youtubeEnviar'))$('youtubeEnviar').onclick=()=>publicarYoutube(false);
  if($('youtubePublicar'))$('youtubePublicar').onclick=()=>publicarYoutube(false);
  if($('youtubeQuitar'))$('youtubeQuitar').onclick=()=>publicarYoutube(true);
+ let copiandoAnuncio=false;
  if($('youtubeCopiar'))$('youtubeCopiar').onclick=async()=>{
-  let enlace;try{enlace=$('youtube').value.trim();TransmisionYouTube.parse(enlace);}catch(e){$('youtubeEstado').textContent='⚠️ '+e.message;return;}
-  let copiado=false;
-  try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(enlace);copiado=true;}}catch{}
-  if(!copiado){$('youtube').focus();$('youtube').select();try{copiado=!!document.execCommand('copy');}catch{}}
-  $('youtubeEstado').textContent=copiado?'✓ Enlace copiado. Ya puedes pegarlo en WhatsApp.':'Selecciona y copia el enlace manualmente.';
+  if(copiandoAnuncio)return;
+  let link;try{link=$('youtube').value.trim();TransmisionYouTube.parse(link);}catch(e){$('youtubeEstado').textContent='⚠️ '+e.message;return;}
+  const message='🔴🎱 ¡YA ESTAMOS EN VIVO, FAMILIA BINGUERA!\n\nÚnete a la transmisión de *Bingo Andino 75* y disfruta cada ronda con nosotros. 🥳✨\n\n👇 Toca el enlace para entrar:\n'+link+'\n\n🍀 ¡Mucha suerte para todos!';
+  copiandoAnuncio=true;
+  const boton=$('youtubeCopiar');boton.disabled=true;
+  let preview=$('youtubeAnuncio');
+  if(!preview){preview=document.createElement('textarea');preview.id='youtubeAnuncio';preview.readOnly=true;preview.rows=7;preview.setAttribute('aria-label','Anuncio completo para WhatsApp');preview.style.cssText='width:100%;box-sizing:border-box;margin-top:8px;font-size:14px';$('youtubeEstado').insertAdjacentElement('afterend',preview);}
+  preview.value=message;preview.hidden=true;
+  try{
+   let copiado=false;
+   try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(message);copiado=true;}}catch{}
+   if(!copiado){preview.hidden=false;preview.focus();preview.select();preview.setSelectionRange(0,message.length);try{copiado=!!document.execCommand?.('copy');}catch{}}
+   if(copiado){preview.hidden=true;boton.focus();$('youtubeEstado').textContent='✓ Anuncio completo copiado con el enlace. Ya puedes pegarlo en WhatsApp.';}
+   else $('youtubeEstado').textContent='No se pudo copiar automáticamente. Selecciona y copia el anuncio completo.';
+  }finally{copiandoAnuncio=false;controls();}
  };
-async function agregarGanador(){
+ async function agregarGanador(){
  if(busy||!draft||draft.sent)return false;
  if(draft.cards.length>=20){status('Máximo 20 capturas por envío.');return false;}
  const nuevo={numeros:''};draft.cards.push(nuevo);activeCard=nuevo;await save();paint();
